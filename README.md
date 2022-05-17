@@ -25,7 +25,7 @@ You can navigate the [project wiki](https://github.com/Paciente8159/uCNC/wiki) t
 ## Using a module
 
 Most modules can be added to µCNC simply by adding the file to the root of µCNC project path and add the necessary listeners after cnc_init() call in the uCNC.ino/main file.
-Each module has it's own read file with instructions on how to include and use the module.
+Each module has it's own read file with instructions on how to include and use the module. These modules and instructions will work for version 1.4.6+.
 
 ## Supporting the project
 
