@@ -9,13 +9,10 @@ This module adds custom M42 code to the µCNC parser. This similar to Marlin M42
 
 To use the M42 parser module follow these steps:
 1. Add the `parser_m42.c` file to the root directory of µCNC (where the `uCNC.ino` is placed)
-2. Then you need plug the module by attaching it to the listeners inside µCNC. Open `uCNC.ino` and add the following lines after `cnc_init()`
+2. Then you need load the module inside µCNC. Open `uCNC.ino` and add the following lines after `cnc_init()`
 
 ```
-#ifdef ENABLE_PARSER_MODULES
-	ADD_LISTENER(gcode_parse_delegate, m42_parse, gcode_parse_event);
-	ADD_LISTENER(gcode_exec_delegate, m42_exec, gcode_exec_event);
-#endif
+LOAD_MODULE(m42);
 ```
 
 3. The last step is to enable `ENABLE_PARSER_MODULES` inside `cnc_config.h`

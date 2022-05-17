@@ -80,4 +80,12 @@ uint8_t m42_exec(parser_state_t *new_state, parser_words_t *words, parser_cmd_ex
     return STATUS_GCODE_EXTENDED_UNSUPPORTED;
 }
 
+DECL_MODULE(m42)
+{
+#ifdef ENABLE_PARSER_MODULES
+    ADD_LISTENER(gcode_parse_delegate, m42_parse, gcode_parse_event);
+    ADD_LISTENER(gcode_exec_delegate, m42_exec, gcode_exec_event);
+#endif
+}
+
 #endif

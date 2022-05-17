@@ -32,13 +32,10 @@ To use the and I2C LCD follow these steps:
 #endif
 ```
 
-4. Then you need plug the module by attaching it to the listeners inside µCNC. Open `uCNC.ino` and add the following lines after `cnc_init()`
+4. Then you need load the module inside µCNC. Open `uCNC.ino` and add the following lines after `cnc_init()`
 
 ```
-#ifdef ENABLE_MAIN_LOOP_MODULES
-	ADD_LISTENER(cnc_reset_delegate, ucnc_lcd_init, cnc_reset_event);
-	ADD_LISTENER(cnc_dotasks_delegate, ucnc_lcd_refresh, cnc_dotasks_event);
-#endif
+LOAD_MODULE(i2c_lcd);
 ```
 
 5. The last step is to enable `ENABLE_MAIN_LOOP_MODULES` inside `cnc_config.h`

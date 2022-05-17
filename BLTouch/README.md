@@ -19,13 +19,10 @@ To use the and M42 follow these steps:
 
 
 
-3. Then you need plug the module by attaching it to the listeners inside µCNC. Open `uCNC.ino` and add the following lines after `cnc_init()`
+3. Then you need load the module inside µCNC. Open `uCNC.ino` and add the following lines after `cnc_init()`
 
 ```
-#ifdef ENABLE_IO_MODULES
-	ADD_LISTENER(probe_enable_delegate, bltouch_deploy, probe_enable_event);
-	ADD_LISTENER(probe_disable_delegate, bltouch_stow, probe_disable_event);
-#endif
+LOAD_MODULE(bltouch);
 ```
 
 4. The last step is to enable `ENABLE_IO_MODULES` inside `cnc_config.h`
