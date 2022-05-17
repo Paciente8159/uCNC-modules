@@ -17,8 +17,8 @@
     See the	GNU General Public License for more details.
 */
 
-#include "src/cnc.h"
-#include "src/modules/softi2c.h"
+#include "../cnc.h"
+#include "softi2c.h"
 #include "lcddriver.h"
 #include <math.h>
 

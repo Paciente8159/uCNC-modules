@@ -16,7 +16,7 @@
     See the	GNU General Public License for more details.
 */
 
-#include "src/cnc.h"
+#include "../cnc.h"
 
 #if ENABLE_IO_MODULES
 

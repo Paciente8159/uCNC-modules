@@ -9,7 +9,7 @@ It requires any 2 µCNC generic digital input pins of the board. It uses softwar
 ## Adding I2C LCD to µCNC
 
 To use the and I2C LCD follow these steps:
-1. Add the `i2c_lcd.c` `lcddriver.h` and `lcddriver.c` file to the root directory of µCNC (where the `uCNC.ino` is placed)
+1. Add the `i2c_lcd.c`, `lcddriver.c` and `lcddriver.h` file to the `src/modules/` directory of µCNC
 2. Open `i2c_lcd.c` and define the number of rows and column of your LCD display. The default is 16x2
 
 ```
@@ -32,7 +32,7 @@ To use the and I2C LCD follow these steps:
 #endif
 ```
 
-4. Then you need load the module inside µCNC. Open `uCNC.ino` and add the following lines after `cnc_init()`
+4. Then you need load the module inside µCNC. Open `src/module.c` and at the bottom of the file add the following lines inside the function `load_modules()`
 
 ```
 LOAD_MODULE(i2c_lcd);

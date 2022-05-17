@@ -17,7 +17,7 @@
     See the	GNU General Public License for more details.
 */
 
-#include "src/cnc.h"
+#include "../cnc.h"
 #include <stdbool.h>
 
 #ifdef ENABLE_PARSER_MODULES
