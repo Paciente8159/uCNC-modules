@@ -19,7 +19,7 @@
 
 #include "src/cnc.h"
 #include "src/modules/softi2c.h"
-#include "src/modules/lcddriver.h"
+#include "lcddriver.h"
 #include <math.h>
 
 #ifdef ENABLE_MAIN_LOOP_MODULES
