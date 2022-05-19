@@ -50,12 +50,14 @@ void bltouch_stow(void)
     cnc_delay_ms(BLTOUCH_DELAY);
 }
 
+#endif
+
 DECL_MODULE(bltouch)
 {
 #ifdef ENABLE_IO_MODULES
     ADD_LISTENER(probe_enable_delegate, bltouch_deploy, probe_enable_event);
     ADD_LISTENER(probe_disable_delegate, bltouch_stow, probe_disable_event);
+#else
+#warning "IO extensions are not enabled. BLTouch will not work."
 #endif
 }
-
-#endif

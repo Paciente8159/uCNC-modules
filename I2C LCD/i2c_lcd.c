@@ -220,12 +220,14 @@ void ucnc_lcd_refresh()
 
 CREATE_LISTENER(cnc_dotasks_delegate, ucnc_lcd_refresh);
 
+#endif
+
 DECL_MODULE(i2c_lcd)
 {
 #ifdef ENABLE_MAIN_LOOP_MODULES
     ADD_LISTENER(cnc_reset_delegate, ucnc_lcd_init, cnc_reset_event);
     ADD_LISTENER(cnc_dotasks_delegate, ucnc_lcd_refresh, cnc_dotasks_event);
+#else
+#warning "Main loop extensions are not enabled. I2C LCD will not work."
 #endif
 }
-
-#endif
