@@ -1,7 +1,6 @@
 /*
     Name: parser_m80_m81.c
     Description: Implements a parser extension for Marlin M80 (PSU ON) and M81 (PSU OFF) for µCNC.
-        This is only a partial implementation. Only the state S of the pin will be definable
 
     Copyright: Copyright (c) João Martins
     Author: João Martins
@@ -22,9 +21,13 @@
 
 #ifdef ENABLE_PARSER_MODULES
 
-// if all conventions changes this must be updated
+// setup PSU pins and value to enable the PSU
+#ifndef PSU_PIN
 #define PSU_PIN DOUT31
+#endif
+#ifndef PSU_ON
 #define PSU_ON true
+#endif
 
 // this ID must be unique for each code
 #define M80 1080
