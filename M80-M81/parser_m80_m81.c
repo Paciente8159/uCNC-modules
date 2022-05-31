@@ -30,8 +30,8 @@
 #endif
 
 // this ID must be unique for each code
-#define M80 1080
-#define M81 1081
+#define M80 EXTENDED_MCODE(80)
+#define M81 EXTENDED_MCODE(81)
 
 uint8_t m80_m81_parse(unsigned char c, uint8_t word, uint8_t error, float value, parser_state_t *new_state, parser_words_t *words, parser_cmd_explicit_t *cmd);
 uint8_t m80_m81_exec(parser_state_t *new_state, parser_words_t *words, parser_cmd_explicit_t *cmd);

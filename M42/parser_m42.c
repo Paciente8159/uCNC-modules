@@ -27,7 +27,7 @@
 #define DOUT0_ID 46
 
 // this ID must be unique for each code
-#define M42 1042
+#define M42 EXTENDED_MCODE(42)
 
 uint8_t m42_parse(unsigned char c, uint8_t word, uint8_t error, float value, parser_state_t *new_state, parser_words_t *words, parser_cmd_explicit_t *cmd);
 uint8_t m42_exec(parser_state_t *new_state, parser_words_t *words, parser_cmd_explicit_t *cmd);
