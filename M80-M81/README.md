@@ -1,13 +1,15 @@
 # uCNC-modules
+
 Addon modules for µCNC - Universal CNC firmware for microcontrollers
 
-## About m80_m81 to µCNC
+## About M80-M81 for µCNC
 
 This module adds custom m80_m81 code to the µCNC parser. This similar to Marlin m80_m81 and allows to turn on and off any generic digital pin, PWM or servo pin of the µCNC.
 
-## Adding m80_m81 to µCNC
+## Adding M80-M81 to µCNC
 
 To use the m80_m81 parser module follow these steps:
+
 1. Add the `parser_m80_m81.c` file to the `src/modules/` directory of µCNC
 2. Open `parser_m80_m81.c` and define the the PSU PIN and value to turn the PSU ON
 

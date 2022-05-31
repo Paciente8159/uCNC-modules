@@ -1,7 +1,8 @@
 # uCNC-modules
+
 Addon modules for µCNC - Universal CNC firmware for microcontrollers
 
-## About I2C LCD to µCNC
+## About I2C LCD for µCNC
 
 I2C LCD allows to add an I2C LCD module to µCNC that display some basic info about the current machine position and limits state.
 It requires any 2 µCNC generic digital input pins of the board. It uses software I2C so no dedicated I2C hardware is required.
@@ -9,6 +10,7 @@ It requires any 2 µCNC generic digital input pins of the board. It uses softwar
 ## Adding I2C LCD to µCNC
 
 To use the and I2C LCD follow these steps:
+
 1. Add the `i2c_lcd.c`, `lcddriver.c` and `lcddriver.h` file to the `src/modules/` directory of µCNC
 2. Open `i2c_lcd.c` and define the number of rows and column of your LCD display. The default is 16x2
 

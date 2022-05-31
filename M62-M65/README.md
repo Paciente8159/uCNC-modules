@@ -2,7 +2,7 @@
 
 Addon modules for µCNC - Universal CNC firmware for microcontrollers
 
-## About M62-M65 to µCNC
+## About M62-M65 for µCNC
 
 This module adds custom M62-M65 code to the µCNC parser. This similar to LinuxCNC M62-M65 and allows to turn on and off any generic digital pin (synched or immediately), of the µCNC.
 
@@ -24,5 +24,5 @@ LOAD_MODULE(m62_m65);
 The M62-M65 can be used like this.
 
 ```
-M62-M65 P<output pin number from 0 to 31>
+M62-M65 P<Generic output pin number from 0 to 31>
 ```

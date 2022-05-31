@@ -2,7 +2,7 @@
 
 Addon modules for µCNC - Universal CNC firmware for microcontrollers
 
-## About M67-M68 to µCNC
+## About M67-M68 for µCNC
 
 This module adds custom M67-M68 code to the µCNC parser. This similar to LinuxCNC M67-M68 and allows to turn on and off any generic digital pin (synched or immediately), of the µCNC.
 
@@ -24,5 +24,5 @@ LOAD_MODULE(m62_m65);
 The M67-M68 can be used like this.
 
 ```
-M67-M68 E<output pin number from 0 to 15> Q<output value from 0 to 255>
+M67-M68 E<PWM output pin number from 0 to 15> Q<output value from 0 to 255>
 ```
