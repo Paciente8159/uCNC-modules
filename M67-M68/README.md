@@ -14,7 +14,7 @@ To use the M67-M68 parser module follow these steps:
 2. Then you need load the module inside µCNC. Open `src/module.c` and at the bottom of the file add the following lines inside the function `load_modules()`
 
 ```
-LOAD_MODULE(m62_m65);
+LOAD_MODULE(m67_m68);
 ```
 
 3. The last step is to enable `ENABLE_PARSER_MODULES` inside `cnc_config.h`
