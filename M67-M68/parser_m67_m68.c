@@ -17,9 +17,14 @@
 */
 
 #include "../cnc.h"
+#include <stdint.h>
 #include <stdbool.h>
 
 #ifdef ENABLE_PARSER_MODULES
+
+#ifndef UCNC_MODULE_VERSION_1_5_0_PLUS
+#error "This module is not compatible with the current version of µCNC"
+#endif
 
 // if all conventions changes this must be updated
 #define PWM0_ID 24
@@ -28,39 +33,47 @@
 #define M62 EXTENDED_MCODE(67)
 #define M63 EXTENDED_MCODE(68)
 
-uint8_t m67_m68_parse(unsigned char c, uint8_t word, uint8_t error, float value, parser_state_t *new_state, parser_words_t *words, parser_cmd_explicit_t *cmd);
-uint8_t m67_m68_exec(parser_state_t *new_state, parser_words_t *words, parser_cmd_explicit_t *cmd);
+uint8_t m67_m68_parse(void *args, bool *handled);
+uint8_t m67_m68_exec(void *args, bool *handled);
 
 CREATE_LISTENER(gcode_parse_delegate, m67_m68_parse);
 CREATE_LISTENER(gcode_exec_delegate, m67_m68_exec);
 
 // this just parses and acceps the code
-uint8_t m67_m68_parse(unsigned char word, uint8_t code, uint8_t error, float value, parser_state_t *new_state, parser_words_t *words, parser_cmd_explicit_t *cmd)
+uint8_t m67_m68_parse(void *args, bool *handled)
 {
-    if (word == 'M' && (code == 67 || code == 68))
+	gcode_parse_args_t *ptr = (gcode_parse_args_t *)args;
+	
+    if (ptr->word == 'M' && (ptr->code == 67 || ptr->code == 68))
     {
-        if (cmd->group_extended != 0)
+		// stops event propagation
+		*handled = true;
+
+        if (ptr->cmd->group_extended != 0)
         {
             // there is a collision of custom gcode commands (only one per line can be processed)
             return STATUS_GCODE_MODAL_GROUP_VIOLATION;
         }
 
         // tells the gcode validation and execution functions this is custom code M42 (ID must be unique)
-        cmd->group_extended = M67 + code - 67;
+        ptr->cmd->group_extended = M67 + ptr->code - 67;
         return STATUS_OK;
     }
 
-    if (cmd->group_extended == 67 || cmd->group_extended == 68)
+    if (ptr->cmd->group_extended == 67 || ptr->cmd->group_extended == 68)
     {
-        if (word == 'E')
+		// stops event propagation
+		*handled = true;
+
+        if (ptr->word == 'E')
         {
-            if (value < 0)
+            if (ptr->value < 0)
             {
                 return STATUS_NEGATIVE_VALUE;
             }
 
-            words->l = (uint8_t)truncf(value) + 1;
-            if (words->l > 16)
+            ptr->words->l = (uint8_t)truncf(ptr->value) + 1;
+            if (ptr->words->l > 16)
             {
                 return STATUS_GCODE_MAX_VALUE_EXCEEDED;
             }
@@ -70,23 +83,28 @@ uint8_t m67_m68_parse(unsigned char word, uint8_t code, uint8_t error, float val
     }
 
     // if this is not catched by this parser, just send back the error so other extenders can process it
-    return error;
+    return ptr->error;
 }
 
 // this actually performs 2 steps in 1 (validation and execution)
 uint8_t m67_m68_exec(parser_state_t *new_state, parser_words_t *words, parser_cmd_explicit_t *cmd)
 {
-    if (cmd->group_extended == 67 || cmd->group_extended == 68)
+	gcode_exec_args_t *ptr = (gcode_exec_args_t *)args;
+
+    if (ptr->cmd->group_extended == 67 || ptr->cmd->group_extended == 68)
     {
-        if (words->l == 0)
+		// stops event propagation
+		*handled = true;
+
+        if (ptr->words->l == 0)
         {
             return STATUS_GCODE_VALUE_WORD_MISSING;
         }
 
 #ifndef GCODE_ACCEPT_WORD_E
-        uint8_t analogoutput = words->l - 1 + PWM0_ID;
+        uint8_t analogoutput = ptr->words->l - 1 + PWM0_ID;
 #else
-        uint8_t analogoutput = (uint8_t)truncf(words->xyzabc[AXIS_A]) + PWM0_ID;
+        uint8_t analogoutput = (uint8_t)truncf(ptr->words->xyzabc[AXIS_A]) + PWM0_ID;
 #endif
 
         if (analogoutput > 15)
@@ -94,12 +112,12 @@ uint8_t m67_m68_exec(parser_state_t *new_state, parser_words_t *words, parser_cm
             return STATUS_GCODE_MAX_VALUE_EXCEEDED;
         }
 
-        if (cmd->group_extended == M67)
+        if (ptr->cmd->group_extended == M67)
         {
             itp_sync();
         }
 
-        io_set_pwm(analogoutput, (uint8_t)CLAMP(0, words->d, 255));
+        io_set_pwm(analogoutput, (uint8_t)CLAMP(0, ptr->words->d, 255));
 
         return STATUS_OK;
     }

@@ -4,6 +4,10 @@ This module adds BLTouch to the µCNC parser.
 
 ## Changelog
 
+### 2022-08-04
+
+- updated functions declarations to match changes in 1.5.0+
+
 ### 2022-05-19
 
 - module initialization improvements
@@ -14,5 +18,5 @@ This module adds BLTouch to the µCNC parser.
 
 ### 2022-05-17
 
-- updated loaded proceadures for version 1.4.6+
+- updated loading proceadures for version 1.4.6+
 - migration from main repository

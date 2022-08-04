@@ -21,8 +21,14 @@
 #include "softi2c.h"
 #include "lcddriver.h"
 #include <math.h>
+#include <stdint.h>
+#include <stdbool.h>
 
 #ifdef ENABLE_MAIN_LOOP_MODULES
+
+#ifndef UCNC_MODULE_VERSION_1_5_0_PLUS
+#error "This module is not compatible with the current version of µCNC"
+#endif
 
 #ifndef LCD_ROWS
 #define LCD_ROWS 2
@@ -140,7 +146,7 @@ void lcd_print_flt(lcd_driver_t *lcd, float num)
 
 uint32_t lcd_next_update;
 
-void ucnc_lcd_init()
+uint8_t ucnc_lcd_init(void* args, bool* handled)
 {
     // runs only once at startup
     if (lcd_next_update == 0)
@@ -151,11 +157,13 @@ void ucnc_lcd_init()
         lcd_print_str(&ucnc_lcd, __romstr__("CNC v" CNC_VERSION));
         lcd_next_update = mcu_millis() + 5000;
     }
+
+	return 0;
 }
 
 CREATE_LISTENER(cnc_reset_delegate, ucnc_lcd_init);
 
-void ucnc_lcd_refresh()
+uint8_t ucnc_lcd_refresh(void* args, bool* handled)
 {
     if (lcd_next_update < mcu_millis())
     {
@@ -216,6 +224,8 @@ void ucnc_lcd_refresh()
 
         lcd_next_update = mcu_millis() + 250;
     }
+
+	return 0;
 }
 
 CREATE_LISTENER(cnc_dotasks_delegate, ucnc_lcd_refresh);
