@@ -76,7 +76,7 @@ uint8_t m17_m18_exec(void *args, bool *handled)
 		// stops event propagation
 		*handled = true;
 		return STATUS_OK;
-	case M81:
+	case M18:
 		io_enable_steppers(~g_settings.step_enable_invert);
 		// stops event propagation
 		*handled = true;

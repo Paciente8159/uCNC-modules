@@ -30,8 +30,8 @@
 #define PWM0_ID 24
 
 // this ID must be unique for each code
-#define M62 EXTENDED_MCODE(67)
-#define M63 EXTENDED_MCODE(68)
+#define M67 EXTENDED_MCODE(67)
+#define M68 EXTENDED_MCODE(68)
 
 uint8_t m67_m68_parse(void *args, bool *handled);
 uint8_t m67_m68_exec(void *args, bool *handled);

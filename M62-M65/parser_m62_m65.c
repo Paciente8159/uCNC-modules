@@ -63,7 +63,7 @@ uint8_t m62_m65_parse(void *args, bool *handled)
     }
 
     // if this is not catched by this parser, just send back the error so other extenders can process it
-    return error;
+    return ptr->error;
 }
 
 // this actually performs 2 steps in 1 (validation and execution)
