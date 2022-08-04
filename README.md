@@ -22,6 +22,10 @@ Heavily inspired by [Grbl](https://github.com/gnea/grbl) and [LinuxCNC](http://l
 
 You can navigate the [project wiki](https://github.com/Paciente8159/uCNC/wiki) to find out more on how to use it.
 
+## WARNING
+
+Always use the files available in the [releases](https://github.com/Paciente8159/uCNC-modules/releases) that matches the version of µCNC you are using. Compilation will not be possible if the modules and core files don't match.
+
 ## Using a module
 
 Most modules can be added to µCNC simply by adding the module files to the directory `src/modules/` of µCNC load the module inside the `load_modules()` function of `src/module.c`.

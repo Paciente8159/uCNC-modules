@@ -63,7 +63,7 @@ uint8_t m17_m18_exec(parser_state_t *new_state, parser_words_t *words, parser_cm
     case M17:
         io_enable_steppers(g_settings.step_enable_invert);
         return STATUS_OK;
-    case M81:
+    case M18:
         io_enable_steppers(~g_settings.step_enable_invert);
         return STATUS_OK;
     }

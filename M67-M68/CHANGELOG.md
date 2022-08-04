@@ -4,6 +4,10 @@ This module adds custom M67-M68 code to the µCNC parser. This similar to LinuxC
 
 ## Changelog
 
+### 2022-08-04
+
+- fixed compilation error
+
 ### 2022-05-31
 
 - initial version

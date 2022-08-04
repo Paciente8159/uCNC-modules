@@ -25,8 +25,8 @@
 #define PWM0_ID 24
 
 // this ID must be unique for each code
-#define M62 EXTENDED_MCODE(67)
-#define M63 EXTENDED_MCODE(68)
+#define M67 EXTENDED_MCODE(67)
+#define M68 EXTENDED_MCODE(68)
 
 uint8_t m67_m68_parse(unsigned char c, uint8_t word, uint8_t error, float value, parser_state_t *new_state, parser_words_t *words, parser_cmd_explicit_t *cmd);
 uint8_t m67_m68_exec(parser_state_t *new_state, parser_words_t *words, parser_cmd_explicit_t *cmd);
