@@ -58,7 +58,7 @@ uint8_t m62_m65_parse(void *args, bool *handled)
         }
 
         // tells the gcode validation and execution functions this is custom code M42 (ID must be unique)
-        ptr->cmd->group_extended = M62 + ptr->code - 62;
+        ptr->cmd->group_extended = EXTENDED_MCODE_BASE + ptr->code;
         return STATUS_OK;
     }
 

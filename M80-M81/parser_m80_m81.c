@@ -65,7 +65,7 @@ uint8_t m80_m81_parse(void *args, bool *handled)
 		case 81:
 			// stops event propagation
 			*handled = true;
-			ptr->cmd->group_extended = 1000 + ptr->code;
+			ptr->cmd->group_extended = EXTENDED_MCODE_BASE + ptr->code;
 			return STATUS_OK;
 		}
 	}

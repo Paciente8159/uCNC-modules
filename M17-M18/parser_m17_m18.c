@@ -54,7 +54,7 @@ uint8_t m17_m18_parse(void *args, bool *handled)
 		{
 		case 17:
 		case 18:
-			ptr->cmd->group_extended = 1000 + ptr->code;
+			ptr->cmd->group_extended = EXTENDED_MCODE_BASE + ptr->code;
 			// stops event propagation
 			*handled = true;
 			return STATUS_OK;
