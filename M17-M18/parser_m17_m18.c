@@ -33,8 +33,8 @@
 uint8_t m17_m18_parse(void *args, bool *handled);
 uint8_t m17_m18_exec(void *args, bool *handled);
 
-CREATE_LISTENER(gcode_parse_delegate, m17_m18_parse);
-CREATE_LISTENER(gcode_exec_delegate, m17_m18_exec);
+CREATE_EVENT_LISTENER(gcode_parse, m17_m18_parse);
+CREATE_EVENT_LISTENER(gcode_exec, m17_m18_exec);
 
 // this just parses and acceps the code
 uint8_t m17_m18_parse(void *args, bool *handled)
@@ -91,8 +91,8 @@ uint8_t m17_m18_exec(void *args, bool *handled)
 DECL_MODULE(m17_m18)
 {
 #ifdef ENABLE_PARSER_MODULES
-	ADD_LISTENER(gcode_parse_delegate, m17_m18_parse, gcode_parse_event);
-	ADD_LISTENER(gcode_exec_delegate, m17_m18_exec, gcode_exec_event);
+	ADD_EVENT_LISTENER(gcode_parse, m17_m18_parse);
+	ADD_EVENT_LISTENER(gcode_exec, m17_m18_exec);
 #else
 #warning "Parser extensions are not enabled. M17 and M18 code extension will not work."
 #endif

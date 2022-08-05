@@ -42,8 +42,8 @@
 void bltouch_deploy(void);
 void bltouch_stow(void);
 
-CREATE_LISTENER(probe_enable_delegate, bltouch_deploy);
-CREATE_LISTENER(probe_disable_delegate, bltouch_stow);
+CREATE_EVENT_LISTENER(probe_enable, bltouch_deploy);
+CREATE_EVENT_LISTENER(probe_disable, bltouch_stow);
 
 uint8_t bltouch_deploy(void* args, bool* handled)
 {
@@ -64,8 +64,8 @@ uint8_t bltouch_stow(void* args, bool* handled)
 DECL_MODULE(bltouch)
 {
 #ifdef ENABLE_IO_MODULES
-    ADD_LISTENER(probe_enable_delegate, bltouch_deploy, probe_enable_event);
-    ADD_LISTENER(probe_disable_delegate, bltouch_stow, probe_disable_event);
+    ADD_EVENT_LISTENER(probe_enable, bltouch_deploy);
+    ADD_EVENT_LISTENER(probe_disable, bltouch_stow);
 #else
 #warning "IO extensions are not enabled. BLTouch will not work."
 #endif

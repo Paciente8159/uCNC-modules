@@ -36,8 +36,8 @@
 uint8_t m67_m68_parse(void *args, bool *handled);
 uint8_t m67_m68_exec(void *args, bool *handled);
 
-CREATE_LISTENER(gcode_parse_delegate, m67_m68_parse);
-CREATE_LISTENER(gcode_exec_delegate, m67_m68_exec);
+CREATE_EVENT_LISTENER(gcode_parse, m67_m68_parse);
+CREATE_EVENT_LISTENER(gcode_exec, m67_m68_exec);
 
 // this just parses and acceps the code
 uint8_t m67_m68_parse(void *args, bool *handled)
@@ -130,8 +130,8 @@ uint8_t m67_m68_exec(parser_state_t *new_state, parser_words_t *words, parser_cm
 DECL_MODULE(m67_m68)
 {
 #ifdef ENABLE_PARSER_MODULES
-    ADD_LISTENER(gcode_parse_delegate, m67_m68_parse, gcode_parse_event);
-    ADD_LISTENER(gcode_exec_delegate, m67_m68_exec, gcode_exec_event);
+    ADD_EVENT_LISTENER(gcode_parse, m67_m68_parse);
+    ADD_EVENT_LISTENER(gcode_exec, m67_m68_exec);
 #else
 #warning "Parser extensions are not enabled. M67-M68 code extension will not work."
 #endif

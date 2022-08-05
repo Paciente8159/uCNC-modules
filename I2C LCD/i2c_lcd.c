@@ -161,7 +161,7 @@ uint8_t ucnc_lcd_init(void* args, bool* handled)
 	return 0;
 }
 
-CREATE_LISTENER(cnc_reset_delegate, ucnc_lcd_init);
+CREATE_EVENT_LISTENER(cnc_reset, ucnc_lcd_init);
 
 uint8_t ucnc_lcd_refresh(void* args, bool* handled)
 {
@@ -228,15 +228,15 @@ uint8_t ucnc_lcd_refresh(void* args, bool* handled)
 	return 0;
 }
 
-CREATE_LISTENER(cnc_dotasks_delegate, ucnc_lcd_refresh);
+CREATE_EVENT_LISTENER(cnc_dotasks, ucnc_lcd_refresh);
 
 #endif
 
 DECL_MODULE(i2c_lcd)
 {
 #ifdef ENABLE_MAIN_LOOP_MODULES
-    ADD_LISTENER(cnc_reset_delegate, ucnc_lcd_init, cnc_reset_event);
-    ADD_LISTENER(cnc_dotasks_delegate, ucnc_lcd_refresh, cnc_dotasks_event);
+    ADD_EVENT_LISTENER(cnc_reset, ucnc_lcd_init);
+    ADD_EVENT_LISTENER(cnc_dotasks, ucnc_lcd_refresh);
 #else
 #warning "Main loop extensions are not enabled. I2C LCD will not work."
 #endif

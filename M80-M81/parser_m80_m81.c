@@ -41,8 +41,8 @@
 uint8_t m80_m81_parse(void *args, bool *handled);
 uint8_t m80_m81_exec(void *args, bool *handled);
 
-CREATE_LISTENER(gcode_parse_delegate, m80_m81_parse);
-CREATE_LISTENER(gcode_exec_delegate, m80_m81_exec);
+CREATE_EVENT_LISTENER(gcode_parse, m80_m81_parse);
+CREATE_EVENT_LISTENER(gcode_exec, m80_m81_exec);
 
 // this just parses and acceps the code
 uint8_t m80_m81_parse(void *args, bool *handled)
@@ -101,8 +101,8 @@ uint8_t m80_m81_exec(void *args, bool *handled)
 DECL_MODULE(m80_m81)
 {
 #ifdef ENABLE_PARSER_MODULES
-	ADD_LISTENER(gcode_parse_delegate, m80_m81_parse, gcode_parse_event);
-	ADD_LISTENER(gcode_exec_delegate, m80_m81_exec, gcode_exec_event);
+	ADD_EVENT_LISTENER(gcode_parse, m80_m81_parse);
+	ADD_EVENT_LISTENER(gcode_exec, m80_m81_exec);
 #else
 #warning "Parser extensions are not enabled. M80 and M81 code extension will not work."
 #endif

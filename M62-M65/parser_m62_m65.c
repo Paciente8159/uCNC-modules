@@ -39,8 +39,8 @@
 uint8_t m62_m65_parse(void *args, bool *handled);
 uint8_t m62_m65_exec(void *args, bool *handled);
 
-CREATE_LISTENER(gcode_parse_delegate, m62_m65_parse);
-CREATE_LISTENER(gcode_exec_delegate, m62_m65_exec);
+CREATE_EVENT_LISTENER(gcode_parse, m62_m65_parse);
+CREATE_EVENT_LISTENER(gcode_exec, m62_m65_exec);
 
 // this just parses and acceps the code
 uint8_t m62_m65_parse(void *args, bool *handled)
@@ -111,8 +111,8 @@ uint8_t m62_m65_exec(void *args, bool *handled)
 DECL_MODULE(m62_m65)
 {
 #ifdef ENABLE_PARSER_MODULES
-    ADD_LISTENER(gcode_parse_delegate, m62_m65_parse, gcode_parse_event);
-    ADD_LISTENER(gcode_exec_delegate, m62_m65_exec, gcode_exec_event);
+    ADD_EVENT_LISTENER(gcode_parse, m62_m65_parse);
+    ADD_EVENT_LISTENER(gcode_exec, m62_m65_exec);
 #else
 #warning "Parser extensions are not enabled. M62-M65 code extension will not work."
 #endif
