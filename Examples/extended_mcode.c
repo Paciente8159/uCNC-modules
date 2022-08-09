@@ -106,6 +106,8 @@ CREATE_EVENT_LISTENER(gcode_parse, mycustom_parser);
 uint8_t mycustom_execution(void *args, bool *handled)
 {
 	gcode_exec_args_t *ptr = (gcode_exec_args_t *)args;
+
+	// checks if the extended command that is being executed is our custom M999 command
 	if (ptr->cmd->group_extended == M999)
 	{
 		// because this MCode is our desired code we can prevent further parsing event propagation to other listeners 
