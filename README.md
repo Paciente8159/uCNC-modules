@@ -29,7 +29,7 @@ Always use the files available in the [releases](https://github.com/Paciente8159
 ## Using a module
 
 Most modules can be added to µCNC simply by adding the module files to the directory `src/modules/` of µCNC load the module inside the `load_modules()` function of `src/module.c`.
-Each module has it's own read file with instructions on how to include and use the module. These modules and instructions will work for version 1.4.6+.
+Each module has it's own read file with instructions on how to include and use the module.
 
 ## Supporting the project
 

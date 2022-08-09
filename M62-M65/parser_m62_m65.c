@@ -17,9 +17,14 @@
 */
 
 #include "../cnc.h"
+#include <stdint.h>
 #include <stdbool.h>
 
 #ifdef ENABLE_PARSER_MODULES
+
+#ifndef UCNC_MODULE_VERSION_1_5_0_PLUS
+#error "This module is not compatible with the current version of µCNC"
+#endif
 
 // if all conventions changes this must be updated
 #define PWM0_ID 24
@@ -31,45 +36,54 @@
 #define M64 EXTENDED_MCODE(64)
 #define M65 EXTENDED_MCODE(65)
 
-uint8_t m62_m65_parse(unsigned char c, uint8_t word, uint8_t error, float value, parser_state_t *new_state, parser_words_t *words, parser_cmd_explicit_t *cmd);
-uint8_t m62_m65_exec(parser_state_t *new_state, parser_words_t *words, parser_cmd_explicit_t *cmd);
+uint8_t m62_m65_parse(void *args, bool *handled);
+uint8_t m62_m65_exec(void *args, bool *handled);
 
-CREATE_LISTENER(gcode_parse_delegate, m62_m65_parse);
-CREATE_LISTENER(gcode_exec_delegate, m62_m65_exec);
+CREATE_EVENT_LISTENER(gcode_parse, m62_m65_parse);
+CREATE_EVENT_LISTENER(gcode_exec, m62_m65_exec);
 
 // this just parses and acceps the code
-uint8_t m62_m65_parse(unsigned char word, uint8_t code, uint8_t error, float value, parser_state_t *new_state, parser_words_t *words, parser_cmd_explicit_t *cmd)
+uint8_t m62_m65_parse(void *args, bool *handled)
 {
-    if (word == 'M' && code >= 62 && code <= 65)
+	gcode_parse_args_t *ptr = (gcode_parse_args_t *)args;
+    if (ptr->word == 'M' && ptr->code >= 62 && ptr->code <= 65)
     {
-        if (cmd->group_extended != 0)
+		// stops event propagation
+		*handled = true;
+
+        if (ptr->cmd->group_extended != 0)
         {
             // there is a collision of custom gcode commands (only one per line can be processed)
             return STATUS_GCODE_MODAL_GROUP_VIOLATION;
         }
 
         // tells the gcode validation and execution functions this is custom code M42 (ID must be unique)
-        cmd->group_extended = M62 + code - 62;
+        ptr->cmd->group_extended = EXTENDED_MCODE_BASE + ptr->code;
         return STATUS_OK;
     }
 
     // if this is not catched by this parser, just send back the error so other extenders can process it
-    return error;
+    return ptr->error;
 }
 
 // this actually performs 2 steps in 1 (validation and execution)
-uint8_t m62_m65_exec(parser_state_t *new_state, parser_words_t *words, parser_cmd_explicit_t *cmd)
+uint8_t m62_m65_exec(void *args, bool *handled)
 {
-    if (cmd->group_extended >= 62 && cmd->group_extended <= 65)
+	gcode_exec_args_t *ptr = (gcode_exec_args_t *)args;
+
+    if (ptr->cmd->group_extended >= 62 && ptr->cmd->group_extended <= 65)
     {
-        if (!CHECKFLAG(cmd->words, GCODE_WORD_P))
+		// stops event propagation
+		*handled = true;
+
+        if (!CHECKFLAG(ptr->cmd->words, GCODE_WORD_P))
         {
             return STATUS_GCODE_VALUE_WORD_MISSING;
         }
 
         bool pinstate = false;
 
-        switch (cmd->group_extended)
+        switch (ptr->cmd->group_extended)
         {
         case M62:
             pinstate = true;
@@ -81,9 +95,9 @@ uint8_t m62_m65_exec(parser_state_t *new_state, parser_words_t *words, parser_cm
             break;
         }
 
-        if (words->p >= 0 && words->p < 32)
+        if (ptr->words->p >= 0 && ptr->words->p < 32)
         {
-            io_set_output(words->p + DOUT0_ID, pinstate);
+            io_set_output(ptr->words->p + DOUT0_ID, pinstate);
         }
 
         return STATUS_OK;
@@ -97,8 +111,8 @@ uint8_t m62_m65_exec(parser_state_t *new_state, parser_words_t *words, parser_cm
 DECL_MODULE(m62_m65)
 {
 #ifdef ENABLE_PARSER_MODULES
-    ADD_LISTENER(gcode_parse_delegate, m62_m65_parse, gcode_parse_event);
-    ADD_LISTENER(gcode_exec_delegate, m62_m65_exec, gcode_exec_event);
+    ADD_EVENT_LISTENER(gcode_parse, m62_m65_parse);
+    ADD_EVENT_LISTENER(gcode_exec, m62_m65_exec);
 #else
 #warning "Parser extensions are not enabled. M62-M65 code extension will not work."
 #endif

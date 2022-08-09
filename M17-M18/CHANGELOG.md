@@ -6,6 +6,7 @@ This module adds custom M17-M18 code to the µCNC parser. This similar to Marlin
 
 ### 2022-08-04
 
+- updated functions declarations to match changes in 1.5.0+
 - fixed (typo) compilation error
 
 ### 2022-06-30

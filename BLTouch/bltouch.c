@@ -16,9 +16,16 @@
     See the	GNU General Public License for more details.
 */
 
+
 #include "../cnc.h"
+#include <stdint.h>
+#include <stdbool.h>
 
 #if ENABLE_IO_MODULES
+
+#ifndef UCNC_MODULE_VERSION_1_5_0_PLUS
+#error "This module is not compatible with the current version of µCNC"
+#endif
 
 #ifndef BLTOUCH_PROBE_SERVO
 #define BLTOUCH_PROBE_SERVO SERVO0
@@ -35,19 +42,21 @@
 void bltouch_deploy(void);
 void bltouch_stow(void);
 
-CREATE_LISTENER(probe_enable_delegate, bltouch_deploy);
-CREATE_LISTENER(probe_disable_delegate, bltouch_stow);
+CREATE_EVENT_LISTENER(probe_enable, bltouch_deploy);
+CREATE_EVENT_LISTENER(probe_disable, bltouch_stow);
 
-void bltouch_deploy(void)
+uint8_t bltouch_deploy(void* args, bool* handled)
 {
     mcu_set_servo(BLTOUCH_PROBE_SERVO, BLTOUCH_DEPLOY);
     cnc_delay_ms(BLTOUCH_DELAY);
+	return 0;
 }
 
-void bltouch_stow(void)
+uint8_t bltouch_stow(void* args, bool* handled)
 {
     mcu_set_servo(BLTOUCH_PROBE_SERVO, BLTOUCH_STOW);
     cnc_delay_ms(BLTOUCH_DELAY);
+	return 0;
 }
 
 #endif
@@ -55,8 +64,8 @@ void bltouch_stow(void)
 DECL_MODULE(bltouch)
 {
 #ifdef ENABLE_IO_MODULES
-    ADD_LISTENER(probe_enable_delegate, bltouch_deploy, probe_enable_event);
-    ADD_LISTENER(probe_disable_delegate, bltouch_stow, probe_disable_event);
+    ADD_EVENT_LISTENER(probe_enable, bltouch_deploy);
+    ADD_EVENT_LISTENER(probe_disable, bltouch_stow);
 #else
 #warning "IO extensions are not enabled. BLTouch will not work."
 #endif
