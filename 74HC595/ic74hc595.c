@@ -43,6 +43,10 @@
 #define IC74HC595_LATCH DOUT6
 #endif
 
+#ifndef IC74HC595_DELAY_CYCLES
+#define IC74HC595_DELAY_CYCLES 0
+#endif
+
 #ifndef STEP0_IO_OFFSET
 #define STEP0_IO_OFFSET -1
 #else
@@ -389,7 +393,89 @@
 #error "IC74HC595 requires ENABLE_IO_MODULES option enabled"
 #endif
 
+#define _IC74HC595_DELAY_CYCLES_0 \
+	{                             \
+	}
+#define _IC74HC595_DELAY_CYCLES_1 \
+	{                             \
+		mcu_nop();                \
+	}
+#define _IC74HC595_DELAY_CYCLES_2    \
+	{                                \
+		_IC74HC595_DELAY_CYCLES_1(); \
+		mcu_nop();                   \
+	}
+#define _IC74HC595_DELAY_CYCLES_3    \
+	{                                \
+		_IC74HC595_DELAY_CYCLES_2(); \
+		mcu_nop();                   \
+	}
+#define _IC74HC595_DELAY_CYCLES_4    \
+	{                                \
+		_IC74HC595_DELAY_CYCLES_3(); \
+		mcu_nop();                   \
+	}
+#define _IC74HC595_DELAY_CYCLES_5    \
+	{                                \
+		_IC74HC595_DELAY_CYCLES_4(); \
+		mcu_nop();                   \
+	}
+#define _IC74HC595_DELAY_CYCLES_6    \
+	{                                \
+		_IC74HC595_DELAY_CYCLES_5(); \
+		mcu_nop();                   \
+	}
+#define _IC74HC595_DELAY_CYCLES_7    \
+	{                                \
+		_IC74HC595_DELAY_CYCLES_6(); \
+		mcu_nop();                   \
+	}
+#define _IC74HC595_DELAY_CYCLES_8    \
+	{                                \
+		_IC74HC595_DELAY_CYCLES_7(); \
+		mcu_nop();                   \
+	}
+#define _IC74HC595_DELAY_CYCLES_9    \
+	{                                \
+		_IC74HC595_DELAY_CYCLES_8(); \
+		mcu_nop();                   \
+	}
+#define _IC74HC595_DELAY_CYCLES_10   \
+	{                                \
+		_IC74HC595_DELAY_CYCLES_9(); \
+		mcu_nop();                   \
+	}
+#define _IC74HC595_DELAY(X) _IC74HC595_DELAY_CYCLES_ #X
+#define IC74HC595_DELAY(X) _IC74HC595_DELAY(X)
+#define ic74hc595_delay() IC74HC595_DELAY(IC74HC595_DELAY_CYCLES)
+
 static uint8_t io_pins[IC74HC595_COUNT];
+
+static void shift_io_pins(void)
+{
+	for (uint8_t i = IC74HC595_COUNT - 1; i != 0;)
+	{
+		for (uint8_t j = 0x80; j != 0; j >>= 1)
+		{
+			if (io_pins[i] & j)
+			{
+				mcu_set_output(IC74HC595_DATA);
+			}
+			else
+			{
+				mcu_clear_output(IC74HC595_DATA);
+			}
+			ic74hc595_delay();
+			mcu_set_output(IC74HC595_CLK);
+			ic74hc595_delay();
+			mcu_clear_output(IC74HC595_CLK);
+		}
+	}
+	ic74hc595_delay();
+	mcu_set_output(IC74HC595_LATCH);
+	ic74hc595_delay();
+	mcu_clear_output(IC74HC595_LATCH);
+}
 
 OVERRIDE_EVENT_HANDLER(set_steps)
 {
@@ -474,6 +560,8 @@ OVERRIDE_EVENT_HANDLER(set_steps)
 		io_pins[STEP7_IO_BYTEOFFSET] &= ~STEP7_IO_BITOFFSET;
 	}
 #endif
+
+	shift_io_pins();
 }
 
 OVERRIDE_EVENT_HANDLER(toggle_steps)
@@ -527,6 +615,8 @@ OVERRIDE_EVENT_HANDLER(toggle_steps)
 		io_pins[STEP7_IO_BYTEOFFSET] ^= STEP7_IO_BITOFFSET;
 	}
 #endif
+
+shift_io_pins();
 }
 
 OVERRIDE_EVENT_HANDLER(set_dirs)
@@ -612,6 +702,8 @@ OVERRIDE_EVENT_HANDLER(set_dirs)
 		io_pins[DIR7_IO_BYTEOFFSET] &= ~DIR7_IO_BITOFFSET;
 	}
 #endif
+
+shift_io_pins();
 }
 
 OVERRIDE_EVENT_HANDLER(enable_steppers)
@@ -697,6 +789,8 @@ OVERRIDE_EVENT_HANDLER(enable_steppers)
 		io_pins[STEP7_EN_IO_BYTEOFFSET] &= ~STEP7_EN_IO_BITOFFSET;
 	}
 #endif
+
+shift_io_pins();
 }
 
 OVERRIDE_EVENT_HANDLER(set_output)
@@ -1090,6 +1184,8 @@ OVERRIDE_EVENT_HANDLER(set_output)
 		break;
 #endif
 	}
+
+	shift_io_pins();
 }
 
 #endif
