@@ -17,19 +17,19 @@
 	See the	GNU General Public License for more details.
 */
 
-#include "../cnc.h"
+#include "../../cnc.h"
 #include "ic74hc595.h"
 #include <stdint.h>
 #include <stdbool.h>
 
-#ifdef ENABLE_PARSER_MODULES
+#ifdef ENABLE_IO_MODULES
 
 #ifndef UCNC_MODULE_VERSION_1_5_0_PLUS
 #error "This module is not compatible with the current version of µCNC"
 #endif
 
 #ifndef IC74HC595_COUNT
-#define IC74HC595_COUNT 0
+#define IC74HC595_COUNT 1
 #endif
 
 #ifndef IC74HC595_DATA
@@ -48,12 +48,15 @@
 #define IC74HC595_DELAY_CYCLES 0
 #endif
 
+#define ic74hc595_delay() IC74HC595_DELAY(IC74HC595_DELAY_CYCLES)
+
 static uint8_t io_pins[IC74HC595_COUNT];
 
 static void shift_io_pins(void)
 {
-	for (uint8_t i = IC74HC595_COUNT - 1; i != 0;)
+	for (uint8_t i = IC74HC595_COUNT; i != 0;)
 	{
+		i--;
 		for (uint8_t j = 0x80; j != 0; j >>= 1)
 		{
 			if (io_pins[i] & j)
@@ -79,7 +82,7 @@ static void shift_io_pins(void)
 #ifdef IC74HC595_HAS_STEPS
 OVERRIDE_EVENT_HANDLER(set_steps)
 {
-	uint8_t bits = (uint8_t)*args;
+	uint8_t bits = *((uint8_t*)args);
 #if !(STEP0_IO_OFFSET < 0)
 	if (bits & (1 << 0))
 	{
@@ -166,7 +169,7 @@ OVERRIDE_EVENT_HANDLER(set_steps)
 
 OVERRIDE_EVENT_HANDLER(toggle_steps)
 {
-	uint8_t bits = (uint8_t)*args;
+	uint8_t bits = *((uint8_t*)args);
 #if !(STEP0_IO_OFFSET < 0)
 	if (bits & (1 << 0))
 	{
@@ -223,7 +226,7 @@ shift_io_pins();
 #ifdef IC74HC595_HAS_DIRS
 OVERRIDE_EVENT_HANDLER(set_dirs)
 {
-	uint8_t bits = (uint8_t)*args;
+	uint8_t bits = *((uint8_t*)args);
 #if !(DIR0_IO_OFFSET < 0)
 	if (bits & (1 << 0))
 	{
@@ -312,7 +315,7 @@ shift_io_pins();
 #ifdef IC74HC595_HAS_STEPS_EN
 OVERRIDE_EVENT_HANDLER(enable_steppers)
 {
-	uint8_t bits = (uint8_t)*args;
+	uint8_t bits = *((uint8_t*)args);
 #if !(STEP0_EN_IO_OFFSET < 0)
 	if (bits & (1 << 0))
 	{
@@ -401,7 +404,7 @@ shift_io_pins();
 #ifdef IC74HC595_HAS_DOUTS
 OVERRIDE_EVENT_HANDLER(set_output)
 {
-	set_output_args_t *output = (uint8_t)*args;
+	set_output_args_t *output = args;
 
 	switch (output->pin)
 	{
