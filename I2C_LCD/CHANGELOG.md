@@ -5,6 +5,10 @@ It requires any 2 µCNC generic digital input pins of the board. It uses softwar
 
 ## Changelog
 
+### 2022-09-08
+
+- new module include instructions (#7)
+
 ### 2022-08-04
 
 - updated functions declarations to match changes in 1.5.0+

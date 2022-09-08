@@ -10,7 +10,7 @@ This module adds BLTouch to the µCNC parser.
 
 To use the and M42 follow these steps:
 
-1. Add the `bltouch.c` file to the `src/modules/` directory of µCNC
+1. Copy the the `BLTouch` directory and place it inside the `src/modules/` directory of µCNC
 2. Open `bltouch.c` and define the SERVO pin used by BLTouch. The default is SERVO0 if available on your probe.
 
 ```

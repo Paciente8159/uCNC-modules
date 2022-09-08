@@ -10,7 +10,7 @@ This module adds custom M80-M81 code to the µCNC parser. This similar to Marlin
 
 To use the M80-M81 parser module follow these steps:
 
-1. Add the `parser_m80_m81.c` file to the `src/modules/` directory of µCNC
+1. Copy the the `M80-M81` directory and place it inside the `src/modules/` directory of µCNC
 2. Open `parser_m80_m81.c` and define the the PSU PIN and value to turn the PSU ON
 
 ```

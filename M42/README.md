@@ -10,7 +10,7 @@ This module adds custom M42 code to the µCNC parser. This similar to Marlin M42
 
 To use the M42 parser module follow these steps:
 
-1. Add the `parser_m42.c` file to the `src/modules/` directory of µCNC
+1. Copy the the `M42` directory and place it inside the `src/modules/` directory of µCNC
 2. Then you need load the module inside µCNC. Open `src/module.c` and at the bottom of the file add the following lines inside the function `load_modules()`
 
 ```

@@ -4,6 +4,6 @@ This module adds the ability to control the IC74HC595 shift register controller 
 
 ## Changelog
 
-### 2022-09-01
+### 2022-09-08
 
 - initial release
