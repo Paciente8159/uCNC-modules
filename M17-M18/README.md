@@ -10,7 +10,7 @@ This module adds custom M17-M18 code to the µCNC parser. This similar to Marlin
 
 To use the M17-M18 parser module follow these steps:
 
-1. Add the `parser_m17_m18.c` file to the `src/modules/` directory of µCNC
+1. Copy the the `M17-M18` directory and place it inside the `src/modules/` directory of µCNC
 2. Then you need load the module inside µCNC. Open `src/module.c` and at the bottom of the file add the following lines inside the function `load_modules()`
 
 ```

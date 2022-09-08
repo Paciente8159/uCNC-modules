@@ -10,7 +10,7 @@ This module adds custom M67-M68 code to the µCNC parser. This similar to LinuxC
 
 To use the M67-M68 parser module follow these steps:
 
-1. Add the `parser_m67_m68.c` file to the `src/modules/` directory of µCNC
+1. Copy the the `M67-M68` directory and place it inside the `src/modules/` directory of µCNC
 2. Then you need load the module inside µCNC. Open `src/module.c` and at the bottom of the file add the following lines inside the function `load_modules()`
 
 ```

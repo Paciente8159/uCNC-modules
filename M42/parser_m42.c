@@ -17,7 +17,7 @@
 	See the	GNU General Public License for more details.
 */
 
-#include "../cnc.h"
+#include "../../cnc.h"
 #include <stdint.h>
 #include <stdbool.h>
 
