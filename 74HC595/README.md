@@ -28,6 +28,6 @@ or
 #define DIR0_IO_OFFSET 11 // DIR0 is on output 3 of IC74HC595 1
 ```
 
-3. Add the `IC74HC595.c` file to the `src/modules/` directory of µCNC
+3. Copy the the `74HC595` directory and place it inside the `src/modules/` directory of µCNC
 4. It's not necessary to load the module. This module overrides the event handlers directly.
 5. The last step is to enable `ENABLE_IO_MODULES` inside `cnc_config.h`
