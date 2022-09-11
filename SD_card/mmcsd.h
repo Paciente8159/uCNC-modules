@@ -29,6 +29,7 @@ extern "C"
 
 	enum MMCSD_CARD_TYPE
 	{
+		NOCARD = 0,
 		MMCv3 = 1,
 		SDv1 = 2,
 		SDv2 = 4,

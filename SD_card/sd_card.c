@@ -61,8 +61,9 @@ uint8_t sd_card_loop(void *args, bool *handled)
 		{
 			protocol_send_feedback(__romstr__("SD card detected"));
 			sd_card_mounted = SD_DETECTED;
+			cnc_delay_ms(1000);
 		}
-
+		 
 		if (f_mount(&fs, "", 1) == FR_OK)
 		{
 			protocol_send_feedback(__romstr__("SD card mounted"));
