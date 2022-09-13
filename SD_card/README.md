@@ -13,7 +13,7 @@ To use the and I2C LCD follow these steps:
 
 1. Copy the the `SD_Card` directory and place it inside the `src/modules/` directory of µCNC
 2. If needed you may redifine some IO pin and SPI options. By default this module tries to use the hardware SPI port if available and if not the software SPI pins. Please refer to [PINOUTS.md](https://github.com/Paciente8159/uCNC/blob/master/PINOUTS.md) to check the default pin associations.
-To redefine the IO pins and if software or hardware SPI can is used open `cnc_config.h` and add the needed configurations
+To redefine the IO pins and if software or hardware SPI can is used open `cnc_hal_config.h` and add the needed configurations.
 
 ```
 // By default the file execution stops if a GCode line has an error. This option makes the code execution continue even if an error occurs
