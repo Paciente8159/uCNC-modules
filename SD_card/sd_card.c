@@ -339,7 +339,7 @@ uint8_t sd_card_cmd_parser(void *args, bool *handled)
 		return GRBL_SYSTEM_CMD_EXTENDED;
 	}
 
-	return 0;
+	return GRBL_SYSTEM_CMD_EXTENDED_UNSUPPORTED;
 }
 
 CREATE_EVENT_LISTENER(grbl_cmd, sd_card_cmd_parser);

@@ -14,6 +14,7 @@
 #include "../cnc.h"
 #include <stdint.h>
 #include <stdbool.h>
+#include <string.h>
 
 /**
  * @brief	System command extensions depend on the ENABLE_PARSER_MODULES option
@@ -45,8 +46,10 @@ uint8_t mycustom_system_cmd(void *args, bool *handled)
 	// this is just to cast the void* args to the used struct by the parse event
 	grbl_cmd_args_t *ptr = (grbl_cmd_args_t *)args;
 
+	strupr((char *)ptr->cmd);
+
 	// if the word command M99 (word-M value-999) then it's our code
-	if (ptr->cmd[0] == 'C' && ptr->cmd[1] == 'M' && ptr->cmd[2] == 'D' && ptr->len == 3)
+	if (!strcmp((char *)ptr->cmd, "CMD"))
 	{
 		// because this is the expected system command 'CMD', we can prevent further parsing event propagation to other listeners 
 		// this avoids errors due to modifications of the return error code and speeds up execution
