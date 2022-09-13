@@ -8,4 +8,4 @@ For best performance the hardware SPI should be used.
 
 ### 2022-09-08
 
-- initial implementation
+- initial implementation (#8)
