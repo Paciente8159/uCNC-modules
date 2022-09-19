@@ -120,7 +120,7 @@ void sd_card_dir_list(void)
 
 void sd_card_cd(void)
 {
-	UINT i;
+	UINT i = 0;
 	TCHAR newdir[RX_BUFFER_CAPACITY]; /* File name */
 
 	while (serial_peek() == ' ')
