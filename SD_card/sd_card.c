@@ -65,6 +65,7 @@ void sd_card_mount(void)
 		{
 			protocol_send_feedback(__romstr__("SD card mounted"));
 			sd_card_mounted = SD_MOUNTED;
+			settings_init();
 			return;
 		}
 
@@ -85,7 +86,7 @@ void sd_card_dir_list(void)
 	{
 		protocol_send_string(__romstr__("Directory of "));
 		serial_print_str(curdir);
-		serial_print_str(STR_EOL);
+		protocol_send_string(MSG_EOL);
 		if (f_opendir(&dp, curdir) == FR_OK)
 		{
 
@@ -212,6 +213,10 @@ void sd_card_file_run(void)
 		protocol_send_string(MSG_END);
 		return;
 	}
+	else
+	{
+		f_close(&fp);
+	}
 
 	protocol_send_feedback(__romstr__("Error running file"));
 }
@@ -230,6 +235,7 @@ OVERRIDE_EVENT_HANDLER(cnc_exec_cmd_error)
 // CREATE_EVENT_LISTENER(cnc_exec_cmd_error, sd_card_stop_onerror);
 #endif
 
+#ifdef ENABLE_MAIN_LOOP_MODULES
 /**
  * Handles SD card in the main loop
  * */
@@ -294,7 +300,104 @@ uint8_t sd_card_loop(void *args, bool *handled)
 }
 
 CREATE_EVENT_LISTENER(cnc_dotasks, sd_card_loop);
+#endif
 
+#ifdef ENABLE_SETTINGS_MODULES
+// uint8_t sd_settings_load(void *args, bool *handled)
+OVERRIDE_EVENT_HANDLER(settings_load)
+{
+	UINT i = 0;
+	uint8_t result = 0;
+	FIL tmp;
+
+	if ((sd_card_mounted != SD_MOUNTED))
+	{
+		return 0;
+	}
+
+	settings_args_t *p = args;
+
+	if (f_open(&tmp, "/uCNCsettings.raw", FA_READ | FA_OPEN_EXISTING) == FR_OK)
+	{
+		protocol_send_feedback(__romstr__("SD card settings found"));
+		f_lseek(&tmp, p->address);
+		uint8_t error = f_read(&tmp, p->data, p->size, &i);
+		if (p->size == i && !error)
+		{
+			protocol_send_feedback(__romstr__("SD card settings loaded"));
+			result = STATUS_EXTERNAL_SETTINGS_OK;
+		}
+	}
+	else
+	{
+		protocol_send_feedback(__romstr__("SD card settings not found"));
+		f_close(&tmp);
+	}
+
+	return result;
+}
+
+// CREATE_EVENT_LISTENER(settings_load, sd_settings_load);
+
+// uint8_t sd_settings_save(void *args, bool *handled)
+OVERRIDE_EVENT_HANDLER(settings_save)
+{
+	UINT i = 0;
+	FIL tmp;
+	uint8_t result = 0;
+
+	if ((sd_card_mounted != SD_MOUNTED))
+	{
+		return 0;
+	}
+
+	settings_args_t *p = args;
+	if (f_open(&tmp, "/uCNCsettings.raw", FA_OPEN_APPEND | FA_WRITE | FA_READ) == FR_OK)
+	{
+		f_lseek(&tmp, p->address);
+		uint8_t error = f_write(&tmp, p->data, p->size, &i);
+		f_sync(&tmp);
+
+		if (p->size == i && !error)
+		{
+			protocol_send_feedback(__romstr__("SD card settings saved"));
+			result = STATUS_EXTERNAL_SETTINGS_OK;
+		}
+	}
+
+	f_close(&tmp);
+
+	return result;
+}
+
+// CREATE_EVENT_LISTENER(settings_save, sd_settings_save);
+
+// uint8_t sd_settings_erase(void *args, bool *handled)
+OVERRIDE_EVENT_HANDLER(settings_erase)
+{
+	FIL tmp;
+	uint8_t result = 0;
+
+	if ((sd_card_mounted != SD_MOUNTED))
+	{
+		return 0;
+	}
+
+	if (f_open(&tmp, "/uCNCsettings.raw", FA_CREATE_ALWAYS | FA_WRITE) == FR_OK)
+	{
+		protocol_send_feedback(__romstr__("SD card settings erased"));
+		result = STATUS_EXTERNAL_SETTINGS_OK;
+	}
+
+	f_close(&tmp);
+
+	return result;
+}
+
+// CREATE_EVENT_LISTENER(settings_erase, sd_settings_erase);
+#endif
+
+#ifdef ENABLE_PARSER_MODULES
 /**
  * Handles grbl commands for the SD card
  * */
@@ -307,6 +410,17 @@ uint8_t sd_card_cmd_parser(void *args, bool *handled)
 	if (!strcmp("MNT", (char *)(cmd->cmd)))
 	{
 		sd_card_mount();
+		*handled = true;
+		return GRBL_SYSTEM_CMD_EXTENDED;
+	}
+
+	if (!strcmp("UNMNT", (char *)(cmd->cmd)))
+	{
+		if (sd_card_mounted == SD_MOUNTED)
+		{
+			f_unmount("");
+			sd_card_mounted = SD_DETECTED;
+		}
 		*handled = true;
 		return GRBL_SYSTEM_CMD_EXTENDED;
 	}
@@ -343,6 +457,7 @@ uint8_t sd_card_cmd_parser(void *args, bool *handled)
 }
 
 CREATE_EVENT_LISTENER(grbl_cmd, sd_card_cmd_parser);
+#endif
 
 DECL_MODULE(sd_card)
 {
@@ -361,4 +476,14 @@ DECL_MODULE(sd_card)
 #else
 #warning "Parser extensions are not enabled. SD card commands will not work."
 #endif
+	/*
+	#ifdef ENABLE_SETTINGS_MODULES
+		ADD_EVENT_LISTENER(settings_load, sd_settings_load);
+		ADD_EVENT_LISTENER(settings_save, sd_settings_save);
+		ADD_EVENT_LISTENER(settings_erase, sd_settings_erase);
+		// force recall of settings init to reload settings from file
+		settings_init();
+	#else
+	#warning "Main loop extensions are not enabled. SD card will not work."
+	#endif*/
 }

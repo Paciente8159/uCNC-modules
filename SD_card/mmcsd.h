@@ -42,20 +42,22 @@ extern "C"
 		uint8_t writeprotected : 1;
 		uint8_t is_highdensity : 1;
 		uint8_t card_type : 3;
-		uint32_t size;
+		uint64_t size;
 		uint32_t sectors;
 	} mmcsd_card_t;
 
-	enum MMCSD_RESP_BIT
+	enum MMCSD_RESP1_BIT
 	{
-		IDLE = 0,
-		ERASE_RESET = 1,
-		ILLEGAL_CMD = 2,
-		CRC_ERROR = 3,
-		ERASE_SEQ_ERROR = 4,
-		ADDRESS_ERROR = 5,
-		PARAM_ERROR = 6,
+		R1_IDLE = 0,
+		R1_ERASE_RESET = 1,
+		R1_ILLEGAL_CMD = 2,
+		R1_CRC_ERROR = 3,
+		R1_ERASE_SEQ_ERROR = 4,
+		R1_ADDRESS_ERROR = 5,
+		R1_PARAM_ERROR = 6,
 	};
+
+	#define R1(x) (1<<x)
 
 #ifdef __cplusplus
 }
