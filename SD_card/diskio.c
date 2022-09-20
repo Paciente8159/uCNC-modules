@@ -27,10 +27,10 @@
 #include <stdbool.h>
 
 #ifndef MMCSD_MAX_NCR
-#define MMCSD_MAX_NCR 10
+#define MMCSD_MAX_NCR 255
 #endif
 #ifndef MMCSD_MAX_TIMEOUT
-#define MMCSD_MAX_TIMEOUT 255
+#define MMCSD_MAX_TIMEOUT 500
 #endif
 #define MMCSD_TIMEOUT (mcu_millis() + MMCSD_MAX_TIMEOUT)
 #ifndef MMCSD_MAX_BUFFER_SIZE
@@ -72,42 +72,61 @@ SOFTSPI(mmcsd_spi, 100000UL, 0, SD_SPI_SDO, SD_SPI_SDI, SD_SPI_CLK);
 #define spi_xmit(c) mcu_spi_xmit(c)
 #endif
 
-static mmcsd_card_t mmcsd_card;
+// #define SD_DEBUG
+#ifdef SD_DEBUG
+#define DEBUGSTR(x) serial_print_str(x "\r\n")
+#define DEBUGINT(x)      \
+	serial_print_int(x); \
+	serial_print_str("\r\n")
+#define DEBUGFFLT(x)     \
+	serial_print_flt(x); \
+	serial_print_str("\r\n")
+#else
+#define DEBUGSTR(x) ({})
+#define DEBUGINT(x) ({})
+#define DEBUGFFLT(x) ({})
+#endif
 
-void nodelay(void)
-{
-}
+static mmcsd_card_t mmcsd_card;
 
 FORCEINLINE static void mmcsd_spi_speed(bool highspeed)
 {
 	if (highspeed)
 	{
 #if (!defined(SD_CARD_USE_HW_SPI) || !defined(MCU_HAS_SPI))
-		mmcsd_spi.wait = &nodelay;
+		mmcsd_spi.spidelay = SPI_DELAY(10000000UL);
 #else
-		mcu_spi_config(0, 20000000UL);
+		mcu_spi_config(0, 10000000UL);
 #endif
 	}
 	else
 	{
 #if (!defined(SD_CARD_USE_HW_SPI) || !defined(MCU_HAS_SPI))
-		mmcsd_spi.wait = &mmcsd_spi_wait;
+		mmcsd_spi.spidelay = SPI_DELAY(100000UL);
 #else
 		mcu_spi_config(0, 100000UL);
 #endif
 	}
 }
 
-uint8_t mmcsd_waittoken(void)
+void mmcsd_release(uint8_t *val)
+{
+	mcu_set_output(SD_SPI_CS);
+	spi_xmit(0xFF);
+}
+
+bool mmcsd_waittoken(uint8_t token)
 {
 	uint32_t timeout = MMCSD_TIMEOUT;
-	uint8_t token = spi_xmit(0xFF);
-	while (token == 0xFF && (timeout > mcu_millis()))
+	while ((spi_xmit(0xFF) != token) && (timeout > mcu_millis()))
+		;
+
+	if ((timeout <= mcu_millis()))
 	{
-		token = spi_xmit(0xFF);
+		return false;
 	}
 
-	return token;
+	return true;
 }
 
 bool mmcsd_waitready(void)
@@ -124,44 +143,33 @@ bool mmcsd_waitready(void)
 	return true;
 }
 
-bool mmcsd_response(uint8_t *result, uint16_t len, bool wait_token)
+bool mmcsd_response(uint8_t *result, uint16_t len, uint8_t token)
 {
-	mcu_clear_output(SD_SPI_CS);
-
-	if (wait_token)
+	if (token)
 	{
-		if (mmcsd_waittoken() != 0xFE)
+		if (!mmcsd_waittoken(token))
 		{
-			mcu_set_output(SD_SPI_CS);
 			memset(result, 0, len);
 			return false;
 		}
 	}
 
-	while (len--)
+	do
 	{
 		*result++ = spi_xmit(0xFF);
-	}
+	} while (--len);
 
 	// discard CRC
 	spi_xmit(0xFF);
 	spi_xmit(0xFF);
-	mcu_set_output(SD_SPI_CS);
 	return true;
 }
 
 bool mmcsd_message(const uint8_t *buff, uint16_t count, uint8_t token)
 {
-	mcu_clear_output(SD_SPI_CS);
-
 	do
 	{
-		// sends token
-		if (!mmcsd_waitready())
-		{
-			return false;
-		}
-
+		spi_xmit(0xFF);
 		spi_xmit(token);
 
 		// sends data to buffer
@@ -176,22 +184,26 @@ bool mmcsd_message(const uint8_t *buff, uint16_t count, uint8_t token)
 		// If not accepted, return with error
 		if ((spi_xmit(0xFF) & 0x1F) != 0x05)
 		{
+			DEBUGSTR("data not accepted");
 			return false;
 		}
 
-	} while (--count);
+		count--;
+	} while (count);
 
+	// wait for write to complete
+	if (!mmcsd_waitready())
+	{
+		DEBUGSTR("SD card ready msg timeout");
+		return false;
+	}
+
+	// sends token
 	if (token == 0xFC)
 	{
-		if (!mmcsd_waitready())
-		{
-			return false;
-		}
-
 		spi_xmit(0xFD);
 	}
 
-	mcu_set_output(SD_SPI_CS);
 	return true;
 }
 
@@ -200,6 +212,9 @@ FORCEINLINE static uint8_t mmcsd_command(uint8_t cmd, uint32_t arg, int8_t crc)
 	uint8_t packet[6];
 	uint8_t response;
 	uint8_t *bytes = (uint8_t *)&arg;
+
+	DEBUGSTR("cmd");
+	DEBUGINT(cmd);
 
 	packet[0] = cmd | 0x40;
 	packet[1] = bytes[3];
@@ -213,7 +228,6 @@ FORCEINLINE static uint8_t mmcsd_command(uint8_t cmd, uint32_t arg, int8_t crc)
 	packet[5] = crc;
 #endif
 
-	// flushes command flow
 	mcu_set_output(SD_SPI_CS);
 	spi_xmit(0xFF);
 	mcu_clear_output(SD_SPI_CS);
@@ -232,9 +246,7 @@ FORCEINLINE static uint8_t mmcsd_command(uint8_t cmd, uint32_t arg, int8_t crc)
 	do
 	{
 		response = spi_xmit(0xFF);
-	} while (CHECKBIT(response, 7) && tries--);
-
-	mcu_set_output(SD_SPI_CS);
+	} while ((response & 0x80) && tries--);
 
 	return response;
 }
@@ -243,50 +255,72 @@ DSTATUS disk_status(BYTE pdrv)
 {
 	if (!mmcsd_card.initialized)
 	{
+		DEBUGSTR("SD card status not init");
 		return (STA_NOINIT);
 	}
-
-	if (mmcsd_card.writeprotected)
-	{
-		return (STA_PROTECT);
-	}
-
+	/*
+		if (mmcsd_card.writeprotected)
+		{
+			return (STA_PROTECT);
+		}
+	*/
 	return 0;
 }
 
 DRESULT disk_read(BYTE pdrv, BYTE *buff, LBA_t sector, UINT count)
 {
+	uint8_t cleanup __attribute__((__cleanup__(mmcsd_release))) = 1;
+	mcu_clear_output(SD_SPI_CS);
+
 	if (disk_status(0) & (STA_NOINIT | STA_NODISK))
 	{
 		return RES_NOTRDY;
 	}
 
+	if (!mmcsd_card.is_highdensity)
+	{
+		sector <<= 9;
+	}
+
 	// address must be a multiple of the block size
-	uint32_t address = sector;
+	DEBUGSTR("SD card read address");
+	DEBUGINT(sector);
+	DEBUGINT(count);
+
+	while (!mmcsd_waitready())
+	{
+		DEBUGSTR("SD card timeout ready read");
+	}
 
 	if (count == 1)
 	{
 		// send read command
-		if (mmcsd_command(17, address, 0xFF))
+		uint8_t error = mmcsd_command(17, sector, 0xFF);
+		if (error)
 		{
+			DEBUGSTR("SD card read error CMD17");
+			DEBUGINT(error);
 			return RES_ERROR;
 		}
 
-		if (!mmcsd_response(buff, 512, true))
+		if (!mmcsd_response(buff, 512, 0xFE))
 		{
+			DEBUGSTR("SD card read error CMD17 on response");
 			return RES_ERROR;
 		}
 	}
 	else
 	{
-		if (mmcsd_command(18, address, 0xFF))
+		if (mmcsd_command(18, sector, 0xFF))
 		{
+			DEBUGSTR("SD card read error CMD18");
 			return RES_ERROR;
 		}
 		do
 		{
-			if (!mmcsd_response(buff, 512, true))
+			if (!mmcsd_response(buff, 512, 0xFE))
 			{
+				DEBUGSTR("SD card read error CMD18 on response");
 				return RES_ERROR;
 			}
 
@@ -302,14 +336,24 @@ DRESULT disk_read(BYTE pdrv, BYTE *buff, LBA_t sector, UINT count)
 	return RES_OK;
 }
 
-#if FF_FS_READONLY == 0
-
 DRESULT disk_write(BYTE pdrv, const BYTE *buff, LBA_t sector, UINT count)
 {
+	uint8_t cleanup __attribute__((__cleanup__(mmcsd_release))) = 1;
+	mcu_clear_output(SD_SPI_CS);
+
 	if (!mmcsd_card.initialized)
 	{
 		return RES_NOTRDY;
 	}
+
+	if (!mmcsd_card.is_highdensity)
+	{
+		sector <<= 9;
+	}
+
+	DEBUGSTR("SD card write address");
+	DEBUGINT(sector);
+	DEBUGINT(count);
 
 	if (mmcsd_card.writeprotected)
 	{
@@ -319,8 +363,17 @@ DRESULT disk_write(BYTE pdrv, const BYTE *buff, LBA_t sector, UINT count)
 	if (count == 1)
 	{
 		// write cmd
-		if (mmcsd_command(24, sector, 0xFF) && !mmcsd_message(buff, count, 0xFE))
+		uint8_t error = mmcsd_command(24, sector, 0xFF);
+		if (error)
 		{
+			DEBUGSTR("SD card read error CMD24");
+			DEBUGINT(error);
+			return RES_ERROR;
+		}
+
+		if (!mmcsd_message(buff, count, 0xFE))
+		{
+			DEBUGSTR("SD card write error CMD24 on block write");
 			return RES_ERROR;
 		}
 	}
@@ -332,34 +385,87 @@ DRESULT disk_write(BYTE pdrv, const BYTE *buff, LBA_t sector, UINT count)
 			mmcsd_command(23, count, 0xFF);
 		}
 
-		if (mmcsd_command(25, sector, 0xFF) && !mmcsd_message(buff, count, 0xFC))
+		if (mmcsd_command(25, sector, 0xFF))
 		{
+			DEBUGSTR("SD card read error CMD25");
 			return RES_ERROR;
 		}
+
+		if (!mmcsd_message(buff, count, 0xFC))
+		{
+			DEBUGSTR("SD card write error CMD25 on block write");
+			return RES_ERROR;
+		}
+
+		mmcsd_command(12, 0, 0xFF);
+		for (uint8_t i = 10; i != 0; i--)
+		{
+			spi_xmit(0xFF);
+		}
+	}
+
+	if (!mmcsd_waitready())
+	{
+		DEBUGSTR("SD card write timeout");
+		return RES_ERROR;
+	}
+
+	uint8_t res = 0;
+	if (mmcsd_command(13, 0, 0xFF) && !mmcsd_response(&res, 1, 0))
+	{
+		DEBUGSTR("SD card read error CMD13");
+		return RES_ERROR;
+	}
+
+	if (res)
+	{
+		DEBUGSTR("SD card CMD13 status error code");
+		DEBUGINT(res);
+		return RES_ERROR;
 	}
 
 	return RES_OK;
 }
 
-#endif
-
 DSTATUS disk_initialize(BYTE pdrv)
 {
-	uint8_t i, resp[4], crc41;
+	uint8_t cleanup __attribute__((__cleanup__(mmcsd_release))) = 1;
+	mcu_clear_output(SD_SPI_CS);
+
+	uint8_t resp[4], crc41;
 	uint32_t high_arg;
 
 	memset(&mmcsd_card, 0, sizeof(mmcsd_card_t));
 	mmcsd_spi_speed(false);
+	mmcsd_card.detected = 0;
+	mmcsd_card.card_type = NOCARD;
+	mmcsd_card.is_highdensity = 0;
+	mmcsd_card.initialized = 0;
+	mmcsd_card.sectors = 0;
+	mmcsd_card.size = 0;
+	mmcsd_card.writeprotected = 0;
 
 	// initializes card
-	mcu_set_output(SD_SPI_CS);
 	// flushes transmision
-	for (i = 15; i != 0; i--)
+	for (uint8_t j = 3; j != 0; j--)
 	{
-		spi_xmit(0xFF);
+		mcu_set_output(SD_SPI_CS);
+		for (uint8_t i = 10; i != 0; i--)
+		{
+			spi_xmit(0xFF);
+		}
+
+		mcu_clear_output(SD_SPI_CS);
+		if (mmcsd_command(0, 0x00, 0x95) == 0x01)
+		{
+			mmcsd_card.detected = 1;
+			break;
+		}
+
+		DEBUGSTR("failed to init card");
 	}
 
-	if (mmcsd_command(0, 0x00, 0x95) != 0x01)
+	if (!mmcsd_card.detected)
 	{
 		return STA_NOINIT;
 	}
@@ -370,18 +476,20 @@ DSTATUS disk_initialize(BYTE pdrv)
 	high_arg = 0;
 
 	// tests if card is SD/MMC v2+ (if CMD8 is legal-interface conditions)
-	if (mmcsd_command(8, 0x1AA, 0x87) == 1)
+	if (mmcsd_command(8, 0x1AA, 0x87) == R1(R1_IDLE))
 	{
-		mmcsd_response(resp, 4, false);
+		mmcsd_response(resp, 4, 0);
 		// card is not v2 or not usable
 		if (!(resp[2] & 0x01) || resp[3] != 0xAA)
 		{
+			DEBUGSTR("SD card not v2 or not usable");
 			return STA_NOINIT;
 		}
 		// card is v2 and usable
 		mmcsd_card.card_type = SDv2;
 		crc41 = 0x77;
 		high_arg = 0x40000000;
+		DEBUGSTR("SD card is v2+");
 	}
 
 	// CMD55 is a specific SD card command
@@ -390,12 +498,14 @@ DSTATUS disk_initialize(BYTE pdrv)
 	{
 		if (timeout < mcu_millis())
 		{
+			DEBUGSTR("SD card failed ACMD41");
 			mmcsd_card.card_type = MMCv3;
 			timeout = MMCSD_TIMEOUT;
 			while (mmcsd_command(1, 0x00, 0xF9))
 			{
 				if (timeout < mcu_millis())
 				{
+					DEBUGSTR("SD card failed CMD1");
 					return STA_NOINIT;
 				}
 			}
@@ -408,11 +518,15 @@ DSTATUS disk_initialize(BYTE pdrv)
 		mmcsd_card.card_type = SDv1;
 	}
 
+	DEBUGSTR("SD card type is");
+	DEBUGINT(mmcsd_card.card_type);
+
 	// checks if it's high density card (if returns error retries with arg = 0)
 	disk_ioctl(pdrv, MMC_GET_OCR, resp);
 
 	if (CHECKBIT(resp[0], 6))
 	{
+		DEBUGSTR("SD card is high density");
 		mmcsd_card.is_highdensity = 1;
 	}
 
@@ -422,29 +536,46 @@ DSTATUS disk_initialize(BYTE pdrv)
 	mmcsd_command(16, 512, 0x15);
 
 	uint8_t csd[16];
+	uint32_t csize = 0;
 	disk_ioctl(pdrv, MMC_GET_CSD, csd);
 
-	uint32_t c_size = (0x3F & csd[7]);
+	if ((csd[0] >> 6) == 1)
+	{ /* SDC ver 2.00 */
+		csize = csd[9] + ((WORD)csd[8] << 8) + 1;
+		mmcsd_card.sectors = csize << 10;
+	}
+	else
+	{ /* MMC or SDC ver 1.XX */
+		uint8_t n = (csd[5] & 15) + ((csd[10] & 128) >> 7) + ((csd[9] & 3) << 1) + 2;
+		csize = (csd[8] >> 6) + ((WORD)csd[7] << 2) + ((WORD)(csd[6] & 3) << 10) + 1;
+		mmcsd_card.sectors = (DWORD)csize << (n - 9);
+	}
+	/*uint32_t c_size = (0x3F & csd[7]);
 	c_size <<= 8;
 	c_size += csd[8];
 	c_size <<= 8;
 	c_size += csd[9];
-	mmcsd_card.sectors = (c_size + 1) << 10;
+	mmcsd_card.sectors = (c_size + 1) << 10;*/
 	mmcsd_card.size = mmcsd_card.sectors << 9;
-
-	mcu_set_output(SD_SPI_CS);
 	mmcsd_card.initialized = 1;
+
+	DEBUGSTR("SD card size");
+	DEBUGINT(mmcsd_card.size);
 	mmcsd_spi_speed(true);
 	return 0;
 }
 
 DRESULT disk_ioctl(BYTE pdrv, BYTE cmd, void *buff)
 {
+	uint8_t cleanup __attribute__((__cleanup__(mmcsd_release))) = 1;
+	mcu_clear_output(SD_SPI_CS);
+
 	switch (cmd)
 	{
 	case CTRL_SYNC:
 		if (!mmcsd_waitready())
 		{
+			DEBUGSTR("SD card timeout");
 			return RES_ERROR;
 		}
 		break;
@@ -452,11 +583,7 @@ DRESULT disk_ioctl(BYTE pdrv, BYTE cmd, void *buff)
 		*((UINT *)buff) = mmcsd_card.sectors;
 		break;
 	case GET_SECTOR_SIZE:
-	case GET_BLOCK_SIZE:
 		*((UINT *)buff) = 512;
-		break;
-	case CTRL_TRIM:
-		/* code */
 		break;
 	case MMC_GET_TYPE:
 		*((uint8_t *)buff) = mmcsd_card.card_type;
@@ -464,102 +591,30 @@ DRESULT disk_ioctl(BYTE pdrv, BYTE cmd, void *buff)
 	case MMC_GET_CSD:
 		if (mmcsd_command(9, 0x00, 0xFF))
 		{
+			DEBUGSTR("SD card CSD error");
 			return RES_ERROR;
 		}
-
-		mmcsd_response(buff, 16, true);
+		mmcsd_response(buff, 16, 0xFE);
 		break;
 	case MMC_GET_CID:
 		if (mmcsd_command(10, 0x00, 0xFF))
 		{
+			DEBUGSTR("SD card CID error");
 			return RES_ERROR;
 		}
-
-		mmcsd_response(buff, 16, true);
+		mmcsd_response(buff, 16, 0xFE);
 		break;
 	case MMC_GET_OCR:
-		mmcsd_command(58, 0x40000000, 0x6F);
-		mmcsd_response(buff, 4, false);
-		if (CHECKBIT(((uint8_t *)buff)[2], 6))
+		if (mmcsd_command(58, 0, 0xFD))
 		{
-			mmcsd_command(58, 0x00, 0xFD);
-			mmcsd_response(buff, 4, false);
+			DEBUGSTR("SD card OCR error");
+			return RES_ERROR;
 		}
-		break;
-	case MMC_GET_SDSTAT:
-		/* code */
-		break;
-	case ISDIO_READ:
-		/* code */
-		break;
-	case ISDIO_WRITE:
-		/* code */
-		break;
-	case ISDIO_MRITE:
-		/* code */
+		mmcsd_response(buff, 4, 0);
 		break;
 	default:
-		break;
+		return RES_ERROR;
 	}
 
 	return 0;
 }
-/*
-int32 mmcsd_get_cardsize()
-{
-	uint8_t i, timeout = MMCSD_MAX_TIMEOUT;
-	uint8_t block[16];
-	int32 CARD_size;
-
-	CARD_error.func = 0;
-	CARD_error.error = 0;
-	CARD_error.detail1 = 0;
-	CARD_error.detail2 = 0;
-
-	// envia o comando CID
-	i = mmcsd_command(9, 0x00, 0xFF);
-	if (i)
-	{
-		CARD_error.func = 4;
-		CARD_error.error = 1;
-		CARD_error.detail1 = i;
-		CARD_error.detail2 = 0;
-		return 0;
-	}
-
-	mcu_clear_output(SD_SPI_CS);
-	// aguarda testemunho
-	while (spi_xmit(0xFF) != 0xFE && timeout)
-		timeout--;
-
-	// verifica se ocorreu timeout
-	if (!timeout)
-	{
-		CARD_error.func = 4;
-		CARD_error.error = 2;
-		CARD_error.detail1 = MMCSD_TIMEOUT;
-		CARD_error.detail2 = 0;
-		return 0;
-	}
-
-	for (i = 0; i < 16; i++)
-		block[i] = spi_xmit(0xFF);
-
-	spi_xmit(0xFF);
-	spi_xmit(0xFF);
-
-	// extrai informa��o
-	CARD_size = (0x03 & block[6]) << 8;
-	CARD_size |= block[7];
-	CARD_size <<= 2;
-	CARD_size |= (block[8] >> 6);
-	i = (block[9] & 0x03) << 1;
-	i |= CHECKBIT(block[10], 7);
-	i += 2;
-	i += (block[5] & 0x0F);
-	CARD_size <<= i;
-
-	mcu_set_output(SD_SPI_CS);
-	return CARD_size;
-}
-*/
