@@ -9,7 +9,7 @@ It requires any 2 µCNC generic digital input pins of the board. It uses softwar
 
 ## Adding SD Card to µCNC
 
-To use the and I2C LCD follow these steps:
+To use the and SD Card follow these steps:
 
 1. Copy the the `SD_Card` directory and place it inside the `src/modules/` directory of µCNC
 2. If needed you may redifine some IO pin and SPI options. By default this module tries to use the hardware SPI port if available and if not the software SPI pins. Please refer to [PINOUTS.md](https://github.com/Paciente8159/uCNC/blob/master/PINOUTS.md) to check the default pin associations.
