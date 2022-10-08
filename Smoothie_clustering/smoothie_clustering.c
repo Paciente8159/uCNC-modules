@@ -33,9 +33,10 @@ static uint16_t s_cluster[(S_CLUSTER_SIZE - 1)];
 static uint8_t s_cluster_count;
 
 #ifdef ENABLE_SYSTEM_INFO
-void smoothie_clustering_info(void *args, bool *handled)
+uint8_t smoothie_clustering_info(void *args, bool *handled)
 {
 	protocol_send_string(__romstr__("CLUSTER:" STRGIFY(S_CLUSTER_SIZE)));
+	return 0;
 }
 
 CREATE_EVENT_LISTENER(protocol_send_cnc_info, smoothie_clustering_info);
@@ -102,7 +103,6 @@ uint8_t smoothie_clustering_mc_line_segment(void *args, bool *handled)
 		}
 
 		new_block.total_steps /= (clusters + 1);
-		new_block.full_steps /= (clusters + 1);
 		block_data->dwell = 0;
 
 		for (uint8_t j = 0; j < clusters; j++)
@@ -119,7 +119,6 @@ uint8_t smoothie_clustering_mc_line_segment(void *args, bool *handled)
 			}
 
 			block_data->total_steps -= new_block.total_steps;
-			block_data->full_steps -= new_block.full_steps;
 			block_data->spindle = new_block.spindle = s_cluster[j];
 
 			while (planner_buffer_is_full())
