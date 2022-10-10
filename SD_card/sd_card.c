@@ -303,8 +303,8 @@ CREATE_EVENT_LISTENER(cnc_dotasks, sd_card_loop);
 #endif
 
 #ifdef ENABLE_SETTINGS_MODULES
-// uint8_t sd_settings_load(void *args, bool *handled)
-OVERRIDE_EVENT_HANDLER(settings_load)
+uint8_t sd_settings_load(void *args, bool *handled)
+// OVERRIDE_EVENT_HANDLER(settings_load)
 {
 	UINT i = 0;
 	uint8_t result = 0;
@@ -337,10 +337,10 @@ OVERRIDE_EVENT_HANDLER(settings_load)
 	return result;
 }
 
-// CREATE_EVENT_LISTENER(settings_load, sd_settings_load);
+CREATE_EVENT_LISTENER(settings_load, sd_settings_load);
 
-// uint8_t sd_settings_save(void *args, bool *handled)
-OVERRIDE_EVENT_HANDLER(settings_save)
+uint8_t sd_settings_save(void *args, bool *handled)
+// OVERRIDE_EVENT_HANDLER(settings_save)
 {
 	UINT i = 0;
 	FIL tmp;
@@ -370,10 +370,10 @@ OVERRIDE_EVENT_HANDLER(settings_save)
 	return result;
 }
 
-// CREATE_EVENT_LISTENER(settings_save, sd_settings_save);
+CREATE_EVENT_LISTENER(settings_save, sd_settings_save);
 
-// uint8_t sd_settings_erase(void *args, bool *handled)
-OVERRIDE_EVENT_HANDLER(settings_erase)
+uint8_t sd_settings_erase(void *args, bool *handled)
+// OVERRIDE_EVENT_HANDLER(settings_erase)
 {
 	FIL tmp;
 	uint8_t result = 0;
@@ -476,14 +476,11 @@ DECL_MODULE(sd_card)
 #else
 #warning "Parser extensions are not enabled. SD card commands will not work."
 #endif
-	/*
-	#ifdef ENABLE_SETTINGS_MODULES
-		ADD_EVENT_LISTENER(settings_load, sd_settings_load);
-		ADD_EVENT_LISTENER(settings_save, sd_settings_save);
-		ADD_EVENT_LISTENER(settings_erase, sd_settings_erase);
-		// force recall of settings init to reload settings from file
-		settings_init();
-	#else
-	#warning "Main loop extensions are not enabled. SD card will not work."
-	#endif*/
+#ifdef ENABLE_SETTINGS_MODULES
+	ADD_EVENT_LISTENER(settings_load, sd_settings_load);
+	ADD_EVENT_LISTENER(settings_save, sd_settings_save);
+	ADD_EVENT_LISTENER(settings_erase, sd_settings_erase);
+#else
+#warning "Main loop extensions are not enabled. SD card will not work."
+#endif
 }
