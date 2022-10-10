@@ -8,7 +8,7 @@ For best performance the hardware SPI should be used.
 
 ### 2022-10-10
 
-- modified sd card handlers to allow multiple settings event listeners ()
+- modified sd card handlers to allow multiple settings event listeners (#13)
 
 ### 2022-09-20
 
