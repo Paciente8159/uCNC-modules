@@ -25,8 +25,22 @@
 #error "This module is not compatible with the current version of µCNC"
 #endif
 
-static uint16_t s_cluster[7];
+#ifndef S_CLUSTER_SIZE
+#define S_CLUSTER_SIZE 8
+#endif
+
+static uint16_t s_cluster[(S_CLUSTER_SIZE - 1)];
 static uint8_t s_cluster_count;
+
+#ifdef ENABLE_SYSTEM_INFO
+uint8_t smoothie_clustering_info(void *args, bool *handled)
+{
+	protocol_send_string(__romstr__("CLUSTER:" STRGIFY(S_CLUSTER_SIZE)));
+	return 0;
+}
+
+CREATE_EVENT_LISTENER(protocol_send_cnc_info, smoothie_clustering_info);
+#endif
 
 #ifdef ENABLE_PARSER_MODULES
 
@@ -43,11 +57,11 @@ uint8_t smoothie_clustering_parse_token(void *args, bool *handled)
 			return 0;
 		}
 
-		s_cluster[i++] = (uint16_t)(val*g_settings.spindle_max_rpm);
+		s_cluster[i++] = (uint16_t)(val * g_settings.spindle_max_rpm);
 		c = serial_getc();
 		if (c == EOL)
 		{
-			*((unsigned char *)args)  =EOL;
+			*((unsigned char *)args) = EOL;
 			s_cluster_count = i;
 			return 1;
 		}
@@ -59,8 +73,8 @@ CREATE_EVENT_LISTENER(parse_token, smoothie_clustering_parse_token);
 
 uint8_t smoothie_clustering_gcode_exec_modifier(void *args, bool *handled)
 {
-	gcode_exec_args_t* gcode = (gcode_exec_args_t *)args;
-	
+	gcode_exec_args_t *gcode = (gcode_exec_args_t *)args;
+
 	gcode->words->s *= g_settings.spindle_max_rpm;
 	return 0;
 }
@@ -89,7 +103,6 @@ uint8_t smoothie_clustering_mc_line_segment(void *args, bool *handled)
 		}
 
 		new_block.total_steps /= (clusters + 1);
-		new_block.full_steps /= (clusters + 1);
 		block_data->dwell = 0;
 
 		for (uint8_t j = 0; j < clusters; j++)
@@ -106,7 +119,6 @@ uint8_t smoothie_clustering_mc_line_segment(void *args, bool *handled)
 			}
 
 			block_data->total_steps -= new_block.total_steps;
-			block_data->full_steps -= new_block.full_steps;
 			block_data->spindle = new_block.spindle = s_cluster[j];
 
 			while (planner_buffer_is_full())
@@ -138,5 +150,8 @@ DECL_MODULE(smoothie_clustering)
 	ADD_EVENT_LISTENER(mc_line_segment, smoothie_clustering_mc_line_segment);
 #else
 #warning "Motion control extensions are not enabled. Smoothieware S Cluster module will not work."
+#endif
+#ifdef ENABLE_SYSTEM_INFO
+	ADD_EVENT_LISTENER(protocol_send_cnc_info, smoothie_clustering_info);
 #endif
 }
