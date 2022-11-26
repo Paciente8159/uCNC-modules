@@ -1,30 +1,9 @@
-# About M42 for µCNC
+# About G5 and G5.1 for µCNC
 
-This module adds custom M42 code to the µCNC parser. This similar to Marlin M42 and allows to turn on and off any generic digital pin, PWM or servo pin of the µCNC.
+This module adds custom G5 (cubic spline) and G5.1 (quadratic spline) code to the µCNC parser. This similar to Linux CNC G5 and G5.1 and allows to make motions based on splines via control points µCNC.
 
 ## Changelog
 
-### 2022-09-08
+### 2022-11-25
 
-- new module include instructions (#7)
-
-### 2022-08-04
-
-- updated functions declarations to match changes in 1.5.0+
-
-### 2022-05-31
-
-- added module uniformization macro
-
-### 2022-05-19
-
-- module initialization improvements
-
-### 2022-05-18
-
-- reviewed initialization procedures
-
-### 2022-05-17
-
-- updated loaded proceadures for version 1.4.6+
-- migration from main repository
+- initial implementation
