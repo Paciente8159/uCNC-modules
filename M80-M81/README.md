@@ -4,7 +4,7 @@ Addon modules for µCNC - Universal CNC firmware for microcontrollers
 
 ## About M80-M81 for µCNC
 
-This module adds custom M80-M81 code to the µCNC parser. This similar to Marlin M80-M81 and allows to turn on and off any generic digital pin, PWM or servo pin of the µCNC.
+This module adds custom M80-M81 code to the µCNC parser. This similar to Marlin M80-M81 and allows to turn on and off a pin controling the PSU.
 
 ## Adding M80-M81 to µCNC
 
