@@ -106,7 +106,7 @@ uint8_t g5_parse(void *args, bool *handled)
 		// checks if it's G5 or G5.1
 		// check mantissa
 		uint8_t mantissa = (uint8_t)lroundf(((ptr->value - ptr->code) * 100.0f));
-		if (mantissa < 10)
+		if (mantissa < 10 && mantissa != 0)
 		{
 			mantissa = 255; // set an invalid value
 		}
@@ -114,8 +114,14 @@ uint8_t g5_parse(void *args, bool *handled)
 		{
 			mantissa /= 10;
 		}
-		// checks if this is a chained G5 or G5.1 motion
-		is_chained_g5 = (ptr->new_state->groups.motion == G5);
+
+		if (mantissa != 0 && mantissa != 1)
+		{
+			return STATUS_GCODE_UNSUPPORTED_COMMAND;
+		}
+
+		// checks if this is a chained G5 motion
+		is_chained_g5 = (ptr->new_state->groups.motion == G5 && !ptr->new_state->groups.motion_mantissa && !mantissa);
 		ptr->new_state->groups.motion = G5;
 		ptr->new_state->groups.motion_mantissa = mantissa;
 		SETFLAG(ptr->cmd->groups, GCODE_GROUP_MOTION);
@@ -138,37 +144,65 @@ uint8_t g5_exec(void *args, bool *handled)
 
 		if (CHECKFLAG(ptr->cmd->words, (GCODE_WORD_I | GCODE_WORD_J)) != (GCODE_WORD_I | GCODE_WORD_J))
 		{
-			// it's an error if both I and J is not explicitly defined or if they are omitted without a previous G5 command
+			// it's an error if both I and J are not explicitly defined or if they are omitted without a previous G5 command
 			if (!is_chained_g5 || CHECKFLAG(ptr->cmd->words, (GCODE_WORD_I | GCODE_WORD_J)))
 			{
 				return STATUS_GCODE_VALUE_WORD_MISSING;
 			}
 		}
 
+		if (!(ptr->new_state->groups.motion_mantissa)) // G5 only
+		{
+			if (CHECKFLAG(ptr->cmd->words, (GCODE_WORD_P | GCODE_WORD_Q)) != (GCODE_WORD_P | GCODE_WORD_Q))
+			{
+				// it's an error if both Q and P are not explicitly defined
+				return STATUS_GCODE_VALUE_WORD_MISSING;
+			}
+		}
+
+		if (CHECKFLAG(ptr->cmd->words, (GCODE_WORD_Z | GCODE_WORD_A | GCODE_WORD_B | GCODE_WORD_C)))
+		{
+			// it's an error if any axis other then X or Y are explicitly defined
+			return STATUS_GCODE_AXIS_COMMAND_CONFLICT;
+		}
+
+		if (ptr->new_state->groups.plane != G17)
+		{
+			// it's an error if any axis other then X or Y are explicitly defined
+			return STATUS_GCODE_AXIS_COMMAND_CONFLICT;
+		}
+
 		float current[AXIS_COUNT];
 		float p0_x, p1_x, p2_x, p3_x;
 		float p0_y, p1_y, p2_y, p3_y;
-		float p1_x_offset = (!is_chained_g5) ? ptr->words->ijk[AXIS_X] : -next_x;
-		float p1_y_offset = (!is_chained_g5) ? ptr->words->ijk[AXIS_Y] : -next_y;
+		float p1_x_offset = (CHECKFLAG(ptr->cmd->words, (GCODE_WORD_I | GCODE_WORD_J))) ? ptr->words->ijk[AXIS_X] : next_x;
+		float p1_y_offset = (CHECKFLAG(ptr->cmd->words, (GCODE_WORD_I | GCODE_WORD_J))) ? ptr->words->ijk[AXIS_Y] : next_y;
+
+		// set the next i j default values
+		next_x = -ptr->words->p;
+		next_y = -ptr->words->d;
 
 		mc_get_position(current);
 
 		p0_x = current[AXIS_X];
 		p1_x = p0_x + p1_x_offset;
-		p3_x = ptr->target[AXIS_X];
-		p2_x = p3_x + ptr->words->p;
+		p2_x = p3_x = ptr->target[AXIS_X];
+		p2_x += (!(ptr->new_state->groups.motion_mantissa)) ? (ptr->words->p) : 0;
 
 		p0_y = current[AXIS_Y];
 		p1_y = p0_y + p1_y_offset;
-		p3_y = ptr->target[AXIS_Y];
-		p2_y = p3_y + ptr->words->d; // d contains the value of q since d and q do not co-exist in any gcode
+		p2_y = p3_y = ptr->target[AXIS_Y];
+		p2_y += (!(ptr->new_state->groups.motion_mantissa)) ? (ptr->words->d) : 0; // d contains the value of q since d and q do not co-exist in any gcode
 
 		// determine t step by figuring the max straight distance between control points
 		// and then split them into a predefined fixed segment
 		// not sure if this strategy is reliable but I'll use it for now
 		float max_len = fast_flt_sqrt((fast_flt_pow2((p0_x - p1_x)) + fast_flt_pow2((p0_y - p1_y))));
 		max_len = MAX(max_len, fast_flt_sqrt((fast_flt_pow2((p1_x - p2_x)) + fast_flt_pow2((p1_y - p2_y)))));
-		max_len = MAX(max_len, fast_flt_sqrt((fast_flt_pow2((p2_x - p3_x)) + fast_flt_pow2((p2_y - p3_y)))));
+		if (!(ptr->new_state->groups.motion_mantissa)) // G5 second control point
+		{
+			max_len = MAX(max_len, fast_flt_sqrt((fast_flt_pow2((p2_x - p3_x)) + fast_flt_pow2((p2_y - p3_y)))));
+		}
 
 		float t_inc = G5_MAX_SEGMENT_LENGTH / max_len;
 		float next[AXIS_COUNT];
@@ -177,12 +211,8 @@ uint8_t g5_exec(void *args, bool *handled)
 
 		for (float t = t_inc; t < 1.0f; t += t_inc)
 		{
-			next[AXIS_X] = cubic_spline_interpol(p0_x, p1_x, p2_x, p3_x, t);
-			next[AXIS_Y] = cubic_spline_interpol(p0_y, p1_y, p2_y, p3_y, t);
-			for (uint8_t i = AXIS_Z; i < AXIS_COUNT; i++)
-			{
-				next[i] = t * (ptr->target[i] - current[i]);
-			}
+			next[AXIS_X] = (!(ptr->new_state->groups.motion_mantissa)) ? cubic_spline_interpol(p0_x, p1_x, p2_x, p3_x, t) : quadratic_spline_interpol(p0_x, p1_x, p2_x, t);
+			next[AXIS_Y] = (!(ptr->new_state->groups.motion_mantissa)) ? cubic_spline_interpol(p0_y, p1_y, p2_y, p3_y, t) : quadratic_spline_interpol(p0_y, p1_y, p2_y, t);
 
 			error = mc_line(next, ptr->block_data);
 			if (error != STATUS_OK)
