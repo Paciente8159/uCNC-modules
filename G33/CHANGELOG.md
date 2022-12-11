@@ -4,6 +4,9 @@ This module adds custom G33 code to the µCNC parser. This similar to Linux CNC 
 
 ## Changelog
 
-### 2022-11-30
+### 2022-12-11
+
+- initial release (#15)
+
 
 
