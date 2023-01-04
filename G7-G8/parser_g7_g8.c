@@ -1,6 +1,6 @@
 /*
-	Name: parser_g7-g8.c
-	Description: Implements a parser extension for LinuxCNC G33 for µCNC.
+	Name: parser_g7_g8.c
+	Description: Implements a parser extension for LinuxCNC G7-G8 for µCNC.
 
 	Copyright: Copyright (c) João Martins
 	Author: João Martins
@@ -30,8 +30,8 @@
 static uint8_t parser_lathe_radius_mode;
 
 // this ID must be unique for each code
-#define G7 7
-#define G8 8
+#define G7 1
+#define G8 0
 
 uint8_t g7_g8_parse(void *args, bool *handled);
 uint8_t g7_g8_before_motion(void *args, bool *handled);
@@ -59,11 +59,11 @@ uint8_t g7_g8_parse(void *args, bool *handled)
 		switch (ptr->code)
 		{
 		case G7:
-			parser_lathe_radius_mode = 1;
+			parser_lathe_radius_mode = G7;
 			break;
 		case G8:
 			/* code */
-			parser_lathe_radius_mode = 0;
+			parser_lathe_radius_mode = G8;
 			break;
 		default:
 			// not able to catch this G code
@@ -113,7 +113,7 @@ uint8_t g7_g8_after_motion(void *args, bool *handled)
 
 uint8_t g7_g8_reset(void *args, bool *handled)
 {
-	parser_lathe_radius_mode = 0;
+	parser_lathe_radius_mode = G8; // default
 	return STATUS_OK;
 }
 

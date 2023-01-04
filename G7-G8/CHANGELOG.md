@@ -6,7 +6,7 @@ This module adds custom G7/G8 code to the µCNC parser. This similar to Linux CN
 
 ### 2023-01-04
 
-- initial release (#)
+- initial release (#16)
 
 
 
