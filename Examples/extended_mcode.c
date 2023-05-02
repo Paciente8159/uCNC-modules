@@ -13,7 +13,7 @@
 
 */
 
-#include "../cnc.h"
+#include "../../cnc.h"
 #include <stdint.h>
 #include <stdbool.h>
 
@@ -24,9 +24,9 @@
 #ifdef ENABLE_PARSER_MODULES
 
 /**
- * @brief	Check if your current module is up to date with the current core version of module 
+ * @brief	Check if your current module is up to date with the current core version of module
  */
-#ifndef UCNC_MODULE_VERSION_1_5_0_PLUS
+#if (UCNC_MODULE_VERSION > 010700)
 #error "This module is not compatible with the current version of µCNC"
 #endif
 
@@ -39,22 +39,21 @@
 
 /**
  * @brief Create a function to parse your custom MCode. All event functions are declared as uint8_t <function>(void* args, bool* handle)
- * 
+ *
  * @param args		is a pointer to a set of arguments to be passed to the event handler. In the case of the gcode_parse event it's a struct of type gcode_parse_args_t define the following way
  * 					typedef struct gcode_parse_args_
  *					{
  *						unsigned char word;			// Type of command word ('G' or 'M' usually)
  *						uint8_t code;				// Code of the command this is the code of the command. Beware that this is limited from 0 to 255. For G/M code with higher values or subcodes  (ex: 97.4) this value is ignored argument 'value' of the struct
- *						uint8_t error;				// The current error code of the parsing stage
+ *						uint8_t *error;				// The current error code of the parsing stage
  *						float value;				// The value of the code. If the intercepted word command was M97.4, value is 97.4
  *						parser_state_t *new_state;	// The new parser state of the machine
  *						parser_words_t *words;		// The struct with the valid words values
  *						parser_cmd_explicit_t *cmd;	// The struct with command groups/words flags and exetended commands code
  *					} gcode_parse_args_t;
- * @param handled 	is a pointer to a bool (default false). This bool tells the handler if the event should continue to propagate through additional listeners or is handled by the current listener an should stop propagation
- * @return uint8_t 	returns an error code
+ * @return bool 	a boolean that tells the handler if the event should continue to propagate through additional listeners or is handled by the current listener an should stop propagation
  */
-uint8_t mycustom_parser(void *args, bool *handled)
+bool mycustom_parser(void *args)
 {
 	// this is just to cast the void* args to the used struct by the parse event
 	gcode_parse_args_t *ptr = (gcode_parse_args_t *)args;
@@ -62,76 +61,78 @@ uint8_t mycustom_parser(void *args, bool *handled)
 	// if the word command M99 (word-M value-999) then it's our code
 	if (ptr->word == 'M' && ptr->value == 999)
 	{
-		// because this MCode is our desired code we can prevent further parsing event propagation to other listeners 
-		// this avoids errors due to modifications of the return error code and speeds up execution
-		*handled = true;
-
 		// you should always check if there is already another extended command active in this line of GCODE. µCNC should only execute one extended command by GCODE line.
 		if (ptr->cmd->group_extended != 0)
 		{
 			// there is a collision of custom gcode commands (only one per line can be processed)
-			return STATUS_GCODE_MODAL_GROUP_VIOLATION;
+			// this modified the error code
+			*(ptr->error) = STATUS_GCODE_MODAL_GROUP_VIOLATION;
+			// because this MCode is our desired code we can prevent further parsing event propagation to other listeners
+			// this avoids errors due to modifications of the return error code and speeds up execution
+			return true;
 		}
 
 		// tells the gcode validation and execution functions this is custom code M999 (ID must be unique)
 		ptr->cmd->group_extended = M999;
 		// return status code error OK
-		return STATUS_OK;
+		*(ptr->error) = STATUS_OK;
+		// again prevents event propagation to speed up the code since this callback handled the event
+		return true;
 	}
 
-	// if this is not catched by this parser, just send back the error so other extenders can process it
-	return ptr->error;
+	// if this is not catched by this parser, just send back the error so other modules can process it
+	return false;
 }
 
 /**
  * @brief 	Create an event listener object an attach our custom code parser handler.
  * 			in this case we are adding a listener to the 'gcode_parse' EVENT
- * 
+ *
  */
 CREATE_EVENT_LISTENER(gcode_parse, mycustom_parser);
 
 /**
  * @brief Create a function to execute your custom MCode. Again all event functions are declared as uint8_t <function>(void* args, bool* handle)
- * 
+ *
  * @param args		is a pointer to a set of arguments to be passed to the event handler. In the case of the gcode_exec event it's a struct of type gcode_exec_args_t define the following way
  * 					typedef struct gcode_exec_args_
  *					{
- *						parser_state_t *new_state;	// The new parser state of the machine
- *						parser_words_t *words;		// The struct with the valid words values
- *						parser_cmd_explicit_t *cmd;	// The struct with command groups/words flags and exetended commands code
+						uint8_t* error;				// the current error code status
+						parser_state_t *new_state;  // The new parser state of the machine
+						parser_words_t *words;      // The struct with the valid words values
+						parser_cmd_explicit_t *cmd; // The struct with command groups/words flags and exetended commands code
+						float *target;				// the new target position after excuting this code
+						motion_data_t *block_data;  // the block data to be sent to the motion control
  *					} gcode_exec_args_t;
- * @param handled 	is a pointer to a bool (default false). This bool tells the handler if the event should continue to propagate through additional listeners or is handled by the current listener an should stop propagation
- * @return uint8_t 	returns an error code
+ *  * @return bool 	a boolean that tells the handler if the event should continue to propagate through additional listeners or is handled by the current listener an should stop propagation
  */
-uint8_t mycustom_execution(void *args, bool *handled)
+bool mycustom_execution(void *args)
 {
 	gcode_exec_args_t *ptr = (gcode_exec_args_t *)args;
 
 	// checks if the extended command that is being executed is our custom M999 command
 	if (ptr->cmd->group_extended == M999)
 	{
-		// because this MCode is our desired code we can prevent further parsing event propagation to other listeners 
+		// because this MCode is our desired code we can prevent further parsing event propagation to other listeners
 		// this avoids errors due to modifications of the return error code and speeds up execution
-		*handled = true;
-		
-		// Do some validation checks if needed and execute whatever. This can be all sort of things (IO stuff, motion, etc...)
 		// return status code error OK
-		return STATUS_OK;
+		*(ptr->error) = STATUS_OK;
+		// again prevents event propagation to speed up the code since this callback handled the event
+		return true;
 	}
 
-	// return status code error GCODE_EXTENDED_UNSUPPORTED for the handler
-	return STATUS_GCODE_EXTENDED_UNSUPPORTED;
+	// if this is not catched by this exec callback, just send back so other modules can process it
+	return false;
 }
 
 /**
  * @brief 	Create an event listener object an attach our custom code executer handler.
  * 			in this case we are adding a listener to the 'gcode_exec' EVENT
- * 
+ *
  */
 CREATE_EVENT_LISTENER(gcode_exec, mycustom_execution);
 
 #endif
-
 
 /**
  * @brief 	Declarates a new module and adds the event listeners.

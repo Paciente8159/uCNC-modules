@@ -11,7 +11,7 @@
 	There is an event that can be hooked to do this.
 */
 
-#include "../cnc.h"
+#include "../../cnc.h"
 #include <stdint.h>
 #include <stdbool.h>
 #include <string.h>
@@ -25,7 +25,7 @@
 /**
  * @brief	Check if your current module is up to date with the current core version of module 
  */
-#ifndef UCNC_MODULE_VERSION_1_5_0_PLUS
+#if (UCNC_MODULE_VERSION > 010700)
 #error "This module is not compatible with the current version of µCNC"
 #endif
 
@@ -35,13 +35,14 @@
  * @param args		is a pointer to a set of arguments to be passed to the event handler. In the case of the grbl_cmd event it's a struct of type gcode_parse_args_t define the following way
  * 					typedef struct grbl_cmd_args_
  *					{
+ *						uint8_t *error;		// the current parser error code
  *						unsigned char *cmd; // pointer to a string with the system command read
  *						uint8_t len; 		// length of the command string
+ *						char next_char;		// the value of the next char in the buffer
  *					} grbl_cmd_args_t;
- * @param handled 	is a pointer to a bool (default false). This bool tells the handler if the event should continue to propagate through additional listeners or is handled by the current listener an should stop propagation
- * @return uint8_t 	returns an error code
+ * @return bool 	a boolean that tells the handler if the event should continue to propagate through additional listeners or is handled by the current listener an should stop propagation
  */
-uint8_t mycustom_system_cmd(void *args, bool *handled)
+bool mycustom_system_cmd(void *args)
 {
 	// this is just to cast the void* args to the used struct by the parse event
 	grbl_cmd_args_t *ptr = (grbl_cmd_args_t *)args;

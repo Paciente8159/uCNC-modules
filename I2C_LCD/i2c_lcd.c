@@ -26,7 +26,7 @@
 
 #ifdef ENABLE_MAIN_LOOP_MODULES
 
-#ifndef UCNC_MODULE_VERSION_1_5_0_PLUS
+#if (UCNC_MODULE_VERSION > 010700)
 #error "This module is not compatible with the current version of µCNC"
 #endif
 
@@ -158,7 +158,7 @@ void lcd_print_flt(lcd_driver_t *lcd, float num)
 
 uint32_t lcd_next_update;
 
-uint8_t ucnc_lcd_init(void* args, bool* handled)
+bool ucnc_lcd_init(void* args)
 {
     // runs only once at startup
     if (lcd_next_update == 0)
@@ -170,12 +170,12 @@ uint8_t ucnc_lcd_init(void* args, bool* handled)
         lcd_next_update = mcu_millis() + 5000;
     }
 
-	return 0;
+	return false;
 }
 
 CREATE_EVENT_LISTENER(cnc_reset, ucnc_lcd_init);
 
-uint8_t ucnc_lcd_refresh(void* args, bool* handled)
+bool ucnc_lcd_refresh(void* args)
 {
     if (lcd_next_update < mcu_millis())
     {
@@ -237,7 +237,7 @@ uint8_t ucnc_lcd_refresh(void* args, bool* handled)
         lcd_next_update = mcu_millis() + 250;
     }
 
-	return 0;
+	return false;
 }
 
 CREATE_EVENT_LISTENER(cnc_dotasks, ucnc_lcd_refresh);
