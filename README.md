@@ -18,6 +18,8 @@ Heavily inspired by [Grbl](https://github.com/gnea/grbl) and [LinuxCNC](http://l
    - As of version 1.3.0 a new dimension to the HAL was added. The tool HAL. This allow to add multiple tools that can perform different task with µCNC.
    - As of version 1.4.0 a special kind of PIN type dedicated to servo motors control was added µCNC.
    - As of version 1.4.0 a new module extension system was introduced. It's now possible to add hooks in the core code and attach multiple listeners to execute additional code further expanding µCNC original capabilities. Modules can be enabled and disabled in the config file to enable feature on per need basis.
+   - As of version 1.5.0 several improvements and breaking modifications to modules were introduced. Please check the releases for compatible modules list.
+   - As of version 1.7.0 several improvements and breaking modifications to modules were introduced. Please check the releases for compatible modules list.
 3. Compatible with already existing tools and software for Grbl. There is no point in trying to reinvent the wheel (the whole wheel at least :-P). For that reason µCNC uses protocol compatible with Grbl. This allows it to easily integrate with Grbl ecosystem.
 
 You can navigate the [project wiki](https://github.com/Paciente8159/uCNC/wiki) to find out more on how to use it.
