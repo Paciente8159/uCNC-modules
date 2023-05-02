@@ -23,7 +23,7 @@
 
 #ifdef ENABLE_PARSER_MODULES
 
-#ifndef UCNC_MODULE_VERSION_1_5_0_PLUS
+#if (UCNC_MODULE_VERSION > 010700)
 #error "This module is not compatible with the current version of µCNC"
 #endif
 
@@ -33,13 +33,13 @@ static uint8_t parser_lathe_radius_mode;
 #define G7 1
 #define G8 0
 
-uint8_t g7_g8_parse(void *args, bool *handled);
-uint8_t g7_g8_before_motion(void *args, bool *handled);
-uint8_t g7_g8_after_motion(void *args, bool *handled);
-uint8_t g7_g8_reset(void *args, bool *handled);
-uint8_t g7_g8_reset(void *args, bool *handled);
-uint8_t g7_g8_reset(void *args, bool *handled);
-uint8_t g7_g8_send_gcode_modes(void *args, bool *handled);
+bool g7_g8_parse(void *args);
+bool g7_g8_before_motion(void *args);
+bool g7_g8_after_motion(void *args);
+bool g7_g8_reset(void *args);
+bool g7_g8_reset(void *args);
+bool g7_g8_reset(void *args);
+bool g7_g8_send_gcode_modes(void *args);
 
 CREATE_EVENT_LISTENER(gcode_parse, g7_g8_parse);
 CREATE_EVENT_LISTENER(gcode_before_motion, g7_g8_before_motion);
@@ -48,7 +48,7 @@ CREATE_EVENT_LISTENER(parser_reset, g7_g8_reset);
 CREATE_EVENT_LISTENER(protocol_send_gcode_modes, g7_g8_send_gcode_modes);
 
 // this just parses and accepts the code
-uint8_t g7_g8_parse(void *args, bool *handled)
+bool g7_g8_parse(void *args)
 {
 	gcode_parse_args_t *ptr = (gcode_parse_args_t *)args;
 	if (ptr->word == 'G')
@@ -74,17 +74,17 @@ uint8_t g7_g8_parse(void *args, bool *handled)
 		if (ok)
 		{
 			// stops event propagation
-			*handled = true;
-			return STATUS_OK;
+			*(ptr->error) = STATUS_OK;
+			return true;
 		}
 	}
 
 	// if this is not catched by this parser, just send back the error so other extenders can process it
-	return ptr->error;
+	return false;
 }
 
 // modifies motion block
-uint8_t g7_g8_before_motion(void *args, bool *handled)
+bool g7_g8_before_motion(void *args)
 {
 	gcode_exec_args_t *ptr = (gcode_exec_args_t *)args;
 
@@ -94,11 +94,12 @@ uint8_t g7_g8_before_motion(void *args, bool *handled)
 		ptr->target[AXIS_X] = fast_flt_div2(ptr->target[AXIS_X]);
 	}
 
-	return STATUS_OK;
+	*(ptr->error) = STATUS_OK;
+	return false;
 }
 
 // modifies motion block
-uint8_t g7_g8_after_motion(void *args, bool *handled)
+bool g7_g8_after_motion(void *args)
 {
 	gcode_exec_args_t *ptr = (gcode_exec_args_t *)args;
 
@@ -108,16 +109,17 @@ uint8_t g7_g8_after_motion(void *args, bool *handled)
 		ptr->target[AXIS_X] = fast_flt_mul2(ptr->target[AXIS_X]);
 	}
 
-	return STATUS_OK;
+	*(ptr->error) = STATUS_OK;
+	return false;
 }
 
-uint8_t g7_g8_reset(void *args, bool *handled)
+bool g7_g8_reset(void *args)
 {
 	parser_lathe_radius_mode = G8; // default
-	return STATUS_OK;
+	return false;
 }
 
-uint8_t g7_g8_send_gcode_modes(void *args, bool *handled)
+bool g7_g8_send_gcode_modes(void *args)
 {
 	serial_putc('G');
 	if (parser_lathe_radius_mode)
@@ -129,7 +131,7 @@ uint8_t g7_g8_send_gcode_modes(void *args, bool *handled)
 		serial_putc('8');
 	}
 	serial_putc(' ');
-	return STATUS_OK;
+	return false;
 }
 
 #endif

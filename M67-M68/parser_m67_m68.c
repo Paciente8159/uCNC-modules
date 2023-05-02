@@ -22,7 +22,7 @@
 
 #ifdef ENABLE_PARSER_MODULES
 
-#ifndef UCNC_MODULE_VERSION_1_5_0_PLUS
+#if (UCNC_MODULE_VERSION > 010700)
 #error "This module is not compatible with the current version of µCNC"
 #endif
 
@@ -33,72 +33,69 @@
 #define M67 EXTENDED_MCODE(67)
 #define M68 EXTENDED_MCODE(68)
 
-uint8_t m67_m68_parse(void *args, bool *handled);
-uint8_t m67_m68_exec(void *args, bool *handled);
+bool m67_m68_parse(void *args);
+bool m67_m68_exec(void *args);
 
 CREATE_EVENT_LISTENER(gcode_parse, m67_m68_parse);
 CREATE_EVENT_LISTENER(gcode_exec, m67_m68_exec);
 
 // this just parses and acceps the code
-uint8_t m67_m68_parse(void *args, bool *handled)
+bool m67_m68_parse(void *args)
 {
-	gcode_parse_args_t *ptr = (gcode_parse_args_t *)args;
-	
+    gcode_parse_args_t *ptr = (gcode_parse_args_t *)args;
+
     if (ptr->word == 'M' && (ptr->code == 67 || ptr->code == 68))
     {
-		// stops event propagation
-		*handled = true;
-
         if (ptr->cmd->group_extended != 0)
         {
             // there is a collision of custom gcode commands (only one per line can be processed)
-            return STATUS_GCODE_MODAL_GROUP_VIOLATION;
+            *(ptr->error) = STATUS_GCODE_MODAL_GROUP_VIOLATION;
+            return true;
         }
 
         // tells the gcode validation and execution functions this is custom code M42 (ID must be unique)
         ptr->cmd->group_extended = M67 + ptr->code - 67;
-        return STATUS_OK;
+        *(ptr->error) = STATUS_OK;
+        return true;
     }
 
     if (ptr->cmd->group_extended == 67 || ptr->cmd->group_extended == 68)
     {
-		// stops event propagation
-		*handled = true;
-
         if (ptr->word == 'E')
         {
             if (ptr->value < 0)
             {
-                return STATUS_NEGATIVE_VALUE;
+                *(ptr->error) = STATUS_NEGATIVE_VALUE;
+                return true;
             }
 
             ptr->words->l = (uint8_t)truncf(ptr->value) + 1;
             if (ptr->words->l > 16)
             {
-                return STATUS_GCODE_MAX_VALUE_EXCEEDED;
+                *(ptr->error) = STATUS_GCODE_MAX_VALUE_EXCEEDED;
+                return true;
             }
 
-            return STATUS_OK;
+            *(ptr->error) = STATUS_OK;
+            return true;
         }
     }
 
     // if this is not catched by this parser, just send back the error so other extenders can process it
-    return ptr->error;
+    return false;
 }
 
 // this actually performs 2 steps in 1 (validation and execution)
-uint8_t m67_m68_exec(parser_state_t *new_state, parser_words_t *words, parser_cmd_explicit_t *cmd)
+bool m67_m68_exec(void *args)
 {
-	gcode_exec_args_t *ptr = (gcode_exec_args_t *)args;
+    gcode_exec_args_t *ptr = (gcode_exec_args_t *)args;
 
     if (ptr->cmd->group_extended == 67 || ptr->cmd->group_extended == 68)
     {
-		// stops event propagation
-		*handled = true;
-
         if (ptr->words->l == 0)
         {
-            return STATUS_GCODE_VALUE_WORD_MISSING;
+            *(ptr->error) = STATUS_GCODE_VALUE_WORD_MISSING;
+            return true;
         }
 
 #ifndef GCODE_ACCEPT_WORD_E
@@ -109,7 +106,8 @@ uint8_t m67_m68_exec(parser_state_t *new_state, parser_words_t *words, parser_cm
 
         if (analogoutput > 15)
         {
-            return STATUS_GCODE_MAX_VALUE_EXCEEDED;
+            *(ptr->error) = STATUS_GCODE_MAX_VALUE_EXCEEDED;
+            return true;
         }
 
         if (ptr->cmd->group_extended == M67)
@@ -119,10 +117,11 @@ uint8_t m67_m68_exec(parser_state_t *new_state, parser_words_t *words, parser_cm
 
         io_set_pwm(analogoutput, (uint8_t)CLAMP(0, ptr->words->d, 255));
 
-        return STATUS_OK;
+        *(ptr->error) = STATUS_OK;
+        return true;
     }
 
-    return STATUS_GCODE_EXTENDED_UNSUPPORTED;
+    return false;
 }
 
 #endif
