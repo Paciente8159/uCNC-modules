@@ -4,6 +4,11 @@ Smoothieware S Cluster support module. This can be used with the files generated
 
 ## Changelog
 
+### 2023-05-02
+
+- updated to version 1.7 (#17)
+- removed deprecated code (#17)
+
 ### 2022-10-07
 
 - report clustering option in $I info to be recognized by Lightburn (#12)

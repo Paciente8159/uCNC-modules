@@ -4,6 +4,10 @@ This module adds custom G5 (cubic spline) and G5.1 (quadratic spline) code to th
 
 ## Changelog
 
+### 2023-05-02
+
+- updated to version 1.7 (#17)
+
 ### 2022-11-25
 
 - initial implementation (#14)
