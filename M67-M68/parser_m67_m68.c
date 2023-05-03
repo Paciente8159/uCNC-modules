@@ -50,13 +50,13 @@ bool m67_m68_parse(void *args)
         {
             // there is a collision of custom gcode commands (only one per line can be processed)
             *(ptr->error) = STATUS_GCODE_MODAL_GROUP_VIOLATION;
-            return true;
+            return EVENT_HANDLED;
         }
 
         // tells the gcode validation and execution functions this is custom code M42 (ID must be unique)
         ptr->cmd->group_extended = M67 + ptr->code - 67;
         *(ptr->error) = STATUS_OK;
-        return true;
+        return EVENT_HANDLED;
     }
 
     if (ptr->cmd->group_extended == 67 || ptr->cmd->group_extended == 68)
@@ -66,23 +66,23 @@ bool m67_m68_parse(void *args)
             if (ptr->value < 0)
             {
                 *(ptr->error) = STATUS_NEGATIVE_VALUE;
-                return true;
+                return EVENT_HANDLED;
             }
 
             ptr->words->l = (uint8_t)truncf(ptr->value) + 1;
             if (ptr->words->l > 16)
             {
                 *(ptr->error) = STATUS_GCODE_MAX_VALUE_EXCEEDED;
-                return true;
+                return EVENT_HANDLED;
             }
 
             *(ptr->error) = STATUS_OK;
-            return true;
+            return EVENT_HANDLED;
         }
     }
 
     // if this is not catched by this parser, just send back the error so other extenders can process it
-    return false;
+    return EVENT_CONTINUE;
 }
 
 // this actually performs 2 steps in 1 (validation and execution)
@@ -95,7 +95,7 @@ bool m67_m68_exec(void *args)
         if (ptr->words->l == 0)
         {
             *(ptr->error) = STATUS_GCODE_VALUE_WORD_MISSING;
-            return true;
+            return EVENT_HANDLED;
         }
 
 #ifndef GCODE_ACCEPT_WORD_E
@@ -107,7 +107,7 @@ bool m67_m68_exec(void *args)
         if (analogoutput > 15)
         {
             *(ptr->error) = STATUS_GCODE_MAX_VALUE_EXCEEDED;
-            return true;
+            return EVENT_HANDLED;
         }
 
         if (ptr->cmd->group_extended == M67)
@@ -118,10 +118,10 @@ bool m67_m68_exec(void *args)
         io_set_pwm(analogoutput, (uint8_t)CLAMP(0, ptr->words->d, 255));
 
         *(ptr->error) = STATUS_OK;
-        return true;
+        return EVENT_HANDLED;
     }
 
-    return false;
+    return EVENT_CONTINUE;
 }
 
 #endif

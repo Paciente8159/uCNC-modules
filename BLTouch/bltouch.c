@@ -48,14 +48,14 @@ bool bltouch_deploy(void *args)
 {
     mcu_set_servo(BLTOUCH_PROBE_SERVO, BLTOUCH_DEPLOY);
     cnc_delay_ms(BLTOUCH_DELAY);
-    return false;
+    return EVENT_CONTINUE;
 }
 
 bool bltouch_stow(void *args)
 {
     mcu_set_servo(BLTOUCH_PROBE_SERVO, BLTOUCH_STOW);
     cnc_delay_ms(BLTOUCH_DELAY);
-    return false;
+    return EVENT_CONTINUE;
 }
 
 #endif

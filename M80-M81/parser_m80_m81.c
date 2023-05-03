@@ -55,7 +55,7 @@ bool m80_m81_parse(void *args)
 		{
 			// there is a collision of custom gcode commands (only one per line can be processed)
 			*(ptr->error) = STATUS_GCODE_MODAL_GROUP_VIOLATION;
-			return true;
+			return EVENT_HANDLED;
 		}
 
 		switch (ptr->code)
@@ -64,12 +64,12 @@ bool m80_m81_parse(void *args)
 		case 81:
 			ptr->cmd->group_extended = EXTENDED_MCODE_BASE + ptr->code;
 			*(ptr->error) = STATUS_OK;
-			return true;
+			return EVENT_HANDLED;
 		}
 	}
 
 	// if this is not catched by this parser, just send back the error so other extenders can process it
-	return false;
+	return EVENT_CONTINUE;
 }
 
 // this actually performs 2 steps in 1 (validation and execution)
@@ -82,14 +82,14 @@ bool m80_m81_exec(void *args)
 	case M80:
 		io_set_output(PSU_PIN, PSU_ON);
 		*(ptr->error) = STATUS_OK;
-		return true;
+		return EVENT_HANDLED;
 	case M81:
 		io_set_output(PSU_PIN, !PSU_ON);
 		*(ptr->error) = STATUS_OK;
-		return true;
+		return EVENT_HANDLED;
 	}
 
-	return false;
+	return EVENT_CONTINUE;
 }
 
 #endif

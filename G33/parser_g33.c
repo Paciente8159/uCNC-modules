@@ -87,7 +87,7 @@ bool g33_parse(void *args)
 		{
 			// there is a collision of custom gcode commands (only one per line can be processed)
 			*(ptr->error) = STATUS_GCODE_MODAL_GROUP_VIOLATION;
-			return true;
+			return EVENT_HANDLED;
 		}
 		// checks if it's G5 or G5.1
 		// check mantissa
@@ -96,7 +96,7 @@ bool g33_parse(void *args)
 		if (mantissa != 0)
 		{
 			*(ptr->error) = STATUS_GCODE_UNSUPPORTED_COMMAND;
-			return true;
+			return EVENT_HANDLED;
 		}
 
 		ptr->new_state->groups.motion = G33;
@@ -104,11 +104,11 @@ bool g33_parse(void *args)
 		SETFLAG(ptr->cmd->groups, GCODE_GROUP_MOTION);
 		ptr->cmd->group_extended = EXTENDED_MOTION_GCODE(33);
 		*(ptr->error) = STATUS_OK;
-		return true;
+		return EVENT_HANDLED;
 	}
 
 	// if this is not catched by this parser, just send back the error so other extenders can process it
-	return false;
+	return EVENT_CONTINUE;
 }
 
 // this actually performs 2 steps in 1 (validation and execution)
@@ -121,27 +121,27 @@ bool g33_exec(void *args)
 		{
 			// it's an error no axis word is specified
 			*(ptr->error) = STATUS_GCODE_NO_AXIS_WORDS;
-			return true;
+			return EVENT_HANDLED;
 		}
 
 		if (!CHECKFLAG(ptr->cmd->words, GCODE_WORD_K))
 		{
 			// it's an error no distance per rev word is specified
 			*(ptr->error) = STATUS_GCODE_VALUE_WORD_MISSING;
-			return true;
+			return EVENT_HANDLED;
 		}
 
 		// syncs motions and sets spindle
 		if (mc_update_tools(ptr->block_data) != STATUS_OK)
 		{
 			*(ptr->error) = STATUS_CRITICAL_FAIL;
-			return true;
+			return EVENT_HANDLED;
 		}
 
 		if (!ptr->block_data->motion_flags.bit.spindle_running)
 		{
 			*(ptr->error) = STATUS_SPINDLE_STOPPED;
-			return true;
+			return EVENT_HANDLED;
 		}
 
 		// update tool
@@ -159,7 +159,7 @@ bool g33_exec(void *args)
 			if (!cnc_dotasks() || (mcu_millis() - start_spindle_time) > (DELAY_ON_RESUME_SPINDLE * 1000))
 			{
 				*(ptr->error) = STATUS_SPINDLE_STOPPED;
-				return true;
+				return EVENT_HANDLED;
 			}
 		}
 #endif
@@ -180,7 +180,7 @@ bool g33_exec(void *args)
 		if (average_rpm < 1)
 		{
 			*(ptr->error) = STATUS_SPINDLE_STOPPED;
-			return true;
+			return EVENT_HANDLED;
 		}
 
 		// gets the starting point
@@ -262,7 +262,7 @@ bool g33_exec(void *args)
 		if (mc_line(ptr->target, ptr->block_data) != STATUS_OK)
 		{
 			*(ptr->error) = STATUS_CRITICAL_FAIL;
-			return true;
+			return EVENT_HANDLED;
 		}
 
 		// attach the index event callback
@@ -275,7 +275,7 @@ bool g33_exec(void *args)
 		if (itp_sync() != STATUS_OK)
 		{
 			*(ptr->error) = STATUS_CRITICAL_FAIL;
-			return true;
+			return EVENT_HANDLED;
 		}
 
 		synched_motion_status = SYNC_DISABLED;
@@ -283,10 +283,10 @@ bool g33_exec(void *args)
 		encoder_dettach_index_cb();
 
 		*(ptr->error) = STATUS_OK;
-		return true;
+		return EVENT_HANDLED;
 	}
 
-	return false;
+	return EVENT_CONTINUE;
 }
 
 #endif
@@ -340,7 +340,7 @@ bool spindle_sync_update_loop(void *ptr)
 #endif
 	}
 
-	return false;
+	return EVENT_CONTINUE;
 }
 
 CREATE_EVENT_LISTENER(cnc_dotasks, spindle_sync_update_loop);

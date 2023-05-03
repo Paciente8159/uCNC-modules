@@ -69,7 +69,7 @@ bool mycustom_parser(void *args)
 			*(ptr->error) = STATUS_GCODE_MODAL_GROUP_VIOLATION;
 			// because this MCode is our desired code we can prevent further parsing event propagation to other listeners
 			// this avoids errors due to modifications of the return error code and speeds up execution
-			return true;
+			return EVENT_HANDLED;
 		}
 
 		// tells the gcode validation and execution functions this is custom code M999 (ID must be unique)
@@ -77,11 +77,11 @@ bool mycustom_parser(void *args)
 		// return status code error OK
 		*(ptr->error) = STATUS_OK;
 		// again prevents event propagation to speed up the code since this callback handled the event
-		return true;
+		return EVENT_HANDLED;
 	}
 
 	// if this is not catched by this parser, just send back the error so other modules can process it
-	return false;
+	return EVENT_CONTINUE;
 }
 
 /**
@@ -118,11 +118,11 @@ bool mycustom_execution(void *args)
 		// return status code error OK
 		*(ptr->error) = STATUS_OK;
 		// again prevents event propagation to speed up the code since this callback handled the event
-		return true;
+		return EVENT_HANDLED;
 	}
 
 	// if this is not catched by this exec callback, just send back so other modules can process it
-	return false;
+	return EVENT_CONTINUE;
 }
 
 /**

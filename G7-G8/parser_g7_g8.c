@@ -75,12 +75,12 @@ bool g7_g8_parse(void *args)
 		{
 			// stops event propagation
 			*(ptr->error) = STATUS_OK;
-			return true;
+			return EVENT_HANDLED;
 		}
 	}
 
 	// if this is not catched by this parser, just send back the error so other extenders can process it
-	return false;
+	return EVENT_CONTINUE;
 }
 
 // modifies motion block
@@ -95,7 +95,7 @@ bool g7_g8_before_motion(void *args)
 	}
 
 	*(ptr->error) = STATUS_OK;
-	return false;
+	return EVENT_CONTINUE;
 }
 
 // modifies motion block
@@ -110,13 +110,13 @@ bool g7_g8_after_motion(void *args)
 	}
 
 	*(ptr->error) = STATUS_OK;
-	return false;
+	return EVENT_CONTINUE;
 }
 
 bool g7_g8_reset(void *args)
 {
 	parser_lathe_radius_mode = G8; // default
-	return false;
+	return EVENT_CONTINUE;
 }
 
 bool g7_g8_send_gcode_modes(void *args)
@@ -131,7 +131,7 @@ bool g7_g8_send_gcode_modes(void *args)
 		serial_putc('8');
 	}
 	serial_putc(' ');
-	return false;
+	return EVENT_CONTINUE;
 }
 
 #endif

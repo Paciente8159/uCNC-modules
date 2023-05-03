@@ -53,7 +53,7 @@ bool smoothie_clustering_parse_token(void *args)
 		float val;
 		if (!parser_get_float(&val))
 		{
-			return false;
+			return EVENT_CONTINUE;
 		}
 
 		s_cluster[i++] = (uint16_t)(val * g_settings.spindle_max_rpm);
@@ -62,10 +62,10 @@ bool smoothie_clustering_parse_token(void *args)
 		{
 			*((unsigned char *)args) = EOL;
 			s_cluster_count = i;
-			return true;
+			return EVENT_HANDLED;
 		}
 	}
-	return false;
+	return EVENT_CONTINUE;
 }
 
 CREATE_EVENT_LISTENER(parse_token, smoothie_clustering_parse_token);
@@ -75,7 +75,7 @@ bool smoothie_clustering_gcode_exec_modifier(void *args)
 	gcode_exec_args_t *gcode = (gcode_exec_args_t *)args;
 
 	gcode->words->s *= g_settings.spindle_max_rpm;
-	return false;
+	return EVENT_CONTINUE;
 }
 
 CREATE_EVENT_LISTENER(gcode_exec_modifier, smoothie_clustering_gcode_exec_modifier);
@@ -128,7 +128,7 @@ bool smoothie_clustering_mc_line_segment(void *args)
 		}
 	}
 
-	return false;
+	return EVENT_CONTINUE;
 }
 
 CREATE_EVENT_LISTENER(mc_line_segment, smoothie_clustering_mc_line_segment);

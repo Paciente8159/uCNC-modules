@@ -50,16 +50,16 @@ bool m42_parse(void *args)
 		{
 			// there is a collision of custom gcode commands (only one per line can be processed)
 			*(ptr->error) = STATUS_GCODE_MODAL_GROUP_VIOLATION;
-			return true;
+			return EVENT_HANDLED;
 		}
 		// tells the gcode validation and execution functions this is custom code M42 (ID must be unique)
 		ptr->cmd->group_extended = M42;
 		*(ptr->error) = STATUS_OK;
-		return true;
+		return EVENT_HANDLED;
 	}
 
 	// if this is not catched by this parser, just send back the error so other extenders can process it
-	return false;
+	return EVENT_CONTINUE;
 }
 
 // this actually performs 2 steps in 1 (validation and execution)
@@ -71,7 +71,7 @@ bool m42_exec(void *args)
 		if (CHECKFLAG(ptr->cmd->words, (GCODE_WORD_S | GCODE_WORD_P)) != (GCODE_WORD_S | GCODE_WORD_P))
 		{
 			*(ptr->error) = STATUS_GCODE_VALUE_WORD_MISSING;
-			return true;
+			return EVENT_HANDLED;
 		}
 
 		if (ptr->words->p >= PWM0_ID && ptr->words->p < DOUT0_ID)
@@ -85,10 +85,10 @@ bool m42_exec(void *args)
 		}
 
 		*(ptr->error) = STATUS_OK;
-		return true;
+		return EVENT_HANDLED;
 	}
 
-	return false;
+	return EVENT_CONTINUE;
 }
 
 #endif

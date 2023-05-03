@@ -30,8 +30,8 @@ bool mycustom_task(void *args)
 {
 	// just do whatever you need here
 
-	// you must return false to enable other tasks to run or return true to terminate the event handling within this callback
-	return false;
+	// you must return EVENT_CONTINUE to enable other tasks to run or return EVENT_HANDLED to terminate the event handling within this callback
+	return EVENT_CONTINUE;
 }
 
 /**

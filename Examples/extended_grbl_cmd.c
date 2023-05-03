@@ -52,20 +52,17 @@ bool mycustom_system_cmd(void *args)
 	// if the word command M99 (word-M value-999) then it's our code
 	if (!strcmp((char *)ptr->cmd, "CMD"))
 	{
-		// because this is the expected system command 'CMD', we can prevent further parsing event propagation to other listeners 
-		// this avoids errors due to modifications of the return error code and speeds up execution
-		*handled = true;
-
 		// do whatever you need to do in this command
 		// for example print [CMD] (stored in ROM/FLASH)
 		protocol_send_string(__romstr__("[CMD]\r\n"));
 
 		//system command should return GRBL_SYSTEM_CMD_EXTENDED
-		return GRBL_SYSTEM_CMD_EXTENDED;
+		*(ptr->error) = GRBL_SYSTEM_CMD_EXTENDED;
+		return EVENT_HANDLED;
 	}
 
 	// just return an error to the handler telling this is an invalid command
-	return GRBL_SYSTEM_CMD_EXTENDED_UNSUPPORTED;
+	return EVENT_CONTINUE;
 }
 
 /**

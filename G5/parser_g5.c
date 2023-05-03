@@ -100,7 +100,7 @@ bool g5_parse(void *args)
 		{
 			// there is a collision of custom gcode commands (only one per line can be processed)
 			*(ptr->error) = STATUS_GCODE_MODAL_GROUP_VIOLATION;
-			return true;
+			return EVENT_HANDLED;
 		}
 		// checks if it's G5 or G5.1
 		// check mantissa
@@ -117,7 +117,7 @@ bool g5_parse(void *args)
 		if (mantissa != 0 && mantissa != 1)
 		{
 			// extendable
-			return false;
+			return EVENT_CONTINUE;
 		}
 
 		// checks if this is a chained G5 motion
@@ -127,11 +127,11 @@ bool g5_parse(void *args)
 		SETFLAG(ptr->cmd->groups, GCODE_GROUP_MOTION);
 		ptr->cmd->group_extended = EXTENDED_MOTION_GCODE(5);
 		*(ptr->error) = STATUS_OK;
-		return true;
+		return EVENT_HANDLED;
 	}
 
 	// if this is not catched by this parser, just send back the error so other extenders can process it
-	return false;
+	return EVENT_CONTINUE;
 }
 
 // this actually performs 2 steps in 1 (validation and execution)
@@ -146,7 +146,7 @@ bool g5_exec(void *args)
 			if (!is_chained_g5 || CHECKFLAG(ptr->cmd->words, (GCODE_WORD_I | GCODE_WORD_J)))
 			{
 				*(ptr->error) = STATUS_GCODE_VALUE_WORD_MISSING;
-				return true;
+				return EVENT_HANDLED;
 			}
 		}
 
@@ -156,7 +156,7 @@ bool g5_exec(void *args)
 			{
 				// it's an error if both Q and P are not explicitly defined
 				*(ptr->error) = STATUS_GCODE_VALUE_WORD_MISSING;
-				return true;
+				return EVENT_HANDLED;
 			}
 		}
 
@@ -164,14 +164,14 @@ bool g5_exec(void *args)
 		{
 			// it's an error if any axis other then X or Y are explicitly defined
 			*(ptr->error) = STATUS_GCODE_AXIS_COMMAND_CONFLICT;
-			return true;
+			return EVENT_HANDLED;
 		}
 
 		if (ptr->new_state->groups.plane != G17)
 		{
 			// it's an error if any axis other then X or Y are explicitly defined
 			*(ptr->error) = STATUS_GCODE_AXIS_COMMAND_CONFLICT;
-			return true;
+			return EVENT_HANDLED;
 		}
 
 		float current[AXIS_COUNT];
@@ -220,16 +220,16 @@ bool g5_exec(void *args)
 			if (error != STATUS_OK)
 			{
 				*(ptr->error) = error;
-				return true;
+				return EVENT_HANDLED;
 			}
 		}
 
 		// ensure last motion to target;
 		*(ptr->error) = mc_line(ptr->target, ptr->block_data);
-		return true;
+		return EVENT_HANDLED;
 	}
 
-	return false;
+	return EVENT_CONTINUE;
 }
 
 #endif

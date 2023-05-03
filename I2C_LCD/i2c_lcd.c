@@ -170,7 +170,7 @@ bool ucnc_lcd_init(void* args)
         lcd_next_update = mcu_millis() + 5000;
     }
 
-	return false;
+	return EVENT_CONTINUE;
 }
 
 CREATE_EVENT_LISTENER(cnc_reset, ucnc_lcd_init);
@@ -237,7 +237,7 @@ bool ucnc_lcd_refresh(void* args)
         lcd_next_update = mcu_millis() + 250;
     }
 
-	return false;
+	return EVENT_CONTINUE;
 }
 
 CREATE_EVENT_LISTENER(cnc_dotasks, ucnc_lcd_refresh);

@@ -229,7 +229,7 @@ OVERRIDE_EVENT_HANDLER(cnc_exec_cmd_error)
 	f_close(&fp);
 	serial_rx_clear();
 	// *handled = true;
-	return false;
+	return EVENT_CONTINUE;
 }
 
 // CREATE_EVENT_LISTENER(cnc_exec_cmd_error, sd_card_stop_onerror);
@@ -269,7 +269,7 @@ bool sd_card_loop(void *args)
 			if (serial_get_rx_freebytes() < 32)
 			{
 				// leaves the loop to enable code to run
-				return false;
+				return EVENT_CONTINUE;
 			}
 			f_read(&fp, buff, 32, &i);
 			uint8_t j = 0;
@@ -296,7 +296,7 @@ bool sd_card_loop(void *args)
 		file_runs = runs;
 	}
 
-	return false;
+	return EVENT_CONTINUE;
 }
 
 CREATE_EVENT_LISTENER(cnc_dotasks, sd_card_loop);
@@ -308,7 +308,7 @@ bool sd_settings_load(void *args)
 {
 	if ((sd_card_mounted != SD_MOUNTED))
 	{
-		return false;
+		return EVENT_CONTINUE;
 	}
 
 	UINT i = 0;
@@ -343,7 +343,7 @@ bool sd_settings_save(void *args)
 {
 	if ((sd_card_mounted != SD_MOUNTED))
 	{
-		return false;
+		return EVENT_CONTINUE;
 	}
 
 	UINT i = 0;
@@ -379,7 +379,7 @@ bool sd_settings_erase(void *args)
 
 	if ((sd_card_mounted != SD_MOUNTED))
 	{
-		return false;
+		return EVENT_CONTINUE;
 	}
 
 	if (f_open(&tmp, "/uCNCsettings.raw", FA_CREATE_ALWAYS | FA_WRITE) == FR_OK)
@@ -410,7 +410,7 @@ bool sd_card_cmd_parser(void *args)
 	{
 		sd_card_mount();
 		*(cmd->error) = STATUS_OK;
-		return true;
+		return EVENT_HANDLED;
 	}
 
 	if (!strcmp("UNMNT", (char *)(cmd->cmd)))
@@ -421,35 +421,35 @@ bool sd_card_cmd_parser(void *args)
 			sd_card_mounted = SD_DETECTED;
 		}
 		*(cmd->error) = STATUS_OK;
-		return true;
+		return EVENT_HANDLED;
 	}
 
 	if (!strcmp("LS", (char *)(cmd->cmd)))
 	{
 		sd_card_dir_list();
 		*(cmd->error) = STATUS_OK;
-		return true;
+		return EVENT_HANDLED;
 	}
 
 	if (!strcmp("CD", (char *)(cmd->cmd)))
 	{
 		sd_card_cd();
 		*(cmd->error) = STATUS_OK;
-		return true;
+		return EVENT_HANDLED;
 	}
 
 	if (!strcmp("LPR", (char *)(cmd->cmd)))
 	{
 		sd_card_file_print();
 		*(cmd->error) = STATUS_OK;
-		return true;
+		return EVENT_HANDLED;
 	}
 
 	if (!strcmp("RUN", (char *)(cmd->cmd)))
 	{
 		sd_card_file_run();
 		*(cmd->error) = STATUS_OK;
-		return true;
+		return EVENT_HANDLED;
 	}
 
 	return GRBL_SYSTEM_CMD_EXTENDED_UNSUPPORTED;

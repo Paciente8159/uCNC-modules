@@ -36,12 +36,12 @@ bool extend_settings_load(void *args)
 		// at this point you should call a function to read the settings from a different media
 		// loading returned error. settings corrupted. stop reading.
 		// allow propagate to get settings from eeprom
-	    return false;
+	    return EVENT_CONTINUE;
 	}
 
 	// prevent propagation
-	// to enable event propagation return false
-	return true;
+	// to enable event propagation return EVENT_CONTINUE
+	return EVENT_HANDLED;
 }
 
 bool extend_settings_save(void *args)
@@ -55,11 +55,11 @@ bool extend_settings_save(void *args)
 		
 		//save setting to other media
 		// prevent propagation
-		return true;
+		return EVENT_HANDLED;
 	}
 
 	// allow other settings to be stored in eeprom
-	return false;
+	return EVENT_CONTINUE;
 }
 
 bool extend_settings_change(void *args)
@@ -70,10 +70,10 @@ bool extend_settings_change(void *args)
 		// if matches setting id intercepts the call
 		// load from disk
 		dummy_setting = (uint32_t)set->value;
-		return true;
+		return EVENT_HANDLED;
 	}
 
-	return false;
+	return EVENT_CONTINUE;
 }
 
 bool extend_settings_erase(void *args)
@@ -87,14 +87,14 @@ bool extend_settings_erase(void *args)
 	}
 
 	// prevent propagation
-	// to enable event propagation return false
-	return true;
+	// to enable event propagation return EVENT_CONTINUE
+	return EVENT_HANDLED;
 }
 
 uint8_t extend_protocol_send_cnc_settings(void *args)
 {
 	protocol_send_gcode_setting_line_int(DUMMY_SETTING_ID, dummy_setting);
-	return false;
+	return EVENT_CONTINUE;
 }
 
 CREATE_EVENT_LISTENER(settings_load, extend_settings_load);
