@@ -3,7 +3,7 @@
 	Extension tasks can be added simply by adding an event listener to the core main loop
 */
 
-#include "../cnc.h"
+#include "../../cnc.h"
 #include <stdint.h>
 #include <stdbool.h>
 
@@ -16,7 +16,7 @@
 /**
  * @brief	Check if your current module is up to date with the current core version of module 
  */
-#ifndef UCNC_MODULE_VERSION_1_5_0_PLUS
+#if (UCNC_MODULE_VERSION > 010700)
 #error "This module is not compatible with the current version of µCNC"
 #endif
 
@@ -24,15 +24,14 @@
  * @brief Create a function execute your custom task. All event functions are declared as uint8_t <function>(void* args, bool* handle)
  * 
  * @param args		is a pointer to a set of arguments to be passed to the event handler. In the case of the cnc_dotasks event it's a NULL pointer.
- * @param handled 	is a pointer to a bool (default false). This bool tells the handler if the event should continue to propagate through additional listeners or is handled by the current listener an should stop propagation
- * @return uint8_t 	returns an error code
+ * @return bool 	a boolean that tells the handler if the event should continue to propagate through additional listeners or is handled by the current listener an should stop propagation
  */
-uint8_t mycustom_task(void *args, bool *handled)
+bool mycustom_task(void *args)
 {
 	// just do whatever you need here
 
-	//since this just executes a task and it does not care about the result you can return whatever
-	return 0;
+	// you must return EVENT_CONTINUE to enable other tasks to run or return EVENT_HANDLED to terminate the event handling within this callback
+	return EVENT_CONTINUE;
 }
 
 /**
@@ -57,6 +56,6 @@ DECL_MODULE(mycustom_task_module)
 	ADD_EVENT_LISTENER(cnc_dotasks, mycustom_task);
 #else
 // just a warning in case you disabled the MAIN_LOOP option on build
-#warning "Main loop extensions are not enabled. Your extension will not work."
+#warning "Main loop extensions are not enabled. Your module will not work."
 #endif
 }

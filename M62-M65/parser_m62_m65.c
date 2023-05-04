@@ -22,7 +22,7 @@
 
 #ifdef ENABLE_PARSER_MODULES
 
-#ifndef UCNC_MODULE_VERSION_1_5_0_PLUS
+#if (UCNC_MODULE_VERSION > 010700)
 #error "This module is not compatible with the current version of µCNC"
 #endif
 
@@ -36,49 +36,46 @@
 #define M64 EXTENDED_MCODE(64)
 #define M65 EXTENDED_MCODE(65)
 
-uint8_t m62_m65_parse(void *args, bool *handled);
-uint8_t m62_m65_exec(void *args, bool *handled);
+bool m62_m65_parse(void *args);
+bool m62_m65_exec(void *args);
 
 CREATE_EVENT_LISTENER(gcode_parse, m62_m65_parse);
 CREATE_EVENT_LISTENER(gcode_exec, m62_m65_exec);
 
 // this just parses and acceps the code
-uint8_t m62_m65_parse(void *args, bool *handled)
+bool m62_m65_parse(void *args)
 {
-	gcode_parse_args_t *ptr = (gcode_parse_args_t *)args;
+    gcode_parse_args_t *ptr = (gcode_parse_args_t *)args;
     if (ptr->word == 'M' && ptr->code >= 62 && ptr->code <= 65)
     {
-		// stops event propagation
-		*handled = true;
-
         if (ptr->cmd->group_extended != 0)
         {
             // there is a collision of custom gcode commands (only one per line can be processed)
-            return STATUS_GCODE_MODAL_GROUP_VIOLATION;
+            *(ptr->error) = STATUS_GCODE_MODAL_GROUP_VIOLATION;
+            return EVENT_HANDLED;
         }
 
         // tells the gcode validation and execution functions this is custom code M42 (ID must be unique)
         ptr->cmd->group_extended = EXTENDED_MCODE_BASE + ptr->code;
-        return STATUS_OK;
+        *(ptr->error) = STATUS_OK;
+        return EVENT_HANDLED;
     }
 
     // if this is not catched by this parser, just send back the error so other extenders can process it
-    return ptr->error;
+    return EVENT_CONTINUE;
 }
 
 // this actually performs 2 steps in 1 (validation and execution)
-uint8_t m62_m65_exec(void *args, bool *handled)
+bool m62_m65_exec(void *args)
 {
-	gcode_exec_args_t *ptr = (gcode_exec_args_t *)args;
+    gcode_exec_args_t *ptr = (gcode_exec_args_t *)args;
 
     if (ptr->cmd->group_extended >= 62 && ptr->cmd->group_extended <= 65)
     {
-		// stops event propagation
-		*handled = true;
-
         if (!CHECKFLAG(ptr->cmd->words, GCODE_WORD_P))
         {
-            return STATUS_GCODE_VALUE_WORD_MISSING;
+            *(ptr->error) = STATUS_GCODE_VALUE_WORD_MISSING;
+            return EVENT_HANDLED;
         }
 
         bool pinstate = false;
@@ -100,10 +97,11 @@ uint8_t m62_m65_exec(void *args, bool *handled)
             io_set_output(ptr->words->p + DOUT0_ID, pinstate);
         }
 
-        return STATUS_OK;
+        *(ptr->error) = STATUS_OK;
+        return EVENT_HANDLED;
     }
 
-    return STATUS_GCODE_EXTENDED_UNSUPPORTED;
+    return EVENT_CONTINUE;
 }
 
 #endif

@@ -16,14 +16,13 @@
     See the	GNU General Public License for more details.
 */
 
-
 #include "../../cnc.h"
 #include <stdint.h>
 #include <stdbool.h>
 
-#if ENABLE_IO_MODULES
+#ifdef ENABLE_IO_MODULES
 
-#ifndef UCNC_MODULE_VERSION_1_5_0_PLUS
+#if (UCNC_MODULE_VERSION > 010700)
 #error "This module is not compatible with the current version of µCNC"
 #endif
 
@@ -39,24 +38,24 @@
 #define BLTOUCH_SELF_TEST (165)         // 120º
 #define BLTOUCH_ALARM_REL_PUSH_UP (216) // 160º
 
-void bltouch_deploy(void);
-void bltouch_stow(void);
+bool bltouch_deploy(void *args);
+bool bltouch_stow(void *args);
 
 CREATE_EVENT_LISTENER(probe_enable, bltouch_deploy);
 CREATE_EVENT_LISTENER(probe_disable, bltouch_stow);
 
-uint8_t bltouch_deploy(void* args, bool* handled)
+bool bltouch_deploy(void *args)
 {
     mcu_set_servo(BLTOUCH_PROBE_SERVO, BLTOUCH_DEPLOY);
     cnc_delay_ms(BLTOUCH_DELAY);
-	return 0;
+    return EVENT_CONTINUE;
 }
 
-uint8_t bltouch_stow(void* args, bool* handled)
+bool bltouch_stow(void *args)
 {
     mcu_set_servo(BLTOUCH_PROBE_SERVO, BLTOUCH_STOW);
     cnc_delay_ms(BLTOUCH_DELAY);
-	return 0;
+    return EVENT_CONTINUE;
 }
 
 #endif

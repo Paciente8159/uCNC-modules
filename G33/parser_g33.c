@@ -23,7 +23,7 @@
 
 #ifdef ENABLE_PARSER_MODULES
 
-#ifndef UCNC_MODULE_VERSION_1_5_0_PLUS
+#if (UCNC_MODULE_VERSION > 010700)
 #error "This module is not compatible with the current version of µCNC"
 #endif
 
@@ -70,24 +70,24 @@ void spindle_index_cb_handler(void)
 // this ID must be unique for each code
 #define G33 33
 
-uint8_t g33_parse(void *args, bool *handled);
-uint8_t g33_exec(void *args, bool *handled);
+bool g33_parse(void *args);
+bool g33_exec(void *args);
 
 CREATE_EVENT_LISTENER(gcode_parse, g33_parse);
 CREATE_EVENT_LISTENER(gcode_exec, g33_exec);
 
 // this just parses and accepts the code
-uint8_t g33_parse(void *args, bool *handled)
+bool g33_parse(void *args)
 {
 	gcode_parse_args_t *ptr = (gcode_parse_args_t *)args;
 	if (ptr->word == 'G' && ptr->code == 33)
 	{
 		// stops event propagation
-		*handled = true;
 		if (ptr->cmd->group_extended != 0 || CHECKFLAG(ptr->cmd->groups, GCODE_GROUP_MOTION))
 		{
 			// there is a collision of custom gcode commands (only one per line can be processed)
-			return STATUS_GCODE_MODAL_GROUP_VIOLATION;
+			*(ptr->error) = STATUS_GCODE_MODAL_GROUP_VIOLATION;
+			return EVENT_HANDLED;
 		}
 		// checks if it's G5 or G5.1
 		// check mantissa
@@ -95,50 +95,53 @@ uint8_t g33_parse(void *args, bool *handled)
 
 		if (mantissa != 0)
 		{
-			return STATUS_GCODE_UNSUPPORTED_COMMAND;
+			*(ptr->error) = STATUS_GCODE_UNSUPPORTED_COMMAND;
+			return EVENT_HANDLED;
 		}
 
 		ptr->new_state->groups.motion = G33;
 		ptr->new_state->groups.motion_mantissa = 0;
 		SETFLAG(ptr->cmd->groups, GCODE_GROUP_MOTION);
 		ptr->cmd->group_extended = EXTENDED_MOTION_GCODE(33);
-		return STATUS_OK;
+		*(ptr->error) = STATUS_OK;
+		return EVENT_HANDLED;
 	}
 
 	// if this is not catched by this parser, just send back the error so other extenders can process it
-	return ptr->error;
+	return EVENT_CONTINUE;
 }
 
 // this actually performs 2 steps in 1 (validation and execution)
-uint8_t g33_exec(void *args, bool *handled)
+bool g33_exec(void *args)
 {
 	gcode_exec_args_t *ptr = (gcode_exec_args_t *)args;
 	if (ptr->cmd->group_extended == EXTENDED_MOTION_GCODE(33))
 	{
-		// stops event propagation
-		*handled = true;
-
 		if (!CHECKFLAG(ptr->cmd->words, GCODE_XYZ_AXIS))
 		{
 			// it's an error no axis word is specified
-			return STATUS_GCODE_NO_AXIS_WORDS;
+			*(ptr->error) = STATUS_GCODE_NO_AXIS_WORDS;
+			return EVENT_HANDLED;
 		}
 
 		if (!CHECKFLAG(ptr->cmd->words, GCODE_WORD_K))
 		{
 			// it's an error no distance per rev word is specified
-			return STATUS_GCODE_VALUE_WORD_MISSING;
+			*(ptr->error) = STATUS_GCODE_VALUE_WORD_MISSING;
+			return EVENT_HANDLED;
 		}
 
 		// syncs motions and sets spindle
 		if (mc_update_tools(ptr->block_data) != STATUS_OK)
 		{
-			return STATUS_CRITICAL_FAIL;
+			*(ptr->error) = STATUS_CRITICAL_FAIL;
+			return EVENT_HANDLED;
 		}
 
 		if (!ptr->block_data->motion_flags.bit.spindle_running)
 		{
-			return STATUS_SPINDLE_STOPPED;
+			*(ptr->error) = STATUS_SPINDLE_STOPPED;
+			return EVENT_HANDLED;
 		}
 
 		// update tool
@@ -155,7 +158,8 @@ uint8_t g33_exec(void *args, bool *handled)
 		{
 			if (!cnc_dotasks() || (mcu_millis() - start_spindle_time) > (DELAY_ON_RESUME_SPINDLE * 1000))
 			{
-				return STATUS_SPINDLE_STOPPED;
+				*(ptr->error) = STATUS_SPINDLE_STOPPED;
+				return EVENT_HANDLED;
 			}
 		}
 #endif
@@ -175,7 +179,8 @@ uint8_t g33_exec(void *args, bool *handled)
 		// spindle speed ins not valid
 		if (average_rpm < 1)
 		{
-			return STATUS_SPINDLE_STOPPED;
+			*(ptr->error) = STATUS_SPINDLE_STOPPED;
+			return EVENT_HANDLED;
 		}
 
 		// gets the starting point
@@ -256,7 +261,8 @@ uint8_t g33_exec(void *args, bool *handled)
 
 		if (mc_line(ptr->target, ptr->block_data) != STATUS_OK)
 		{
-			return STATUS_CRITICAL_FAIL;
+			*(ptr->error) = STATUS_CRITICAL_FAIL;
+			return EVENT_HANDLED;
 		}
 
 		// attach the index event callback
@@ -268,23 +274,25 @@ uint8_t g33_exec(void *args, bool *handled)
 		// wait for the motion to end
 		if (itp_sync() != STATUS_OK)
 		{
-			return STATUS_CRITICAL_FAIL;
+			*(ptr->error) = STATUS_CRITICAL_FAIL;
+			return EVENT_HANDLED;
 		}
 
 		synched_motion_status = SYNC_DISABLED;
 
 		encoder_dettach_index_cb();
 
-		return STATUS_OK;
+		*(ptr->error) = STATUS_OK;
+		return EVENT_HANDLED;
 	}
 
-	return STATUS_GCODE_EXTENDED_UNSUPPORTED;
+	return EVENT_CONTINUE;
 }
 
 #endif
 
 #ifdef ENABLE_MAIN_LOOP_MODULES
-uint8_t spindle_sync_update_loop(void *ptr, bool *handled)
+bool spindle_sync_update_loop(void *ptr)
 {
 	if ((synched_motion_status == SYNC_RUNNING))
 	{
@@ -332,7 +340,7 @@ uint8_t spindle_sync_update_loop(void *ptr, bool *handled)
 #endif
 	}
 
-	return STATUS_OK;
+	return EVENT_CONTINUE;
 }
 
 CREATE_EVENT_LISTENER(cnc_dotasks, spindle_sync_update_loop);

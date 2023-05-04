@@ -5,6 +5,10 @@ It requires any 2 µCNC generic digital input pins of the board. It uses softwar
 
 ## Changelog
 
+### 2023-05-02
+
+- updated to version 1.7 (#17)
+
 ### 2022-09-13
 
 - core I2C functions re-write (#9)

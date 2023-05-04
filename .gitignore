@@ -1,0 +1,80 @@
+#Visual Studio
+.vs/
+obj/
+
+#devcpp
+*.devcpp
+*.layout
+
+# Prerequisites
+*.d
+
+# Object files
+*.o
+*.ko
+*.obj
+*.elf
+
+# Linker output
+*.ilk
+*.map
+*.exp
+
+# Precompiled Headers
+*.gch
+*.pch
+
+# Libraries
+*.lib
+*.a
+*.la
+*.lo
+
+# Shared objects (inc. Windows DLLs)
+*.dll
+*.so
+*.so.*
+*.dylib
+
+# Executables
+build/
+*.exe
+*.out
+*.app
+*.i*86
+*.x86_64
+*.hex
+*.lst
+*.lss
+*.bin
+*.elf
+
+# Debug files
+*.dSYM/
+*.su
+*.idb
+*.pdb
+
+# Kernel Module Compile Results
+*.mod*
+*.cmd
+.tmp_versions/
+modules.order
+Module.symvers
+Mkfile.old
+dkms.conf
+*.win
+virtualeeprom
+*.txt
+
+# Other files
+*.dat
+
+# VSCode
+*.cfg
+windows/uCNCgui/obj/Debug/net6.0-windows/uCNCgui.assets.cache
+windows/uCNCgui/obj/Debug/net6.0-windows/uCNCgui.GeneratedMSBuildEditorConfig.editorconfig
+.vscode/
+
+#PlatformIO
+.pio

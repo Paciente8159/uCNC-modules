@@ -27,7 +27,7 @@
 #include <stdbool.h>
 #include <string.h>
 
-#ifndef UCNC_MODULE_VERSION_1_5_0_PLUS
+#if (UCNC_MODULE_VERSION > 010700)
 #error "This module is not compatible with the current version of µCNC"
 #endif
 
@@ -222,14 +222,14 @@ void sd_card_file_run(void)
 }
 
 #ifdef SD_STOP_ON_GCODE_ERROR
-// uint8_t sd_card_stop_onerror(void *args, bool *handled)
+// uint8_t sd_card_stop_onerror(void *args)
 OVERRIDE_EVENT_HANDLER(cnc_exec_cmd_error)
 {
 	file_runs = 0;
 	f_close(&fp);
 	serial_rx_clear();
 	// *handled = true;
-	return STATUS_OK;
+	return EVENT_CONTINUE;
 }
 
 // CREATE_EVENT_LISTENER(cnc_exec_cmd_error, sd_card_stop_onerror);
@@ -239,7 +239,7 @@ OVERRIDE_EVENT_HANDLER(cnc_exec_cmd_error)
 /**
  * Handles SD card in the main loop
  * */
-uint8_t sd_card_loop(void *args, bool *handled)
+bool sd_card_loop(void *args)
 {
 #if (!(SD_CARD_DETECT_PIN < 0))
 	if (mcu_get_input(SD_CARD_DETECT_PIN) && sd_card_mounted)
@@ -269,7 +269,7 @@ uint8_t sd_card_loop(void *args, bool *handled)
 			if (serial_get_rx_freebytes() < 32)
 			{
 				// leaves the loop to enable code to run
-				return STATUS_OK;
+				return EVENT_CONTINUE;
 			}
 			f_read(&fp, buff, 32, &i);
 			uint8_t j = 0;
@@ -296,25 +296,24 @@ uint8_t sd_card_loop(void *args, bool *handled)
 		file_runs = runs;
 	}
 
-	return STATUS_OK;
+	return EVENT_CONTINUE;
 }
 
 CREATE_EVENT_LISTENER(cnc_dotasks, sd_card_loop);
 #endif
 
 #ifdef ENABLE_SETTINGS_MODULES
-uint8_t sd_settings_load(void *args, bool *handled)
+bool sd_settings_load(void *args)
 // OVERRIDE_EVENT_HANDLER(settings_load)
 {
-	UINT i = 0;
-	uint8_t result = 0;
-	FIL tmp;
-
 	if ((sd_card_mounted != SD_MOUNTED))
 	{
-		return 0;
+		return EVENT_CONTINUE;
 	}
 
+	UINT i = 0;
+	bool result = false;
+	FIL tmp;
 	settings_args_t *p = args;
 
 	if (f_open(&tmp, "/uCNCsettings.raw", FA_READ | FA_OPEN_EXISTING) == FR_OK)
@@ -325,7 +324,7 @@ uint8_t sd_settings_load(void *args, bool *handled)
 		if (p->size == i && !error)
 		{
 			protocol_send_feedback(__romstr__("SD card settings loaded"));
-			result = STATUS_EXTERNAL_SETTINGS_OK;
+			result = true;
 		}
 	}
 	else
@@ -339,19 +338,19 @@ uint8_t sd_settings_load(void *args, bool *handled)
 
 CREATE_EVENT_LISTENER(settings_load, sd_settings_load);
 
-uint8_t sd_settings_save(void *args, bool *handled)
+bool sd_settings_save(void *args)
 // OVERRIDE_EVENT_HANDLER(settings_save)
 {
-	UINT i = 0;
-	FIL tmp;
-	uint8_t result = 0;
-
 	if ((sd_card_mounted != SD_MOUNTED))
 	{
-		return 0;
+		return EVENT_CONTINUE;
 	}
 
+	UINT i = 0;
+	FIL tmp;
+	bool result = false;
 	settings_args_t *p = args;
+
 	if (f_open(&tmp, "/uCNCsettings.raw", FA_OPEN_APPEND | FA_WRITE | FA_READ) == FR_OK)
 	{
 		f_lseek(&tmp, p->address);
@@ -361,7 +360,7 @@ uint8_t sd_settings_save(void *args, bool *handled)
 		if (p->size == i && !error)
 		{
 			protocol_send_feedback(__romstr__("SD card settings saved"));
-			result = STATUS_EXTERNAL_SETTINGS_OK;
+			result = true;
 		}
 	}
 
@@ -372,21 +371,21 @@ uint8_t sd_settings_save(void *args, bool *handled)
 
 CREATE_EVENT_LISTENER(settings_save, sd_settings_save);
 
-uint8_t sd_settings_erase(void *args, bool *handled)
+bool sd_settings_erase(void *args)
 // OVERRIDE_EVENT_HANDLER(settings_erase)
 {
 	FIL tmp;
-	uint8_t result = 0;
+	bool result = false;
 
 	if ((sd_card_mounted != SD_MOUNTED))
 	{
-		return 0;
+		return EVENT_CONTINUE;
 	}
 
 	if (f_open(&tmp, "/uCNCsettings.raw", FA_CREATE_ALWAYS | FA_WRITE) == FR_OK)
 	{
 		protocol_send_feedback(__romstr__("SD card settings erased"));
-		result = STATUS_EXTERNAL_SETTINGS_OK;
+		result = true;
 	}
 
 	f_close(&tmp);
@@ -394,14 +393,14 @@ uint8_t sd_settings_erase(void *args, bool *handled)
 	return result;
 }
 
-// CREATE_EVENT_LISTENER(settings_erase, sd_settings_erase);
+CREATE_EVENT_LISTENER(settings_erase, sd_settings_erase);
 #endif
 
 #ifdef ENABLE_PARSER_MODULES
 /**
  * Handles grbl commands for the SD card
  * */
-uint8_t sd_card_cmd_parser(void *args, bool *handled)
+bool sd_card_cmd_parser(void *args)
 {
 	grbl_cmd_args_t *cmd = args;
 
@@ -410,8 +409,8 @@ uint8_t sd_card_cmd_parser(void *args, bool *handled)
 	if (!strcmp("MNT", (char *)(cmd->cmd)))
 	{
 		sd_card_mount();
-		*handled = true;
-		return GRBL_SYSTEM_CMD_EXTENDED;
+		*(cmd->error) = STATUS_OK;
+		return EVENT_HANDLED;
 	}
 
 	if (!strcmp("UNMNT", (char *)(cmd->cmd)))
@@ -421,36 +420,36 @@ uint8_t sd_card_cmd_parser(void *args, bool *handled)
 			f_unmount("");
 			sd_card_mounted = SD_DETECTED;
 		}
-		*handled = true;
-		return GRBL_SYSTEM_CMD_EXTENDED;
+		*(cmd->error) = STATUS_OK;
+		return EVENT_HANDLED;
 	}
 
 	if (!strcmp("LS", (char *)(cmd->cmd)))
 	{
 		sd_card_dir_list();
-		*handled = true;
-		return GRBL_SYSTEM_CMD_EXTENDED;
+		*(cmd->error) = STATUS_OK;
+		return EVENT_HANDLED;
 	}
 
 	if (!strcmp("CD", (char *)(cmd->cmd)))
 	{
 		sd_card_cd();
-		*handled = true;
-		return GRBL_SYSTEM_CMD_EXTENDED;
+		*(cmd->error) = STATUS_OK;
+		return EVENT_HANDLED;
 	}
 
 	if (!strcmp("LPR", (char *)(cmd->cmd)))
 	{
 		sd_card_file_print();
-		*handled = true;
-		return GRBL_SYSTEM_CMD_EXTENDED;
+		*(cmd->error) = STATUS_OK;
+		return EVENT_HANDLED;
 	}
 
 	if (!strcmp("RUN", (char *)(cmd->cmd)))
 	{
 		sd_card_file_run();
-		*handled = true;
-		return GRBL_SYSTEM_CMD_EXTENDED;
+		*(cmd->error) = STATUS_OK;
+		return EVENT_HANDLED;
 	}
 
 	return GRBL_SYSTEM_CMD_EXTENDED_UNSUPPORTED;

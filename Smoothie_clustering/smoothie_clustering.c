@@ -21,7 +21,7 @@
 #include <stdbool.h>
 #include <string.h>
 
-#ifndef UCNC_MODULE_VERSION_1_5_0_PLUS
+#if (UCNC_MODULE_VERSION > 010700)
 #error "This module is not compatible with the current version of µCNC"
 #endif
 
@@ -33,7 +33,7 @@ static uint16_t s_cluster[(S_CLUSTER_SIZE - 1)];
 static uint8_t s_cluster_count;
 
 #ifdef ENABLE_SYSTEM_INFO
-uint8_t smoothie_clustering_info(void *args, bool *handled)
+bool smoothie_clustering_info(void *args)
 {
 	protocol_send_string(__romstr__("CLUSTER:" STRGIFY(S_CLUSTER_SIZE)));
 	return 0;
@@ -44,17 +44,16 @@ CREATE_EVENT_LISTENER(protocol_send_cnc_info, smoothie_clustering_info);
 
 #ifdef ENABLE_PARSER_MODULES
 
-uint8_t smoothie_clustering_parse_token(void *args, bool *handled)
+bool smoothie_clustering_parse_token(void *args)
 {
 	unsigned char c = *((unsigned char *)args);
 	uint8_t i = 0;
 	while (c == ':')
 	{
-		*handled = true;
 		float val;
 		if (!parser_get_float(&val))
 		{
-			return 0;
+			return EVENT_CONTINUE;
 		}
 
 		s_cluster[i++] = (uint16_t)(val * g_settings.spindle_max_rpm);
@@ -63,20 +62,20 @@ uint8_t smoothie_clustering_parse_token(void *args, bool *handled)
 		{
 			*((unsigned char *)args) = EOL;
 			s_cluster_count = i;
-			return 1;
+			return EVENT_HANDLED;
 		}
 	}
-	return 0;
+	return EVENT_CONTINUE;
 }
 
 CREATE_EVENT_LISTENER(parse_token, smoothie_clustering_parse_token);
 
-uint8_t smoothie_clustering_gcode_exec_modifier(void *args, bool *handled)
+bool smoothie_clustering_gcode_exec_modifier(void *args)
 {
 	gcode_exec_args_t *gcode = (gcode_exec_args_t *)args;
 
 	gcode->words->s *= g_settings.spindle_max_rpm;
-	return 0;
+	return EVENT_CONTINUE;
 }
 
 CREATE_EVENT_LISTENER(gcode_exec_modifier, smoothie_clustering_gcode_exec_modifier);
@@ -85,7 +84,7 @@ CREATE_EVENT_LISTENER(gcode_exec_modifier, smoothie_clustering_gcode_exec_modifi
 
 #ifdef ENABLE_MOTION_CONTROL_MODULES
 
-uint8_t smoothie_clustering_mc_line_segment(void *args, bool *handled)
+bool smoothie_clustering_mc_line_segment(void *args)
 {
 	uint8_t clusters = s_cluster_count;
 	s_cluster_count = 0;
@@ -102,7 +101,6 @@ uint8_t smoothie_clustering_mc_line_segment(void *args, bool *handled)
 			new_block.steps[i] /= (clusters + 1);
 		}
 
-		new_block.total_steps /= (clusters + 1);
 		block_data->dwell = 0;
 
 		for (uint8_t j = 0; j < clusters; j++)
@@ -118,7 +116,6 @@ uint8_t smoothie_clustering_mc_line_segment(void *args, bool *handled)
 				block_data->steps[i] -= new_block.steps[i];
 			}
 
-			block_data->total_steps -= new_block.total_steps;
 			block_data->spindle = new_block.spindle = s_cluster[j];
 
 			while (planner_buffer_is_full())
@@ -131,7 +128,7 @@ uint8_t smoothie_clustering_mc_line_segment(void *args, bool *handled)
 		}
 	}
 
-	return 0;
+	return EVENT_CONTINUE;
 }
 
 CREATE_EVENT_LISTENER(mc_line_segment, smoothie_clustering_mc_line_segment);

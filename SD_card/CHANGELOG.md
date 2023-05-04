@@ -6,6 +6,10 @@ For best performance the hardware SPI should be used.
 
 ## Changelog
 
+### 2023-05-02
+
+- updated to version 1.7 (#17)
+
 ### 2022-10-10
 
 - modified sd card handlers to allow multiple settings event listeners (#13)

@@ -22,7 +22,7 @@
 
 #ifdef ENABLE_PARSER_MODULES
 
-#ifndef UCNC_MODULE_VERSION_1_5_0_PLUS
+#if (UCNC_MODULE_VERSION > 010700)
 #error "This module is not compatible with the current version of µCNC"
 #endif
 
@@ -33,8 +33,8 @@
 // this ID must be unique for each code
 #define G5 5
 
-uint8_t g5_parse(void *args, bool *handled);
-uint8_t g5_exec(void *args, bool *handled);
+bool g5_parse(void *args);
+bool g5_exec(void *args);
 
 CREATE_EVENT_LISTENER(gcode_parse, g5_parse);
 CREATE_EVENT_LISTENER(gcode_exec, g5_exec);
@@ -42,7 +42,7 @@ CREATE_EVENT_LISTENER(gcode_exec, g5_exec);
 static bool is_chained_g5;
 static float next_x;
 static float next_y;
-//#define SPLINE_USE_CASTELJAUS
+// #define SPLINE_USE_CASTELJAUS
 
 #ifdef SPLINE_USE_CASTELJAUS
 // De Casteljau's algorithm
@@ -91,17 +91,16 @@ float cubic_spline_interpol(const float a, const float b, const float c, const f
 }
 
 // this just parses and accepts the code
-uint8_t g5_parse(void *args, bool *handled)
+bool g5_parse(void *args)
 {
 	gcode_parse_args_t *ptr = (gcode_parse_args_t *)args;
 	if (ptr->word == 'G' && ptr->code == 5)
 	{
-		// stops event propagation
-		*handled = true;
 		if (ptr->cmd->group_extended != 0 || CHECKFLAG(ptr->cmd->groups, GCODE_GROUP_MOTION))
 		{
 			// there is a collision of custom gcode commands (only one per line can be processed)
-			return STATUS_GCODE_MODAL_GROUP_VIOLATION;
+			*(ptr->error) = STATUS_GCODE_MODAL_GROUP_VIOLATION;
+			return EVENT_HANDLED;
 		}
 		// checks if it's G5 or G5.1
 		// check mantissa
@@ -117,7 +116,8 @@ uint8_t g5_parse(void *args, bool *handled)
 
 		if (mantissa != 0 && mantissa != 1)
 		{
-			return STATUS_GCODE_UNSUPPORTED_COMMAND;
+			// extendable
+			return EVENT_CONTINUE;
 		}
 
 		// checks if this is a chained G5 motion
@@ -126,28 +126,27 @@ uint8_t g5_parse(void *args, bool *handled)
 		ptr->new_state->groups.motion_mantissa = mantissa;
 		SETFLAG(ptr->cmd->groups, GCODE_GROUP_MOTION);
 		ptr->cmd->group_extended = EXTENDED_MOTION_GCODE(5);
-		return STATUS_OK;
+		*(ptr->error) = STATUS_OK;
+		return EVENT_HANDLED;
 	}
 
 	// if this is not catched by this parser, just send back the error so other extenders can process it
-	return ptr->error;
+	return EVENT_CONTINUE;
 }
 
 // this actually performs 2 steps in 1 (validation and execution)
-uint8_t g5_exec(void *args, bool *handled)
+bool g5_exec(void *args)
 {
 	gcode_exec_args_t *ptr = (gcode_exec_args_t *)args;
 	if (ptr->cmd->group_extended == EXTENDED_MOTION_GCODE(5))
 	{
-		// stops event propagation
-		*handled = true;
-
 		if (CHECKFLAG(ptr->cmd->words, (GCODE_WORD_I | GCODE_WORD_J)) != (GCODE_WORD_I | GCODE_WORD_J))
 		{
 			// it's an error if both I and J are not explicitly defined or if they are omitted without a previous G5 command
 			if (!is_chained_g5 || CHECKFLAG(ptr->cmd->words, (GCODE_WORD_I | GCODE_WORD_J)))
 			{
-				return STATUS_GCODE_VALUE_WORD_MISSING;
+				*(ptr->error) = STATUS_GCODE_VALUE_WORD_MISSING;
+				return EVENT_HANDLED;
 			}
 		}
 
@@ -156,20 +155,23 @@ uint8_t g5_exec(void *args, bool *handled)
 			if (CHECKFLAG(ptr->cmd->words, (GCODE_WORD_P | GCODE_WORD_Q)) != (GCODE_WORD_P | GCODE_WORD_Q))
 			{
 				// it's an error if both Q and P are not explicitly defined
-				return STATUS_GCODE_VALUE_WORD_MISSING;
+				*(ptr->error) = STATUS_GCODE_VALUE_WORD_MISSING;
+				return EVENT_HANDLED;
 			}
 		}
 
 		if (CHECKFLAG(ptr->cmd->words, (GCODE_WORD_Z | GCODE_WORD_A | GCODE_WORD_B | GCODE_WORD_C)))
 		{
 			// it's an error if any axis other then X or Y are explicitly defined
-			return STATUS_GCODE_AXIS_COMMAND_CONFLICT;
+			*(ptr->error) = STATUS_GCODE_AXIS_COMMAND_CONFLICT;
+			return EVENT_HANDLED;
 		}
 
 		if (ptr->new_state->groups.plane != G17)
 		{
 			// it's an error if any axis other then X or Y are explicitly defined
-			return STATUS_GCODE_AXIS_COMMAND_CONFLICT;
+			*(ptr->error) = STATUS_GCODE_AXIS_COMMAND_CONFLICT;
+			return EVENT_HANDLED;
 		}
 
 		float current[AXIS_COUNT];
@@ -217,15 +219,17 @@ uint8_t g5_exec(void *args, bool *handled)
 			error = mc_line(next, ptr->block_data);
 			if (error != STATUS_OK)
 			{
-				return error;
+				*(ptr->error) = error;
+				return EVENT_HANDLED;
 			}
 		}
 
 		// ensure last motion to target;
-		return mc_line(ptr->target, ptr->block_data);
+		*(ptr->error) = mc_line(ptr->target, ptr->block_data);
+		return EVENT_HANDLED;
 	}
 
-	return STATUS_GCODE_EXTENDED_UNSUPPORTED;
+	return EVENT_CONTINUE;
 }
 
 #endif
