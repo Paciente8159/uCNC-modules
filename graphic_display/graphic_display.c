@@ -29,18 +29,16 @@
 #error "This module is not compatible with the current version of µCNC"
 #endif
 
+#define GRAPHIC_DISPLAY_SW_SPI 1
+#define GRAPHIC_DISPLAY_HW_SPI 2
+#define GRAPHIC_DISPLAY_SW_I2C 4
+#define GRAPHIC_DISPLAY_HW_I2C 8
+
+#ifndef GRAPHIC_DISPLAY_INTERFACE
+#define GRAPHIC_DISPLAY_INTERFACE GRAPHIC_DISPLAY_SW_SPI
+#endif
+
 // used with graphic_display module
-
-#ifndef U8X8_MSG_GPIO_SPI_CLOCK_PIN
-#define U8X8_MSG_GPIO_SPI_CLOCK_PIN DOUT4
-#endif
-#ifndef U8X8_MSG_GPIO_SPI_DATA_PIN
-#define U8X8_MSG_GPIO_SPI_DATA_PIN DOUT5
-#endif
-#ifndef U8X8_MSG_GPIO_CS_PIN
-#define U8X8_MSG_GPIO_CS_PIN DOUT6
-#endif
-
 #ifndef GRAPHIC_DISPLAY_BEEP
 #define GRAPHIC_DISPLAY_BEEP DOUT7
 #endif
@@ -76,68 +74,83 @@ static u8g2_t graphiclcd_u8g2;
 
 /**
  *
- * can also be done via hardware SPI and I2C libraries of µCNC
+ * can also be done via hardware SPI and I2C ports of µCNC
  * but is not needed
  *
  * */
+#if (GRAPHIC_DISPLAY_INTERFACE & (GRAPHIC_DISPLAY_SW_SPI | GRAPHIC_DISPLAY_HW_SPI))
 
-// #ifdef MCU_HAS_SPI
-// #include "../softspi.h"
-// uint8_t u8x8_byte_ucnc_hw_spi(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int, void *arg_ptr)
-// {
-// 	uint8_t *data;
-// 	switch (msg)
-// 	{
-// 	case U8X8_MSG_BYTE_SEND:
-// 		data = (uint8_t *)arg_ptr;
-// 		while (arg_int > 0)
-// 		{
-// 			softspi_xmit(NULL, (uint8_t)*data);
-// 			data++;
-// 			arg_int--;
-// 		}
-// 		break;
-// 	case U8X8_MSG_BYTE_INIT:
-// 		mcu_set_output(U8X8_MSG_GPIO_CS_PIN);
-// 		break;
-// 	case U8X8_MSG_BYTE_SET_DC:
-// 		u8x8_gpio_SetDC(u8x8, arg_int);
-// 		break;
-// 	case U8X8_MSG_BYTE_START_TRANSFER:
-//      softspi_config(u8x8->display_info->spi_mode, u8x8->display_info->sck_clock_hz);
-// 		/* SPI mode has to be mapped to the mode of the current controller, at least Uno, Due, 101 have different SPI_MODEx values */
-// 		u8x8_gpio_SetCS(u8x8, u8x8->display_info->chip_enable_level);
-// 		u8x8->gpio_and_delay_cb(u8x8, U8X8_MSG_DELAY_NANO, u8x8->display_info->post_chip_enable_wait_ns, NULL);
-// 		break;
-// 	case U8X8_MSG_BYTE_END_TRANSFER:
-// 		u8x8->gpio_and_delay_cb(u8x8, U8X8_MSG_DELAY_NANO, u8x8->display_info->pre_chip_disable_wait_ns, NULL);
-// 		u8x8_gpio_SetCS(u8x8, u8x8->display_info->chip_disable_level);
-// 		break;
-// 	default:
-// 		return 0;
-// 	}
-// 	return 1;
-// }
-// #endif
+#include "../softspi.h"
+static softspi_port_t *graphic_port;
+
+#if (GRAPHIC_DISPLAY_INTERFACE == GRAPHIC_DISPLAY_SW_SPI)
+#ifndef GRAPHIC_DISPLAY_SPI_CLOCK
+#define GRAPHIC_DISPLAY_SPI_CLOCK DOUT4
+#endif
+#ifndef GRAPHIC_DISPLAY_SPI_DATA
+#define GRAPHIC_DISPLAY_SPI_DATA DOUT5
+#endif
+SOFTSPI(graphic_spi, 100000UL, 0, GRAPHIC_DISPLAY_SPI_DATA, GRAPHIC_DISPLAY_SPI_DATA, GRAPHIC_DISPLAY_SPI_CLOCK)
+#endif
+
+#ifndef GRAPHIC_DISPLAY_SPI_CS
+#define GRAPHIC_DISPLAY_SPI_CS DOUT6
+#endif
+
+uint8_t u8x8_byte_ucnc_hw_spi(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int, void *arg_ptr)
+{
+	uint8_t *data;
+	switch (msg)
+	{
+	case U8X8_MSG_BYTE_SEND:
+		data = (uint8_t *)arg_ptr;
+		while (arg_int > 0)
+		{
+			softspi_xmit(graphic_port, (uint8_t)*data);
+			data++;
+			arg_int--;
+		}
+		break;
+	case U8X8_MSG_BYTE_INIT:
+		mcu_set_output(GRAPHIC_DISPLAY_SPI_CS);
+		break;
+	case U8X8_MSG_BYTE_SET_DC:
+		u8x8_gpio_SetDC(u8x8, arg_int);
+		break;
+	case U8X8_MSG_BYTE_START_TRANSFER:
+		softspi_config(graphic_port, u8x8->display_info->spi_mode, u8x8->display_info->sck_clock_hz);
+		/* SPI mode has to be mapped to the mode of the current controller, at least Uno, Due, 101 have different SPI_MODEx values */
+		u8x8_gpio_SetCS(u8x8, u8x8->display_info->chip_enable_level);
+		u8x8->gpio_and_delay_cb(u8x8, U8X8_MSG_DELAY_NANO, u8x8->display_info->post_chip_enable_wait_ns, NULL);
+		break;
+	case U8X8_MSG_BYTE_END_TRANSFER:
+		u8x8->gpio_and_delay_cb(u8x8, U8X8_MSG_DELAY_NANO, u8x8->display_info->pre_chip_disable_wait_ns, NULL);
+		u8x8_gpio_SetCS(u8x8, u8x8->display_info->chip_disable_level);
+		break;
+	default:
+		return 0;
+	}
+	return 1;
+}
+#endif
+
+#if (GRAPHIC_DISPLAY_INTERFACE & (GRAPHIC_DISPLAY_SW_I2C | GRAPHIC_DISPLAY_HW_I2C))
 
 #include "../softi2c.h"
-#ifndef MCU_HAS_I2C
-#ifndef U8X8_MSG_GPIO_I2C_CLOCK_PIN
-#define U8X8_MSG_GPIO_I2C_CLOCK_PIN DIN30
+static softi2c_port_t *graphic_port;
+
+#if (GRAPHIC_DISPLAY_INTERFACE == GRAPHIC_DISPLAY_SW_I2C)
+#ifndef GRAPHIC_DISPLAY_I2C_CLOCK_PIN
+#define GRAPHIC_DISPLAY_I2C_CLOCK_PIN DIN30
 #endif
-#ifndef U8X8_MSG_GPIO_I2C_DATA_PIN
-#define U8X8_MSG_GPIO_I2C_DATA_PIN DIN31
+#ifndef GRAPHIC_DISPLAY_I2C_DATA_PIN
+#define GRAPHIC_DISPLAY_I2C_DATA_PIN DIN31
 #endif
-SOFTI2C(graphic_i2c, 100000UL, U8X8_MSG_GPIO_I2C_CLOCK_PIN, U8X8_MSG_GPIO_I2C_DATA_PIN)
+SOFTI2C(graphic_i2c, 100000UL, GRAPHIC_DISPLAY_I2C_CLOCK_PIN, GRAPHIC_DISPLAY_I2C_DATA_PIN)
 #endif
 
 uint8_t u8x8_byte_ucnc_hw_i2c(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int, void *arg_ptr)
 {
-#ifdef MCU_HAS_I2C
-	softi2c_port_t *i2c_port = NULL;
-#else
-	softi2c_port_t *i2c_port = &graphic_i2c;
-#endif
 	static uint8_t i2c_buffer[32]; /* u8g2/u8x8 will never send more than 32 bytes between START_TRANSFER and END_TRANSFER */
 	static uint8_t i2c_buffer_offset = 0;
 
@@ -157,7 +170,7 @@ uint8_t u8x8_byte_ucnc_hw_i2c(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int, void *
 		i2c_buffer_offset = 0;
 		break;
 	case U8X8_MSG_BYTE_END_TRANSFER:
-		softi2c_send(i2c_port, u8x8_GetI2CAddress(u8x8) >> 1, i2c_buffer, i2c_buffer_offset);
+		softi2c_send(graphic_port, u8x8_GetI2CAddress(u8x8) >> 1, i2c_buffer, i2c_buffer_offset);
 		i2c_buffer_offset = 0;
 		break;
 	default:
@@ -166,6 +179,7 @@ uint8_t u8x8_byte_ucnc_hw_i2c(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int, void *
 
 	return 1;
 }
+#endif
 
 uint8_t u8x8_gpio_and_delay_ucnc(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int, void *arg_ptr)
 {
@@ -197,37 +211,15 @@ uint8_t u8x8_gpio_and_delay_ucnc(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int, voi
 		{
 			mcu_delay_us(1);
 		}
-		break; // arg_int=1: delay by 5us, arg_int = 4: delay by 1.25us
-#if U8X8_MSG_GPIO_SPI_CLOCK_PIN == UNDEF_PIN
+		break;			   // arg_int=1: delay by 5us, arg_int = 4: delay by 1.25us
 	case U8X8_MSG_GPIO_D0: // D0 or SPI clock pin: Output level in arg_int
-#else
-	case U8X8_MSG_GPIO_SPI_CLOCK:
-#endif
-#if U8X8_MSG_GPIO_SPI_CLOCK_PIN != UNDEF_PIN
-		if (arg_int)
-		{
-			mcu_set_output(U8X8_MSG_GPIO_SPI_CLOCK_PIN);
-		}
-		else
-		{
-			mcu_clear_output(U8X8_MSG_GPIO_SPI_CLOCK_PIN);
-		}
+#if GRAPHIC_DISPLAY_SPI_CLOCK != UNDEF_PIN
+		io_set_output(GRAPHIC_DISPLAY_SPI_CLOCK, (bool)arg_int);
 #endif
 		break;
-#ifndef U8X8_MSG_GPIO_SPI_DATA_PIN
 	case U8X8_MSG_GPIO_D1: // D1 or SPI data pin: Output level in arg_int
-#else
-	case U8X8_MSG_GPIO_SPI_DATA:
-#endif
-#if U8X8_MSG_GPIO_SPI_DATA_PIN != UNDEF_PIN
-		if (arg_int)
-		{
-			mcu_set_output(U8X8_MSG_GPIO_SPI_DATA_PIN);
-		}
-		else
-		{
-			mcu_clear_output(U8X8_MSG_GPIO_SPI_DATA_PIN);
-		}
+#if GRAPHIC_DISPLAY_SPI_CLOCK != UNDEF_PIN
+		io_set_output(GRAPHIC_DISPLAY_SPI_CLOCK, (bool)arg_int);
 #endif
 		break;
 	case U8X8_MSG_GPIO_D2: // D2 pin: Output level in arg_int
@@ -266,15 +258,8 @@ uint8_t u8x8_gpio_and_delay_ucnc(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int, voi
 #endif
 		break;
 	case U8X8_MSG_GPIO_CS: // CS (chip select) pin: Output level in arg_int
-#if U8X8_MSG_GPIO_CS_PIN != UNDEF_PIN
-		if (arg_int)
-		{
-			mcu_set_output(U8X8_MSG_GPIO_CS_PIN);
-		}
-		else
-		{
-			mcu_clear_output(U8X8_MSG_GPIO_CS_PIN);
-		}
+#if GRAPHIC_DISPLAY_SPI_CS != UNDEF_PIN
+		io_set_output(GRAPHIC_DISPLAY_SPI_CS, (bool)arg_int);
 #endif
 		break;
 	case U8X8_MSG_GPIO_DC: // DC (data/cmd, A0, register select) pin: Output level in arg_int
@@ -425,6 +410,27 @@ uint8_t graphic_display_rotary_encoder_control(void)
 
 // static bool graphic_display_current_menu_active;
 #ifdef ENABLE_MAIN_LOOP_MODULES
+bool graphic_display_start(void *args)
+{
+#if (BOARD == BOARD_VIRTUAL)
+	u8g2_SetupBuffer_SDL_128x64(U8G2, &u8g2_cb_r0);
+#else
+	u8g2_Setup_st7920_s_128x64_f(U8G2, U8G2_R0, /*u8x8_byte_4wire_sw_spi */ u8x8_byte_ucnc_hw_spi, u8x8_gpio_and_delay_ucnc);
+	// u8g2_Setup_ssd1306_i2c_128x64_noname_f(U8G2, U8G2_R0, /*u8x8_byte_sw_i2c*/ u8x8_byte_ucnc_hw_i2c, u8x8_gpio_and_delay_ucnc);
+#endif
+	u8g2_InitDisplay(U8G2); // send init sequence to the display, display is in sleep mode after this,
+	u8g2_ClearDisplay(U8G2);
+	u8g2_SetPowerSave(U8G2, 0); // wake up display
+	u8g2_FirstPage(U8G2);
+	// clear
+	u8g2_ClearBuffer(U8G2);
+	u8g2_SetFont(U8G2, u8g2_font_6x12_tr);
+	u8g2_NextPage(U8G2);
+
+	return false;
+}
+CREATE_EVENT_LISTENER(cnc_reset, graphic_display_start);
+
 bool graphic_display_update(void *args)
 {
 	switch (graphic_display_rotary_encoder_control())
@@ -447,7 +453,7 @@ bool graphic_display_update(void *args)
 	// render menu
 	system_menu_render();
 
-	return STATUS_OK;
+	return false;
 }
 
 CREATE_EVENT_LISTENER(cnc_io_dotasks, graphic_display_update);
@@ -455,29 +461,22 @@ CREATE_EVENT_LISTENER(cnc_io_dotasks, graphic_display_update);
 
 DECL_MODULE(graphic_display)
 {
-	system_menu_init();
-
-#if (BOARD == BOARD_VIRTUAL)
-	u8g2_SetupBuffer_SDL_128x64(U8G2, &u8g2_cb_r0);
+// initializes the display port
+#if (GRAPHIC_DISPLAY_INTERFACE == GRAPHIC_DISPLAY_SW_SPI)
+	graphic_port = &graphic_spi;
+#elif (GRAPHIC_DISPLAY_INTERFACE == GRAPHIC_DISPLAY_SW_I2C)
+	graphic_port = &graphic_i2c;
 #else
-	u8g2_Setup_st7920_s_128x64_f(U8G2, U8G2_R0, u8x8_byte_4wire_sw_spi, u8x8_gpio_and_delay_ucnc);
-	// u8g2_Setup_ssd1306_i2c_128x64_noname_f(U8G2, U8G2_R0, /*u8x8_byte_sw_i2c*/ u8x8_byte_ucnc_hw_i2c, u8x8_gpio_and_delay_ucnc);
+	// uses hardware version of SPI or I2C
+	graphic_port = NULL;
 #endif
-	u8g2_InitDisplay(U8G2); // send init sequence to the display, display is in sleep mode after this,
-	u8g2_ClearDisplay(U8G2);
-	u8g2_SetPowerSave(U8G2, 0); // wake up display
-	u8g2_FirstPage(U8G2);
-	// clear
-	u8g2_ClearBuffer(U8G2);
-	u8g2_SetFont(U8G2, u8g2_font_6x12_tr);
-	u8g2_NextPage(U8G2);
-
-// adds the display loop
+	// STARTS SYSTEM MENU MODULE
+	system_menu_init();
 #ifdef ENABLE_MAIN_LOOP_MODULES
-	// ADD_EVENT_LISTENER(cnc_reset, graphic_display_start);
+	ADD_EVENT_LISTENER(cnc_reset, graphic_display_start);
 	ADD_EVENT_LISTENER(cnc_io_dotasks, graphic_display_update);
 #else
-#warning "Main loop extensions are not enabled. SD card will not work."
+#warning "Main loop extensions are not enabled. Graphic display card will not work."
 #endif
 }
 
