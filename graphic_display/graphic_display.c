@@ -32,13 +32,17 @@
 // used with graphic_display module
 
 #ifndef U8X8_MSG_GPIO_SPI_CLOCK_PIN
-#define U8X8_MSG_GPIO_SPI_CLOCK_PIN DOUT8
+#define U8X8_MSG_GPIO_SPI_CLOCK_PIN DOUT4
 #endif
 #ifndef U8X8_MSG_GPIO_SPI_DATA_PIN
-#define U8X8_MSG_GPIO_SPI_DATA_PIN DOUT9
+#define U8X8_MSG_GPIO_SPI_DATA_PIN DOUT5
 #endif
 #ifndef U8X8_MSG_GPIO_CS_PIN
-#define U8X8_MSG_GPIO_CS_PIN DOUT10
+#define U8X8_MSG_GPIO_CS_PIN DOUT6
+#endif
+
+#ifndef GRAPHIC_DISPLAY_BEEP
+#define GRAPHIC_DISPLAY_BEEP DOUT7
 #endif
 
 #ifndef GRAPHIC_DISPLAY_MAX_LINES
@@ -361,13 +365,13 @@ uint8_t u8x8_gpio_and_delay_ucnc(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int, voi
 }
 
 #ifndef GRAPHIC_DISPLAY_ENCODER_BTN
-#define GRAPHIC_DISPLAY_ENCODER_BTN DIN11
+#define GRAPHIC_DISPLAY_ENCODER_BTN DIN16
 #endif
 #ifndef GRAPHIC_DISPLAY_ENCODER_ENC1
-#define GRAPHIC_DISPLAY_ENCODER_ENC1 DIN12
+#define GRAPHIC_DISPLAY_ENCODER_ENC1 DIN17
 #endif
 #ifndef GRAPHIC_DISPLAY_ENCODER_ENC2
-#define GRAPHIC_DISPLAY_ENCODER_ENC2 DIN13
+#define GRAPHIC_DISPLAY_ENCODER_ENC2 DIN18
 #endif
 // reads inputs and returns a mask with a pin state transition (only rising or only falling)
 uint8_t graphic_display_rotary_encoder_control(void)
