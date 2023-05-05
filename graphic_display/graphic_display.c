@@ -72,6 +72,9 @@ static u8g2_t graphiclcd_u8g2;
 #define JUSTIFY_TOP u8g2_GetAscent(U8G2)
 #define TEXT_WIDTH(t) u8g2_GetUTF8Width(U8G2, t)
 
+static uint8_t graphic_display_str_lines(const char *__s, uint8_t *max_len);
+static uint8_t graphic_display_str_line_len(const char *__s);
+
 /**
  *
  * can also be done via hardware SPI and I2C ports of µCNC
@@ -415,7 +418,7 @@ bool graphic_display_start(void *args)
 #if (BOARD == BOARD_VIRTUAL)
 	u8g2_SetupBuffer_SDL_128x64(U8G2, &u8g2_cb_r0);
 #else
-	u8g2_Setup_st7920_s_128x64_f(U8G2, U8G2_R0, /*u8x8_byte_4wire_sw_spi */ u8x8_byte_ucnc_hw_spi, u8x8_gpio_and_delay_ucnc);
+	u8g2_Setup_st7920_s_128x64_1(U8G2, U8G2_R0, /*u8x8_byte_4wire_sw_spi */ u8x8_byte_ucnc_hw_spi, u8x8_gpio_and_delay_ucnc);
 	// u8g2_Setup_ssd1306_i2c_128x64_noname_f(U8G2, U8G2_R0, /*u8x8_byte_sw_i2c*/ u8x8_byte_ucnc_hw_i2c, u8x8_gpio_and_delay_ucnc);
 #endif
 	u8g2_InitDisplay(U8G2); // send init sequence to the display, display is in sleep mode after this,
@@ -824,4 +827,68 @@ bool system_menu_render_menu_item_filter(uint8_t item_index)
 	}
 
 	return ((top <= item_index) && (item_index < (top + GRAPHIC_DISPLAY_MAX_LINES)));
+}
+
+void system_menu_render_modal_popup(const char *__s)
+{
+	uint8_t w = 0;
+	uint8_t lines = graphic_display_str_lines(__s, &w);
+	w = (lines != 1) ? (w * TEXT_WIDTH("Z")) : (TEXT_WIDTH(__s));
+	w += 6;
+	uint8_t bh = (FONTHEIGHT + 1) * (lines + 1);
+	u8g2_SetDrawColor(U8G2, 0);
+	u8g2_DrawBox(U8G2, (LCDWIDTH - w - 10) >> 1, (LCDHEIGHT - bh) >> 1, w + 10, bh);
+	u8g2_SetDrawColor(U8G2, 1);
+	u8g2_DrawFrame(U8G2, (LCDWIDTH - w - 10) >> 1, (LCDHEIGHT - bh) >> 1, w + 10, bh);
+	uint8_t y_start = (LCDHEIGHT >> 1) - (((FONTHEIGHT + 1) * (lines - 1)) >> 1) + ((FONTHEIGHT + 1) >> 2);
+	do
+	{
+		char buffer[SYSTEM_MENU_MAX_STR_LEN];
+		uint8_t len = graphic_display_str_line_len(__s);
+		memcpy(buffer, __s, len);
+		buffer[len] = 0;
+		__s += len;
+		u8g2_DrawStr(U8G2, ALIGN_CENTER(buffer), y_start, buffer);
+		y_start += FONTHEIGHT + 1;
+	} while (--lines);
+
+	u8g2_NextPage(U8G2);
+}
+
+static uint8_t graphic_display_str_lines(const char *__s, uint8_t *max_len)
+{
+	uint8_t lines = 1;
+	uint8_t chars_per_line = LCDWIDTH / TEXT_WIDTH("Z");
+
+	uint8_t chars = 0;
+	while (*__s)
+	{
+		chars++;
+		if (*__s == '\n' || (chars >= chars_per_line))
+		{
+			*max_len = MAX(*max_len, chars);
+			chars = 0;
+			lines++;
+		}
+		__s++;
+	}
+
+	return lines;
+}
+
+static uint8_t graphic_display_str_line_len(const char *__s)
+{
+	uint8_t chars = 0;
+	uint8_t chars_per_line = LCDWIDTH / TEXT_WIDTH("Z");
+	while (*__s)
+	{
+		chars++;
+		if (*__s == '\n' || (chars >= chars_per_line))
+		{
+			return chars;
+		}
+		__s++;
+	}
+
+	return chars;
 }
