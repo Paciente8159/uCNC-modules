@@ -509,65 +509,76 @@ void system_menu_render_idle(void)
 	char buff[SYSTEM_MENU_MAX_STR_LEN];
 	uint8_t y = JUSTIFY_BOTTOM;
 
+	// u8g2_SetFont(U8G2, u8g2_font_6x12_t_symbols);
+	// rom_strcpy(buff, __romstr__("µCNC v" CNC_VERSION));
+	// u8g2_DrawButtonUTF8(U8G2, (LCDWIDTH>>1), JUSTIFY_TOP + 1,U8G2_BTN_INV|U8G2_BTN_HCENTER, LCDWIDTH, 1, 1, buff);
+	// u8g2_SetFont(U8G2, u8g2_font_6x12_tr);
+
+	memset(buff, 0, 32);
+
 	float axis[MAX(AXIS_COUNT, 3)];
 	int32_t steppos[STEPPER_COUNT];
 	itp_get_rt_position(steppos);
 	kinematics_apply_forward(steppos, axis);
 	kinematics_apply_reverse_transform(axis);
 
+#if (AXIS_COUNT >= 5)
+	buff[0] = 'B';
+	system_menu_flt_to_str(&buff[1], axis[4]);
+	u8g2_DrawStr(U8G2, ALIGN_LEFT, y, buff);
+
+#if (AXIS_COUNT >= 6)
+	buff[0] = 'C';
+	system_menu_flt_to_str(&buff[1], axis[5]);
+	u8g2_DrawStr(U8G2, (LCDWIDTH >> 1), y, buff);
+#endif
+	y -= (FONTHEIGHT + 3);
+	memset(buff, 0, 32);
+	u8g2_DrawLine(U8G2, 0, y - FONTHEIGHT - 1, LCDWIDTH, y - FONTHEIGHT - 1);
+#endif
+
+#if (AXIS_COUNT >= 3)
+	buff[0] = 'Z';
+	system_menu_flt_to_str(&buff[1], axis[2]);
+	u8g2_DrawStr(U8G2, ALIGN_LEFT, y, buff);
+
 #if (AXIS_COUNT >= 4)
 	memset(buff, 0, 32);
 	buff[0] = 'A';
 	system_menu_flt_to_str(&buff[1], axis[3]);
-	u8g2_DrawStr(U8G2, ALIGN_LEFT, y, buff);
-
-#if (AXIS_COUNT >= 5)
-	buff[0] = 'B';
-	system_menu_flt_to_str(&buff[1], axis[4]);
-	u8g2_DrawStr(U8G2, ALIGN_CENTER(buff), y, buff);
+	u8g2_DrawStr(U8G2, (LCDWIDTH >> 1), y, buff);
 #endif
-#if (AXIS_COUNT >= 6)
-	buff[0] = 'C';
-	system_menu_flt_to_str(&buff[1], axis[5]);
-	u8g2_DrawStr(U8G2, ALIGN_RIGHT(buff), y, buff);
-#endif
-	y -= (FONTHEIGHT + 3);
-#endif
-
 	memset(buff, 0, 32);
 	u8g2_DrawLine(U8G2, 0, y - FONTHEIGHT - 1, LCDWIDTH, y - FONTHEIGHT - 1);
+	y -= (FONTHEIGHT + 3);
+#endif
 
 #if (AXIS_COUNT >= 1)
 	buff[0] = 'X';
 	system_menu_flt_to_str(&buff[1], axis[0]);
 	u8g2_DrawStr(U8G2, ALIGN_LEFT, y, buff);
-#endif
 #if (AXIS_COUNT >= 2)
 	buff[0] = 'Y';
 	system_menu_flt_to_str(&buff[1], axis[1]);
-	u8g2_DrawStr(U8G2, ALIGN_CENTER(buff), y, buff);
+	u8g2_DrawStr(U8G2, (LCDWIDTH >> 1), y, buff);
 #endif
-#if (AXIS_COUNT >= 3)
-	buff[0] = 'Z';
-	system_menu_flt_to_str(&buff[1], axis[2]);
-	u8g2_DrawStr(U8G2, ALIGN_RIGHT(buff), y, buff);
-#endif
-
 	memset(buff, 0, 32);
+	u8g2_DrawLine(U8G2, 0, y - FONTHEIGHT - 1, LCDWIDTH, y - FONTHEIGHT - 1);
 	y -= (FONTHEIGHT + 3);
+#endif
 
 	// units, feed and tool
 	if (g_settings.report_inches)
 	{
-		rom_strcpy(buff, __romstr__("IN F "));
+		rom_strcpy(buff, __romstr__("IN F"));
 	}
 	else
 	{
-		rom_strcpy(buff, __romstr__("MM F "));
+		rom_strcpy(buff, __romstr__("MM F"));
 	}
 
 	// Realtime feed
-	system_menu_flt_to_str(&buff[5], itp_get_rt_feed());
+	system_menu_flt_to_str(&buff[4], itp_get_rt_feed());
 	u8g2_DrawStr(U8G2, ALIGN_LEFT, y, buff);
 	memset(buff, 0, 32);
 
@@ -578,11 +589,11 @@ void system_menu_render_idle(void)
 	uint16_t spindle;
 	uint8_t coolant;
 	parser_get_modes(modalgroups, &feed, &spindle, &coolant);
-	rom_strcpy(tool, __romstr__(" T "));
-	system_menu_int_to_str(&tool[3], modalgroups[11]);
+	rom_strcpy(tool, __romstr__(" T"));
+	system_menu_int_to_str(&tool[2], modalgroups[11]);
 	// Realtime tool speed
-	rom_strcpy(buff, __romstr__("S "));
-	system_menu_int_to_str(&buff[2], tool_get_speed());
+	rom_strcpy(buff, __romstr__("S"));
+	system_menu_int_to_str(&buff[1], tool_get_speed());
 	strcat(buff, tool);
 	u8g2_DrawStr(U8G2, ALIGN_RIGHT(buff), y, buff);
 	memset(buff, 0, 32);
