@@ -26,6 +26,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <string.h>
+#include "../system_menu.h"
 
 #if (UCNC_MODULE_VERSION > 010700)
 #error "This module is not compatible with the current version of µCNC"
@@ -458,9 +459,175 @@ bool sd_card_cmd_parser(void *args)
 CREATE_EVENT_LISTENER(grbl_cmd, sd_card_cmd_parser);
 #endif
 
+static void system_menu_render_sd_card_item(uint8_t render_flags, system_menu_item_t *item)
+{
+	if (mcu_get_input(SD_CARD_DETECT_PIN))
+	{
+		system_menu_item_render_arg(render_flags, "Not found");
+	}
+	else if (!sd_card_mounted)
+	{
+		system_menu_item_render_arg(render_flags, "Unmounted");
+	}
+	else
+	{
+		system_menu_item_render_arg(render_flags, "Mounted");
+	}
+}
+
+static bool system_menu_action_sd_card_item(uint8_t action, system_menu_item_t *item)
+{
+	if (action == SYSTEM_MENU_ACTION_SELECT)
+	{
+		if (mcu_get_input(SD_CARD_DETECT_PIN))
+		{
+			char buffer[SYSTEM_MENU_MAX_STR_LEN];
+			rom_strcpy(buffer, __romstr__("Card not found!"));
+			system_menu_show_modal_popup(SYSTEM_MENU_MODAL_POPUP_MS, buffer);
+		}
+		else if (!sd_card_mounted)
+		{
+			// mount the card
+			sd_card_mount();
+		}
+		else
+		{
+			// goto sd card menu
+			g_system_menu.current_menu = 10;
+			g_system_menu.current_index = 0;
+			g_system_menu.current_multiplier = 0;
+			g_system_menu.flags &= ~(SYSTEM_MENU_MODE_EDIT | SYSTEM_MENU_MODE_MODIFY);
+		}
+
+		return true;
+	}
+
+	return false;
+}
+
+// dynamic rendering of the sd card menu
+// lists all dirs and files
+static FILINFO current_file;
+static void system_menu_sd_card_render(uint8_t render_flags)
+{
+	uint8_t cur_index = g_system_menu.current_index;
+
+	FRESULT res;
+	FILINFO fno;
+	DIR dp;
+
+	// current dir
+	char curdir[MAX_PATH_LEN];
+	if (f_getcwd(curdir, MAX_PATH_LEN) == FR_OK)
+	{
+		char *last_slash = strrchr(curdir, '/');
+		system_menu_render_header(last_slash);
+		uint8_t index = 0;
+		// serial_print_str(curdir);
+		if (f_opendir(&dp, curdir) == FR_OK)
+		{
+			for (;;)
+			{
+				res = f_readdir(&dp, &fno); /* Read a directory item */
+				if (res != FR_OK || fno.fname[0] == 0)
+				{
+					break; /* Break on error or end of dir */
+				}
+
+				if (system_menu_render_menu_item_filter(index))
+				{
+					char buffer[SYSTEM_MENU_MAX_STR_LEN];
+					buffer[0] = (fno.fattrib & AM_DIR) ? '/' : ' ';
+					memcpy(&buffer[1], fno.fname, MIN(SYSTEM_MENU_MAX_STR_LEN - 1, strlen(fno.fname)));
+					system_menu_item_render_label(render_flags | ((cur_index == index) ? SYSTEM_MENU_MODE_SELECT : 0), buffer);
+					// stores the current file info
+					if ((cur_index == index))
+					{
+						memcpy(&current_file, &fno, sizeof(FILINFO));
+					}
+				}
+				index++;
+			}
+			g_system_menu.total_items = index;
+			f_closedir(&dp);
+		}
+	}
+
+	system_menu_render_nav_back((g_system_menu.current_index < 0 || g_system_menu.current_multiplier < 0));
+	system_menu_render_footer();
+}
+
+bool system_menu_sd_card_action(uint8_t action)
+{
+	uint8_t render_flags = g_system_menu.flags;
+
+	// selects a file or a dir
+	if (action == SYSTEM_MENU_ACTION_SELECT)
+	{
+		if (render_flags & SYSTEM_MENU_MODE_EDIT)
+		{
+			// file print or quit
+			// if it's over the nav back element
+			if (g_system_menu.current_index < 0 || g_system_menu.current_multiplier < 0)
+			{
+				// don't run file and return to render sd content
+				g_system_menu.flags &= ~SYSTEM_MENU_MODE_EDIT;
+			}
+			else{
+				// run file
+			}
+		}
+		else
+		{
+			if (current_file.fname[0] != 0)
+			{
+				if ((current_file.fattrib & AM_DIR))
+				{
+					if (f_chdir(current_file.fname) == FR_OK)
+					{
+						g_system_menu.current_index = 0;
+						g_system_menu.current_multiplier = 0;
+						g_system_menu.total_items = 0;
+						g_system_menu.flags = SYSTEM_MENU_MODE_REDRAW;
+					}
+					else
+					{
+						char buffer[SYSTEM_MENU_MAX_STR_LEN];
+						rom_strcpy(buffer, __romstr__("Dir not found!"));
+						system_menu_show_modal_popup(SYSTEM_MENU_MODAL_POPUP_MS, buffer);
+					}
+				}
+				else
+				{
+					// go to file run or quit menu
+					g_system_menu.flags |= SYSTEM_MENU_MODE_EDIT;
+				}
+			}
+			else
+			{
+				char buffer[SYSTEM_MENU_MAX_STR_LEN];
+				rom_strcpy(buffer, __romstr__("File system ERROR!"));
+				system_menu_show_modal_popup(SYSTEM_MENU_MODAL_POPUP_MS, buffer);
+			}
+		}
+
+		return true;
+	}
+
+	return false;
+}
+
 DECL_MODULE(sd_card)
 {
 	file_runs = 0;
+	// STARTS SYSTEM MENU MODULE
+	LOAD_MODULE(system_menu);
+	// adds the sd card item to main menu
+	DECL_MENU_ENTRY(1, sd_menu, "SD Card", NULL, system_menu_render_sd_card_item, NULL, system_menu_action_sd_card_item, NULL);
+
+	// sd card file system rendering menu
+	DECL_DYNAMIC_MENU(10, 1, system_menu_sd_card_render, system_menu_sd_card_action);
+
 #ifdef ENABLE_MAIN_LOOP_MODULES
 	ADD_EVENT_LISTENER(cnc_dotasks, sd_card_loop);
 #else
@@ -480,6 +647,6 @@ DECL_MODULE(sd_card)
 	ADD_EVENT_LISTENER(settings_save, sd_settings_save);
 	ADD_EVENT_LISTENER(settings_erase, sd_settings_erase);
 #else
-#warning "Main loop extensions are not enabled. SD card will not work."
+#warning "Settings extension not enabled. SD card stored settings will not work."
 #endif
 }
