@@ -6,6 +6,11 @@ For best performance the hardware SPI should be used.
 
 ## Changelog
 
+### 2023-05-09
+
+- integrated sd with system menus (#24)
+- removed LFN support to reduce memory requirements (#24)
+
 ### 2023-05-02
 
 - updated to version 1.7 (#17)
