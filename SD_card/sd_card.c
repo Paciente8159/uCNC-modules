@@ -41,7 +41,7 @@
 #endif
 
 #ifndef MAX_PATH_LEN
-#define MAX_PATH_LEN 255
+#define MAX_PATH_LEN 128
 #endif
 
 enum SD_CARD_STATUS
@@ -78,7 +78,7 @@ void sd_card_dir_list(void)
 {
 	FRESULT res;
 	UINT i;
-	static FILINFO fno;
+	FILINFO fno;
 	DIR dp;
 
 	// current dir
@@ -251,12 +251,14 @@ bool sd_card_loop(void *args)
 			f_unmount("");
 		}
 		sd_card_mounted = SD_UNDETECTED;
+		g_system_menu.flags |= SYSTEM_MENU_MODE_REDRAW;
 	}
 	else if (!mcu_get_input(SD_CARD_DETECT_PIN) && !sd_card_mounted)
 	{
 		sd_card_mounted = SD_DETECTED;
 		cnc_delay_ms(2000);
 		sd_card_mount();
+		g_system_menu.flags |= SYSTEM_MENU_MODE_REDRAW;
 	}
 #endif
 
@@ -459,13 +461,15 @@ bool sd_card_cmd_parser(void *args)
 CREATE_EVENT_LISTENER(grbl_cmd, sd_card_cmd_parser);
 #endif
 
+static FILINFO current_file;
+static dir_level;
 static void system_menu_render_sd_card_item(uint8_t render_flags, system_menu_item_t *item)
 {
 	if (mcu_get_input(SD_CARD_DETECT_PIN))
 	{
 		system_menu_item_render_arg(render_flags, "Not found");
 	}
-	else if (!sd_card_mounted)
+	else if (sd_card_mounted != SD_MOUNTED)
 	{
 		system_menu_item_render_arg(render_flags, "Unmounted");
 	}
@@ -485,13 +489,21 @@ static bool system_menu_action_sd_card_item(uint8_t action, system_menu_item_t *
 			rom_strcpy(buffer, __romstr__("Card not found!"));
 			system_menu_show_modal_popup(SYSTEM_MENU_MODAL_POPUP_MS, buffer);
 		}
-		else if (!sd_card_mounted)
+		else if (sd_card_mounted != SD_MOUNTED)
 		{
 			// mount the card
 			sd_card_mount();
 		}
+		else if (file_runs)
+		{
+			// currently running job
+			// do nothing
+		}
 		else
 		{
+			// go back to root dir
+			f_chdir(("/"));
+			dir_level = 0;
 			// goto sd card menu
 			g_system_menu.current_menu = 10;
 			g_system_menu.current_index = 0;
@@ -507,49 +519,56 @@ static bool system_menu_action_sd_card_item(uint8_t action, system_menu_item_t *
 
 // dynamic rendering of the sd card menu
 // lists all dirs and files
-static FILINFO current_file;
 static void system_menu_sd_card_render(uint8_t render_flags)
 {
 	uint8_t cur_index = g_system_menu.current_index;
 
-	FRESULT res;
-	FILINFO fno;
-	DIR dp;
-
-	// current dir
-	char curdir[MAX_PATH_LEN];
-	if (f_getcwd(curdir, MAX_PATH_LEN) == FR_OK)
+	if (render_flags & SYSTEM_MENU_MODE_EDIT)
 	{
-		char *last_slash = strrchr(curdir, '/');
-		system_menu_render_header(last_slash);
-		uint8_t index = 0;
-		// serial_print_str(curdir);
-		if (f_opendir(&dp, curdir) == FR_OK)
-		{
-			for (;;)
-			{
-				res = f_readdir(&dp, &fno); /* Read a directory item */
-				if (res != FR_OK || fno.fname[0] == 0)
-				{
-					break; /* Break on error or end of dir */
-				}
+		system_menu_render_header(current_file.fname);
+		system_menu_item_render_label(render_flags, "Run file?");
+		system_menu_item_render_arg(render_flags, current_file.fname);
+	}
+	else
+	{
+		FRESULT res;
+		FILINFO fno;
+		DIR dp;
 
-				if (system_menu_render_menu_item_filter(index))
+		// current dir
+		char curdir[MAX_PATH_LEN];
+		if (f_getcwd(curdir, MAX_PATH_LEN) == FR_OK)
+		{
+			char *last_slash = strrchr(curdir, '/');
+			system_menu_render_header((!last_slash) ? last_slash : "/\0");
+			uint8_t index = 0;
+			if (f_opendir(&dp, curdir) == FR_OK)
+			{
+				for (;;)
 				{
-					char buffer[SYSTEM_MENU_MAX_STR_LEN];
-					buffer[0] = (fno.fattrib & AM_DIR) ? '/' : ' ';
-					memcpy(&buffer[1], fno.fname, MIN(SYSTEM_MENU_MAX_STR_LEN - 1, strlen(fno.fname)));
-					system_menu_item_render_label(render_flags | ((cur_index == index) ? SYSTEM_MENU_MODE_SELECT : 0), buffer);
-					// stores the current file info
-					if ((cur_index == index))
+					res = f_readdir(&dp, &fno); /* Read a directory item */
+					if (res != FR_OK || fno.fname[0] == 0)
 					{
-						memcpy(&current_file, &fno, sizeof(FILINFO));
+						break; /* Break on error or end of dir */
 					}
+
+					if (system_menu_render_menu_item_filter(index))
+					{
+						char buffer[SYSTEM_MENU_MAX_STR_LEN];
+						buffer[0] = (fno.fattrib & AM_DIR) ? '/' : ' ';
+						memcpy(&buffer[1], fno.fname, MIN(SYSTEM_MENU_MAX_STR_LEN - 1, strlen(fno.fname)));
+						system_menu_item_render_label(render_flags | ((cur_index == index) ? SYSTEM_MENU_MODE_SELECT : 0), buffer);
+						// stores the current file info
+						if ((cur_index == index))
+						{
+							memcpy(&current_file, &fno, sizeof(FILINFO));
+						}
+					}
+					index++;
 				}
-				index++;
+				g_system_menu.total_items = index;
+				f_closedir(&dp);
 			}
-			g_system_menu.total_items = index;
-			f_closedir(&dp);
 		}
 	}
 
@@ -560,6 +579,7 @@ static void system_menu_sd_card_render(uint8_t render_flags)
 bool system_menu_sd_card_action(uint8_t action)
 {
 	uint8_t render_flags = g_system_menu.flags;
+	bool go_back = (g_system_menu.current_index < 0 || g_system_menu.current_multiplier < 0);
 
 	// selects a file or a dir
 	if (action == SYSTEM_MENU_ACTION_SELECT)
@@ -568,17 +588,56 @@ bool system_menu_sd_card_action(uint8_t action)
 		{
 			// file print or quit
 			// if it's over the nav back element
-			if (g_system_menu.current_index < 0 || g_system_menu.current_multiplier < 0)
+			if (go_back)
 			{
 				// don't run file and return to render sd content
 				g_system_menu.flags &= ~SYSTEM_MENU_MODE_EDIT;
 			}
-			else{
+			else
+			{
 				// run file
+				if (f_open(&fp, current_file.fname, FA_READ) == FR_OK)
+				{
+					file_runs = 1;
+					protocol_send_string(MSG_START);
+					protocol_send_string(__romstr__("Running file-remaining "));
+					serial_print_int(file_runs);
+					protocol_send_string(MSG_END);
+					system_menu_go_idle();
+					char buffer[SYSTEM_MENU_MAX_STR_LEN];
+					rom_strcpy(buffer, __romstr__("File running"));
+					system_menu_show_modal_popup(SYSTEM_MENU_MODAL_POPUP_MS, buffer);
+				}
+				else
+				{
+					char buffer[SYSTEM_MENU_MAX_STR_LEN];
+					rom_strcpy(buffer, __romstr__("Failed to\nrun file!"));
+					system_menu_show_modal_popup(SYSTEM_MENU_MODAL_POPUP_MS, buffer);
+					f_close(&fp);
+				}
 			}
 		}
 		else
 		{
+			if (go_back)
+			{
+				if (dir_level)
+				{
+					// up one dir
+					f_chdir((".."));
+					g_system_menu.current_index = 0;
+					g_system_menu.current_multiplier = 0;
+					g_system_menu.total_items = 0;
+					dir_level--;
+					return true;
+				}
+				else
+				{
+					// return back let system menu handle it
+					return false;
+				}
+			}
+
 			if (current_file.fname[0] != 0)
 			{
 				if ((current_file.fattrib & AM_DIR))
@@ -588,7 +647,7 @@ bool system_menu_sd_card_action(uint8_t action)
 						g_system_menu.current_index = 0;
 						g_system_menu.current_multiplier = 0;
 						g_system_menu.total_items = 0;
-						g_system_menu.flags = SYSTEM_MENU_MODE_REDRAW;
+						dir_level++;
 					}
 					else
 					{
@@ -600,6 +659,7 @@ bool system_menu_sd_card_action(uint8_t action)
 				else
 				{
 					// go to file run or quit menu
+					g_system_menu.current_multiplier = 0;
 					g_system_menu.flags |= SYSTEM_MENU_MODE_EDIT;
 				}
 			}
