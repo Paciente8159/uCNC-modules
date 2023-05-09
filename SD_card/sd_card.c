@@ -27,6 +27,7 @@
 #include <stdbool.h>
 #include <string.h>
 #include "../system_menu.h"
+#include "sd_messages.h"
 
 #if (UCNC_MODULE_VERSION > 010700)
 #error "This module is not compatible with the current version of µCNC"
@@ -64,13 +65,13 @@ void sd_card_mount(void)
 	{
 		if ((f_mount(&fs, "", 1) == FR_OK))
 		{
-			protocol_send_feedback(__romstr__("SD card mounted"));
+			protocol_send_feedback(__romstr__(SD_STR_SD_PREFIX SD_STR_SD_MOUNTED));
 			sd_card_mounted = SD_MOUNTED;
 			settings_init();
 			return;
 		}
 
-		protocol_send_feedback(__romstr__("SD card failed to mount"));
+		protocol_send_feedback(__romstr__(SD_STR_SD_PREFIX SD_STR_SD_ERROR));
 	}
 }
 
@@ -85,7 +86,7 @@ void sd_card_dir_list(void)
 	char curdir[MAX_PATH_LEN];
 	if (f_getcwd(curdir, MAX_PATH_LEN) == FR_OK)
 	{
-		protocol_send_string(__romstr__("Directory of "));
+		protocol_send_string(__romstr__(SD_STR_DIR_PREFIX));
 		serial_print_str(curdir);
 		protocol_send_string(MSG_EOL);
 		if (f_opendir(&dp, curdir) == FR_OK)
@@ -100,11 +101,11 @@ void sd_card_dir_list(void)
 				}
 				if (fno.fattrib & AM_DIR)
 				{ /* It is a directory */
-					protocol_send_string(__romstr__("<dir>\t"));
+					protocol_send_string(__romstr__(SD_STR_DIR_FORMATER));
 				}
 				else
 				{ /* It is a file. */
-					protocol_send_string(__romstr__("     \t"));
+					protocol_send_string(__romstr__(SD_STR_FILE_FORMATER));
 				}
 
 				i = strlen(fno.fname);
@@ -178,7 +179,7 @@ void sd_card_file_print(void)
 		return;
 	}
 
-	protocol_send_feedback(__romstr__("Error printing file"));
+	protocol_send_feedback(__romstr__(SD_STR_FILE_PREFIX SD_STR_SD_ERROR));
 }
 
 void sd_card_file_run(void)
@@ -209,7 +210,7 @@ void sd_card_file_run(void)
 	{
 		file_runs = (runs != 0) ? runs : 1;
 		protocol_send_string(MSG_START);
-		protocol_send_string(__romstr__("Running file-remaining "));
+		protocol_send_string(__romstr__(SD_STR_FILE_PREFIX SD_STR_SD_RUNNING " - "));
 		serial_print_int(file_runs);
 		protocol_send_string(MSG_END);
 		return;
@@ -219,7 +220,7 @@ void sd_card_file_run(void)
 		f_close(&fp);
 	}
 
-	protocol_send_feedback(__romstr__("Error running file"));
+	protocol_send_feedback(__romstr__(SD_STR_FILE_PREFIX SD_STR_SD_ERROR));
 }
 
 #ifdef SD_STOP_ON_GCODE_ERROR
@@ -245,7 +246,7 @@ bool sd_card_loop(void *args)
 #if (!(SD_CARD_DETECT_PIN < 0))
 	if (mcu_get_input(SD_CARD_DETECT_PIN) && sd_card_mounted)
 	{
-		protocol_send_feedback(__romstr__("SD card removed"));
+		protocol_send_feedback(__romstr__(SD_STR_SD_PREFIX SD_STR_SD_NOT_FOUND));
 		if (sd_card_mounted == SD_MOUNTED)
 		{
 			f_unmount("");
@@ -285,14 +286,14 @@ bool sd_card_loop(void *args)
 		if (--runs)
 		{
 			protocol_send_string(MSG_START);
-			protocol_send_string(__romstr__("Running file-remaining "));
+			protocol_send_string(__romstr__(SD_STR_FILE_PREFIX SD_STR_SD_RUNNING " - "));
 			serial_print_int(file_runs);
 			protocol_send_string(MSG_END);
 			f_lseek(&fp, 0);
 		}
 		else
 		{
-			protocol_send_feedback(__romstr__("File finnished"));
+			protocol_send_feedback(__romstr__(SD_STR_FILE_PREFIX SD_STR_SD_FINISHED));
 			f_close(&fp);
 		}
 
@@ -321,18 +322,18 @@ bool sd_settings_load(void *args)
 
 	if (f_open(&tmp, "/uCNCsettings.raw", FA_READ | FA_OPEN_EXISTING) == FR_OK)
 	{
-		protocol_send_feedback(__romstr__("SD card settings found"));
+		protocol_send_feedback(__romstr__(SD_STR_SETTINGS_FOUND));
 		f_lseek(&tmp, p->address);
 		uint8_t error = f_read(&tmp, p->data, p->size, &i);
 		if (p->size == i && !error)
 		{
-			protocol_send_feedback(__romstr__("SD card settings loaded"));
+			protocol_send_feedback(__romstr__(SD_STR_SETTINGS_LOADED));
 			result = true;
 		}
 	}
 	else
 	{
-		protocol_send_feedback(__romstr__("SD card settings not found"));
+		protocol_send_feedback(__romstr__(SD_STR_SETTINGS_NOT_FOUND));
 		f_close(&tmp);
 	}
 
@@ -362,7 +363,7 @@ bool sd_settings_save(void *args)
 
 		if (p->size == i && !error)
 		{
-			protocol_send_feedback(__romstr__("SD card settings saved"));
+			protocol_send_feedback(__romstr__(SD_STR_SETTINGS_SAVED));
 			result = true;
 		}
 	}
@@ -387,7 +388,7 @@ bool sd_settings_erase(void *args)
 
 	if (f_open(&tmp, "/uCNCsettings.raw", FA_CREATE_ALWAYS | FA_WRITE) == FR_OK)
 	{
-		protocol_send_feedback(__romstr__("SD card settings erased"));
+		protocol_send_feedback(__romstr__(SD_STR_SETTINGS_ERASED));
 		result = true;
 	}
 
@@ -462,21 +463,28 @@ CREATE_EVENT_LISTENER(grbl_cmd, sd_card_cmd_parser);
 #endif
 
 static FILINFO current_file;
-static dir_level;
+static uint8_t dir_level;
 static void system_menu_render_sd_card_item(uint8_t render_flags, system_menu_item_t *item)
 {
+	char buffer[SYSTEM_MENU_MAX_STR_LEN];
 	if (mcu_get_input(SD_CARD_DETECT_PIN))
 	{
-		system_menu_item_render_arg(render_flags, "Not found");
+		rom_strcpy(buffer, __romstr__(SD_STR_SD_NOT_FOUND));
 	}
 	else if (sd_card_mounted != SD_MOUNTED)
 	{
-		system_menu_item_render_arg(render_flags, "Unmounted");
+		rom_strcpy(buffer, __romstr__(SD_STR_SD_UNMOUNTED));
+	}
+	else if (file_runs)
+	{
+		rom_strcpy(buffer, __romstr__(SD_STR_SD_RUNNING));
 	}
 	else
 	{
-		system_menu_item_render_arg(render_flags, "Mounted");
+		rom_strcpy(buffer, __romstr__(SD_STR_SD_MOUNTED));
 	}
+
+	system_menu_item_render_arg(render_flags, buffer);
 }
 
 static bool system_menu_action_sd_card_item(uint8_t action, system_menu_item_t *item)
@@ -486,7 +494,7 @@ static bool system_menu_action_sd_card_item(uint8_t action, system_menu_item_t *
 		if (mcu_get_input(SD_CARD_DETECT_PIN))
 		{
 			char buffer[SYSTEM_MENU_MAX_STR_LEN];
-			rom_strcpy(buffer, __romstr__("Card not found!"));
+			rom_strcpy(buffer, __romstr__(SD_STR_SD_PREFIX SD_STR_SD_NOT_FOUND "!"));
 			system_menu_show_modal_popup(SYSTEM_MENU_MODAL_POPUP_MS, buffer);
 		}
 		else if (sd_card_mounted != SD_MOUNTED)
@@ -526,7 +534,9 @@ static void system_menu_sd_card_render(uint8_t render_flags)
 	if (render_flags & SYSTEM_MENU_MODE_EDIT)
 	{
 		system_menu_render_header(current_file.fname);
-		system_menu_item_render_label(render_flags, "Run file?");
+		char buffer[SYSTEM_MENU_MAX_STR_LEN];
+		rom_strcpy(buffer, __romstr__(SD_STR_FILE_PREFIX SD_STR_SD_CONFIRM));
+		system_menu_item_render_label(render_flags, buffer);
 		system_menu_item_render_arg(render_flags, current_file.fname);
 	}
 	else
@@ -584,6 +594,8 @@ bool system_menu_sd_card_action(uint8_t action)
 	// selects a file or a dir
 	if (action == SYSTEM_MENU_ACTION_SELECT)
 	{
+		char buffer[SYSTEM_MENU_MAX_STR_LEN];
+
 		if (render_flags & SYSTEM_MENU_MODE_EDIT)
 		{
 			// file print or quit
@@ -600,18 +612,16 @@ bool system_menu_sd_card_action(uint8_t action)
 				{
 					file_runs = 1;
 					protocol_send_string(MSG_START);
-					protocol_send_string(__romstr__("Running file-remaining "));
+					protocol_send_string(__romstr__(SD_STR_FILE_PREFIX SD_STR_SD_RUNNING " - "));
 					serial_print_int(file_runs);
 					protocol_send_string(MSG_END);
 					system_menu_go_idle();
-					char buffer[SYSTEM_MENU_MAX_STR_LEN];
-					rom_strcpy(buffer, __romstr__("File running"));
+					rom_strcpy(buffer, __romstr__(SD_STR_FILE_PREFIX SD_STR_SD_RUNNING));
 					system_menu_show_modal_popup(SYSTEM_MENU_MODAL_POPUP_MS, buffer);
 				}
 				else
 				{
-					char buffer[SYSTEM_MENU_MAX_STR_LEN];
-					rom_strcpy(buffer, __romstr__("Failed to\nrun file!"));
+					rom_strcpy(buffer, __romstr__(SD_STR_FILE_PREFIX SD_STR_SD_FAILED));
 					system_menu_show_modal_popup(SYSTEM_MENU_MODAL_POPUP_MS, buffer);
 					f_close(&fp);
 				}
@@ -651,8 +661,7 @@ bool system_menu_sd_card_action(uint8_t action)
 					}
 					else
 					{
-						char buffer[SYSTEM_MENU_MAX_STR_LEN];
-						rom_strcpy(buffer, __romstr__("Dir not found!"));
+						rom_strcpy(buffer, __romstr__(SD_STR_SD_PREFIX SD_STR_SD_ERROR));
 						system_menu_show_modal_popup(SYSTEM_MENU_MODAL_POPUP_MS, buffer);
 					}
 				}
@@ -665,8 +674,7 @@ bool system_menu_sd_card_action(uint8_t action)
 			}
 			else
 			{
-				char buffer[SYSTEM_MENU_MAX_STR_LEN];
-				rom_strcpy(buffer, __romstr__("File system ERROR!"));
+				rom_strcpy(buffer, __romstr__(SD_STR_SD_PREFIX SD_STR_SD_ERROR));
 				system_menu_show_modal_popup(SYSTEM_MENU_MODAL_POPUP_MS, buffer);
 			}
 		}
