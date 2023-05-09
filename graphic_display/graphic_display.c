@@ -718,9 +718,7 @@ static uint8_t y_coord;
 void system_menu_render_header(const char *__s)
 {
 	u8g2_ClearBuffer(U8G2);
-	char buff[SYSTEM_MENU_MAX_STR_LEN];
-	rom_strcpy(buff, __s);
-	u8g2_DrawStr(U8G2, ALIGN_CENTER(buff), JUSTIFY_TOP + 1, buff);
+	u8g2_DrawStr(U8G2, ALIGN_CENTER(__s), JUSTIFY_TOP + 1, __s);
 	u8g2_DrawLine(U8G2, 0, FONTHEIGHT + 2, LCDWIDTH, FONTHEIGHT + 2);
 	y_coord = 2;
 }
