@@ -6,7 +6,9 @@ This module adds graphic display support for µCNC.
 
 ### 2023-05-08
 
-- slight change to idle screen elements position
+- slight change to idle screen elements position (#25)
+- header render prints RAM string (#25)
+- modified startup code (#25)
 
 ### 2023-05-03
 
