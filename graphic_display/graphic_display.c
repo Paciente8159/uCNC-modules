@@ -143,13 +143,13 @@ uint8_t u8x8_byte_ucnc_hw_spi(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int, void *
 static softi2c_port_t *graphic_port;
 
 #if (GRAPHIC_DISPLAY_INTERFACE == GRAPHIC_DISPLAY_SW_I2C)
-#ifndef GRAPHIC_DISPLAY_I2C_CLOCK_PIN
-#define GRAPHIC_DISPLAY_I2C_CLOCK_PIN DIN30
+#ifndef GRAPHIC_DISPLAY_I2C_CLOCK
+#define GRAPHIC_DISPLAY_I2C_CLOCK DIN30
 #endif
-#ifndef GRAPHIC_DISPLAY_I2C_DATA_PIN
-#define GRAPHIC_DISPLAY_I2C_DATA_PIN DIN31
+#ifndef GRAPHIC_DISPLAY_I2C_DATA
+#define GRAPHIC_DISPLAY_I2C_DATA DIN31
 #endif
-SOFTI2C(graphic_i2c, 100000UL, GRAPHIC_DISPLAY_I2C_CLOCK_PIN, GRAPHIC_DISPLAY_I2C_DATA_PIN)
+SOFTI2C(graphic_i2c, 100000UL, GRAPHIC_DISPLAY_I2C_CLOCK, GRAPHIC_DISPLAY_I2C_DATA)
 #endif
 
 uint8_t u8x8_byte_ucnc_hw_i2c(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int, void *arg_ptr)
@@ -286,33 +286,33 @@ uint8_t u8x8_gpio_and_delay_ucnc(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int, voi
 #endif
 		break;
 	case U8X8_MSG_GPIO_I2C_CLOCK: // arg_int=0: Output low at I2C clock pin
-#if U8X8_MSG_GPIO_I2C_CLOCK_PIN != UNDEF_PIN
+#if GRAPHIC_DISPLAY_I2C_CLOCK != UNDEF_PIN
 		if (arg_int)
 		{
-			mcu_config_input(U8X8_MSG_GPIO_I2C_CLOCK_PIN);
-			mcu_config_pullup(U8X8_MSG_GPIO_I2C_CLOCK_PIN);
-			u8x8_SetGPIOResult(u8x8, mcu_get_input(U8X8_MSG_GPIO_I2C_CLOCK_PIN));
+			mcu_config_input(GRAPHIC_DISPLAY_I2C_CLOCK);
+			mcu_config_pullup(GRAPHIC_DISPLAY_I2C_CLOCK);
+			u8x8_SetGPIOResult(u8x8, mcu_get_input(GRAPHIC_DISPLAY_I2C_CLOCK));
 		}
 		else
 		{
-			mcu_config_output(U8X8_MSG_GPIO_I2C_CLOCK_PIN);
-			mcu_clear_output(U8X8_MSG_GPIO_I2C_CLOCK_PIN);
+			mcu_config_output(GRAPHIC_DISPLAY_I2C_CLOCK);
+			mcu_clear_output(GRAPHIC_DISPLAY_I2C_CLOCK);
 			u8x8_SetGPIOResult(u8x8, 0);
 		}
 #endif
 		break;					 // arg_int=1: Input dir with pullup high for I2C clock pin
 	case U8X8_MSG_GPIO_I2C_DATA: // arg_int=0: Output low at I2C data pin
-#if U8X8_MSG_GPIO_I2C_DATA_PIN != UNDEF_PIN
+#if GRAPHIC_DISPLAY_I2C_DATA != UNDEF_PIN
 		if (arg_int)
 		{
-			mcu_config_input(U8X8_MSG_GPIO_I2C_DATA_PIN);
-			mcu_config_pullup(U8X8_MSG_GPIO_I2C_DATA_PIN);
-			u8x8_SetGPIOResult(u8x8, mcu_get_input(U8X8_MSG_GPIO_I2C_DATA_PIN));
+			mcu_config_input(GRAPHIC_DISPLAY_I2C_DATA);
+			mcu_config_pullup(GRAPHIC_DISPLAY_I2C_DATA);
+			u8x8_SetGPIOResult(u8x8, mcu_get_input(GRAPHIC_DISPLAY_I2C_DATA));
 		}
 		else
 		{
-			mcu_config_output(U8X8_MSG_GPIO_I2C_DATA_PIN);
-			mcu_clear_output(U8X8_MSG_GPIO_I2C_DATA_PIN);
+			mcu_config_output(GRAPHIC_DISPLAY_I2C_DATA);
+			mcu_clear_output(GRAPHIC_DISPLAY_I2C_DATA);
 			u8x8_SetGPIOResult(u8x8, 0);
 		}
 #endif
@@ -415,20 +415,8 @@ uint8_t graphic_display_rotary_encoder_control(void)
 #ifdef ENABLE_MAIN_LOOP_MODULES
 bool graphic_display_start(void *args)
 {
-#if (BOARD == BOARD_VIRTUAL)
-	u8g2_SetupBuffer_SDL_128x64(U8G2, &u8g2_cb_r0);
-#else
-	u8g2_Setup_st7920_s_128x64_1(U8G2, U8G2_R0, /*u8x8_byte_4wire_sw_spi */ u8x8_byte_ucnc_hw_spi, u8x8_gpio_and_delay_ucnc);
-	// u8g2_Setup_ssd1306_i2c_128x64_noname_f(U8G2, U8G2_R0, /*u8x8_byte_sw_i2c*/ u8x8_byte_ucnc_hw_i2c, u8x8_gpio_and_delay_ucnc);
-#endif
-	u8g2_InitDisplay(U8G2); // send init sequence to the display, display is in sleep mode after this,
-	u8g2_ClearDisplay(U8G2);
-	u8g2_SetPowerSave(U8G2, 0); // wake up display
-	u8g2_FirstPage(U8G2);
 	// clear
-	u8g2_ClearBuffer(U8G2);
-	u8g2_SetFont(U8G2, u8g2_font_6x12_tr);
-	u8g2_NextPage(U8G2);
+	system_menu_render_startup();
 
 	return false;
 }
@@ -473,6 +461,18 @@ DECL_MODULE(graphic_display)
 	// uses hardware version of SPI or I2C
 	graphic_port = NULL;
 #endif
+
+#if (BOARD == BOARD_VIRTUAL)
+	u8g2_SetupBuffer_SDL_128x64(U8G2, &u8g2_cb_r0);
+#else
+	u8g2_Setup_st7920_s_128x64_f(U8G2, U8G2_R0, /*u8x8_byte_4wire_sw_spi */ u8x8_byte_ucnc_hw_spi, u8x8_gpio_and_delay_ucnc);
+	// u8g2_Setup_ssd1306_i2c_128x64_noname_f(U8G2, U8G2_R0, /*u8x8_byte_sw_i2c*/ u8x8_byte_ucnc_hw_i2c, u8x8_gpio_and_delay_ucnc);
+#endif
+	u8g2_InitDisplay(U8G2); // send init sequence to the display, display is in sleep mode after this,
+	u8g2_ClearDisplay(U8G2);
+	u8g2_SetPowerSave(U8G2, 0); // wake up display
+	u8g2_FirstPage(U8G2);
+
 	// STARTS SYSTEM MENU MODULE
 	system_menu_init();
 #ifdef ENABLE_MAIN_LOOP_MODULES
