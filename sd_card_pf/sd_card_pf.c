@@ -628,14 +628,14 @@ bool sd_card_cmd_parser(void *args)
 
 	strupr((char *)cmd->cmd);
 
-	if (!strcmp("MNT", (char *)(cmd->cmd)))
+	if (!strcmp("MNT", (char *)(cmd->cmd)) && !file_runs)
 	{
 		sd_card_mount();
 		*(cmd->error) = STATUS_OK;
 		return EVENT_HANDLED;
 	}
 
-	if (!strcmp("UNMNT", (char *)(cmd->cmd)))
+	if (!strcmp("UNMNT", (char *)(cmd->cmd)) && !file_runs)
 	{
 		if (sd_card_mounted == SD_MOUNTED)
 		{
@@ -646,28 +646,28 @@ bool sd_card_cmd_parser(void *args)
 		return EVENT_HANDLED;
 	}
 
-	if (!strcmp("LS", (char *)(cmd->cmd)))
+	if (!strcmp("LS", (char *)(cmd->cmd)) && !file_runs)
 	{
 		sd_card_dir_list();
 		*(cmd->error) = STATUS_OK;
 		return EVENT_HANDLED;
 	}
 
-	if (!strcmp("CD", (char *)(cmd->cmd)))
+	if (!strcmp("CD", (char *)(cmd->cmd)) && !file_runs)
 	{
 		sd_card_cd();
 		*(cmd->error) = STATUS_OK;
 		return EVENT_HANDLED;
 	}
 
-	if (!strcmp("LPR", (char *)(cmd->cmd)))
+	if (!strcmp("LPR", (char *)(cmd->cmd)) && !file_runs)
 	{
 		sd_card_file_print();
 		*(cmd->error) = STATUS_OK;
 		return EVENT_HANDLED;
 	}
 
-	if (!strcmp("RUN", (char *)(cmd->cmd)))
+	if (!strcmp("RUN", (char *)(cmd->cmd)) && !file_runs)
 	{
 		sd_card_file_run();
 		*(cmd->error) = STATUS_OK;
