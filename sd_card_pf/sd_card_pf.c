@@ -18,6 +18,8 @@
 */
 
 #include "../../cnc.h"
+#include "../system_menu.h"
+#include "sd_messages.h"
 #include <stdint.h>
 #include <stdbool.h>
 #include <string.h>
@@ -25,41 +27,16 @@
 #define PETIT_FAT_FS 1
 #define FAT_FS 2
 
+#ifdef ENABLE_SETTINGS_MODULES
+#ifdef SD_FAT_FS
+#undef SD_FAT_FS
+#endif
+#define SD_FAT_FS FAT_FS
+#endif
+
 #ifndef SD_FAT_FS
-#define SD_FAT_FS PETIT_FAT_FS
+#define SD_FAT_FS FAT_FS
 #endif
-
-#if (SD_FAT_FS == PETIT_FAT_FS)
-#include "petit_fat_fs/diskio.h"
-#include "petit_fat_fs/pff.h"
-
-typedef struct
-{
-	bool eof;
-} FIL;
-
-#define sd_mount(fs) pf_mount(fs)
-#define sd_unmount(fs)
-#define sd_fopen(fptr, path, mode) \
-	({                        \
-		(fptr)->eof = false; \
-		pf_open(path);       \
-	})
-#define sd_fread(fptr, buff, btr, br) \
-	pf_read(buff, btr, br);           \
-	(fptr)->eof = ((btr) > *(br))
-#define sd_fwrite(fptr, buff, btw, bw) pf_write(buff, btw, bw)
-#define sd_fseek(fptr, ofs) pf_lseek(ofs)
-#define sd_fclose(fptr)
-#define sd_fsync(fptr)
-#define sd_opendir(dj, path) pf_opendir(dj, path)
-#define sd_readdir(dj, fno) pf_readdir(dj, fno)
-#define sd_closedir(fno)
-#define sd_eof(fptr) (fptr)->eof
-#else
-#endif
-#include "../system_menu.h"
-#include "sd_messages.h"
 
 #if (UCNC_MODULE_VERSION > 010700)
 #error "This module is not compatible with the current version of µCNC"
@@ -77,6 +54,111 @@ typedef struct
 #define MAX_PATH_LEN 256
 #endif
 
+// current opened file
+static char cwd[MAX_PATH_LEN];
+static char *sd_parentdir(void);
+// emulates basic chdir
+static uint8_t sd_chdir(const char *newdir);
+
+#if (SD_FAT_FS == PETIT_FAT_FS)
+#include "petit_fat_fs/pffconf.h"
+#include "petit_fat_fs/pff.h"
+
+#define FA_READ 0x01
+#define FA_WRITE 0x02
+#define FA_OPEN_EXISTING 0x00
+#define FA_CREATE_NEW 0x04
+#define FA_CREATE_ALWAYS 0x08
+#define FA_OPEN_ALWAYS 0x10
+#define FA_OPEN_APPEND 0x30
+
+typedef struct
+{
+	char *filepath;
+	bool eof;
+} FIL;
+
+FRESULT sd_mount(FATFS *fs)
+{
+	cwd[0] = 0;
+	return pf_mount(fs);
+}
+
+#define sd_unmount(fs) (cwd[0] = 0)
+
+FRESULT sd_fopen(FIL *fptr, const char *name, BYTE mode)
+{
+	sd_chdir(name);
+	fptr->filepath = cwd;
+	fptr->eof = false;
+	return pf_open(cwd);
+}
+
+FRESULT sd_fread(FIL *fptr, char *buff, UINT btr, UINT *br)
+{
+	if (fptr->filepath)
+	{
+		return FR_NOT_OPENED;
+	}
+
+	FRESULT res = pf_read(buff, btr, br);
+	fptr->eof = ((btr) > *(br));
+	return res;
+}
+
+FRESULT sd_fwrite(FIL *fptr, const char *buff, UINT btw, UINT *bw)
+{
+	if (fptr->filepath)
+	{
+		return FR_NOT_OPENED;
+	}
+	return pf_write(buff, btw, bw);
+}
+
+FRESULT sd_fseek(FIL *fptr, DWORD ofs)
+{
+	if (fptr->filepath)
+	{
+		return FR_NOT_OPENED;
+	}
+	return pf_lseek(ofs);
+}
+
+FRESULT sd_fclose(FIL *fptr)
+{
+	if ((fptr)->filepath)
+	{
+		(fptr)->filepath = NULL;
+		return sd_chdir("..");
+	}
+
+	return FR_NOT_OPENED;
+}
+#define sd_fsync(fptr)
+#define sd_opendir(dj, path) pf_opendir(dj, path)
+#define sd_readdir(dj, fno) pf_readdir(dj, fno)
+#define sd_closedir(fno)
+#define sd_eof(fptr) (fptr)->eof
+#else
+#include "fat_fs/ffconf.h"
+#include "fat_fs/ff.h"
+
+#define sd_mount(fs) f_mount(fs, "/", 1)
+#define sd_unmount(fs) f_unmount(fs)
+#define sd_fopen(fptr, path, mode) f_open(fptr, path, mode)
+#define sd_fread(fptr, buff, btr, br) f_read(fptr, buff, btr, br)
+#define sd_fwrite(fptr, buff, btw, bw) f_write(fptr, buff, btw, bw)
+#define sd_fseek(fptr, ofs) f_lseek(fptr, ofs)
+#define sd_fclose(fptr) f_close(fptr)
+#define sd_fsync(fptr) f_sync(fptr)
+#define sd_opendir(dj, path) f_opendir(dj, path)
+#define sd_readdir(dj, fno) f_readdir(dj, fno)
+#define sd_closedir(fno) f_closedir(fno)
+#define sd_eof(fptr) f_eof(fptr)
+#endif
+
+#include "diskio.h"
+
 enum SD_CARD_STATUS
 {
 	SD_UNDETECTED = 0,
@@ -86,107 +168,103 @@ enum SD_CARD_STATUS
 
 static uint8_t sd_card_mounted;
 static FATFS fs;
-// current opened file
-static char cwd[MAX_PATH_LEN];
 // current opend file
 static FIL cwf;
 // number of runs to executed the file code
 static uint32_t file_runs;
 
-static FRESULT sd_chdir(char *newdir)
+static char *sd_parentdir(void)
 {
-	uint16_t state = 0;
-	UINT len = strlen(cwd);
+	char *tail = strrchr(cwd, '/');
+	if (!tail)
+	{
+		// is in root
+		tail = cwd;
+	}
+
+	return tail;
+}
+
+// emulates basic chdir
+static uint8_t sd_chdir(const char *newdir)
+{
+	int16_t state = 0;
+	uint16_t len = strlen(cwd);
 	char *tail = &cwd[len];
+
+	if (*newdir == '/')
+	{
+		// root dir
+		tail = cwd;
+		len = 0;
+		*tail = 0;
+		newdir++;
+	}
+	else if (len)
+	{
+		*tail = '/';
+		tail++;
+	}
 
 	for (;;)
 	{
+		*tail = *newdir;
 		switch (*newdir)
 		{
 		case '/':
 		case 0:
 			switch (state)
 			{
-			case 0:
-				// root dir
-				tail = cwd;
-				*tail = '/';
-				tail++;
+			case 2:
 				*tail = 0;
-				len = 1;
-				break;
+				tail = sd_parentdir();
+				// continue
 			case 1:
-				// deletes dot
-				tail--;
+				// deletes dot or slash
 				*tail = 0;
-				len--;
+				tail = sd_parentdir();
+				*tail = *newdir;
+				len = strlen(cwd);
 				break;
 			default:
-				if (state == 2)
+				if (state && state < MAX_PATH_LEN)
 				{
-					// deletes double dot and last slash
-					tail -= 3;
+					// path with only dots not allowed
 					*tail = 0;
-				}
-
-				if (state < MAX_PATH_LEN)
-				{
-					// search previeous slash
-					tail = strrchr(cwd, '/');
-					if (!tail)
+					tail = sd_parentdir();
+					if (*tail == '/')
 					{
-						// is in root
-						tail = cwd;
+						*tail = 0;
 					}
-				}
-				*tail = '/';
-				tail++;
-				*tail = 0;
-
-				if (state == 2)
-				{
-					len = strlen(cwd) - 1;
-				}
-				else if (state < MAX_PATH_LEN)
-				{
-					// invalid path name with only dots
 					return FR_NO_FILE;
 				}
+			}
 
-				if (!*newdir)
+			if (!*newdir)
+			{
+				if (len)
 				{
-					// terminated
-					return FR_OK;
+					tail--;
+					if (*tail == '/')
+					{
+						*tail = 0;
+					}
 				}
-				break;
+				// terminated
+				return FR_OK;
 			}
 			state = 0;
 			break;
-		case '.':
-			*tail = '.';
-			tail++;
-			*tail = 0;
-			state++;
-			if (len >= MAX_PATH_LEN)
-			{
-				return FR_NO_FILE;
-			}
-			break;
-			// if more then doble dots consider normal path and fall through
 		default:
-			state = MAX_PATH_LEN;
-			*tail = *newdir;
-			tail++;
-			*tail = 0;
-			len++;
-			if (len >= MAX_PATH_LEN)
-			{
-				return FR_NO_FILE;
-			}
+			state++;
+			state = (*newdir == '.') ? state : MAX_PATH_LEN;
 			break;
 		}
+
 		newdir++;
 		len++;
+		tail++;
+		*tail = 0;
 
 		if (len >= MAX_PATH_LEN)
 		{
@@ -209,11 +287,12 @@ void sd_card_mount(void)
 	{
 		if ((sd_mount(&fs) == FR_OK))
 		{
-			cwd[0] = '/';
-			cwd[1] = 0;
+			cwd[0] = 0;
 			protocol_send_feedback(__romstr__(SD_STR_SD_PREFIX SD_STR_SD_MOUNTED));
 			sd_card_mounted = SD_MOUNTED;
+#ifdef ENABLE_SETTINGS_MODULES
 			settings_init();
+#endif
 			return;
 		}
 
@@ -275,13 +354,12 @@ void sd_card_cd(void)
 
 	while (serial_peek() != EOL)
 	{
-		newdir[i++] = serial_getc();
-		newdir[i] = 0;
+		newdir[i] = serial_getc();
+		newdir[++i] = 0;
 	}
 
 	if (sd_chdir(newdir) == FR_OK)
 	{
-
 		serial_print_str(cwd);
 		serial_print_str(">" STR_EOL);
 	}
@@ -318,6 +396,7 @@ void sd_card_file_print(void)
 		return;
 	}
 
+	sd_fclose(&tmp);
 	protocol_send_feedback(__romstr__(SD_STR_FILE_PREFIX SD_STR_SD_ERROR));
 }
 
@@ -382,7 +461,7 @@ OVERRIDE_EVENT_HANDLER(cnc_exec_cmd_error)
  * */
 bool sd_card_loop(void *args)
 {
-#if (!(SD_CARD_DETECT_PIN < 0))
+#if (ASSERT_PIN(SD_CARD_DETECT_PIN))
 	if (mcu_get_input(SD_CARD_DETECT_PIN) && sd_card_mounted)
 	{
 		protocol_send_feedback(__romstr__(SD_STR_SD_PREFIX SD_STR_SD_NOT_FOUND));
@@ -459,7 +538,7 @@ bool sd_settings_load(void *args)
 	FIL tmp;
 	settings_args_t *p = args;
 
-	if (sd_fopen(&tmp, "/uCNCsettings.raw", FA_READ | FA_OPEN_EXISTING) == FR_OK)
+	if (sd_fopen(&tmp, "/uCNC.cfg", FA_READ | FA_OPEN_EXISTING) == FR_OK)
 	{
 		protocol_send_feedback(__romstr__(SD_STR_SETTINGS_FOUND));
 		sd_fseek(&tmp, p->address);
@@ -473,8 +552,9 @@ bool sd_settings_load(void *args)
 	else
 	{
 		protocol_send_feedback(__romstr__(SD_STR_SETTINGS_NOT_FOUND));
-		sd_fclose(&tmp);
 	}
+
+	sd_fclose(&tmp);
 
 	return result;
 }
@@ -494,7 +574,7 @@ bool sd_settings_save(void *args)
 	bool result = false;
 	settings_args_t *p = args;
 
-	if (sd_fopen(&tmp, "/uCNCsettings.raw", FA_OPEN_APPEND | FA_WRITE | FA_READ) == FR_OK)
+	if (sd_fopen(&tmp, "/uCNC.cfg", FA_OPEN_APPEND | FA_WRITE | FA_READ) == FR_OK)
 	{
 		sd_fseek(&tmp, p->address);
 		uint8_t error = sd_fwrite(&tmp, p->data, p->size, &i);
@@ -525,7 +605,7 @@ bool sd_settings_erase(void *args)
 		return EVENT_CONTINUE;
 	}
 
-	if (sd_fopen(&tmp, "/uCNCsettings.raw", FA_CREATE_ALWAYS | FA_WRITE) == FR_OK)
+	if (sd_fopen(&tmp, "/uCNC.cfg", FA_CREATE_ALWAYS | FA_WRITE) == FR_OK)
 	{
 		protocol_send_feedback(__romstr__(SD_STR_SETTINGS_ERASED));
 		result = true;
@@ -606,10 +686,16 @@ static uint8_t dir_level;
 static void system_menu_render_sd_card_item(uint8_t render_flags, system_menu_item_t *item)
 {
 	char buffer[SYSTEM_MENU_MAX_STR_LEN];
+#if (ASSERT_PIN(SD_CARD_DETECT_PIN))
 	if (mcu_get_input(SD_CARD_DETECT_PIN))
 	{
 		rom_strcpy(buffer, __romstr__(SD_STR_SD_NOT_FOUND));
 	}
+#else
+	if (false)
+	{
+	}
+#endif
 	else if (sd_card_mounted != SD_MOUNTED)
 	{
 		rom_strcpy(buffer, __romstr__(SD_STR_SD_UNMOUNTED));
@@ -630,12 +716,18 @@ static bool system_menu_action_sd_card_item(uint8_t action, system_menu_item_t *
 {
 	if (action == SYSTEM_MENU_ACTION_SELECT)
 	{
+#if (ASSERT_PIN(SD_CARD_DETECT_PIN))
 		if (mcu_get_input(SD_CARD_DETECT_PIN))
 		{
 			char buffer[SYSTEM_MENU_MAX_STR_LEN];
 			rom_strcpy(buffer, __romstr__(SD_STR_SD_PREFIX SD_STR_SD_NOT_FOUND "!"));
 			system_menu_show_modal_popup(SYSTEM_MENU_MODAL_POPUP_MS, buffer);
 		}
+#else
+		if (false)
+		{
+		}
+#endif
 		else if (sd_card_mounted != SD_MOUNTED)
 		{
 			// mount the card
