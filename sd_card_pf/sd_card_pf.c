@@ -50,12 +50,12 @@
 #define SD_STOP_ON_GCODE_ERROR
 #endif
 
-#ifndef MAX_PATH_LEN
-#define MAX_PATH_LEN 256
+#ifndef FS_MAX_PATH_LEN
+#define FS_MAX_PATH_LEN 128
 #endif
 
 // current opened file
-static char cwd[MAX_PATH_LEN];
+static char cwd[FS_MAX_PATH_LEN];
 static char *sd_parentdir(void);
 // emulates basic chdir
 static uint8_t sd_chdir(const char *newdir);
@@ -227,7 +227,7 @@ static uint8_t sd_chdir(const char *newdir)
 				len = strlen(cwd);
 				break;
 			default:
-				if (state && state < MAX_PATH_LEN)
+				if (state && state < FS_MAX_PATH_LEN)
 				{
 					// path with only dots not allowed
 					*tail = 0;
@@ -257,7 +257,7 @@ static uint8_t sd_chdir(const char *newdir)
 			break;
 		default:
 			state++;
-			state = (*newdir == '.') ? state : MAX_PATH_LEN;
+			state = (*newdir == '.') ? state : FS_MAX_PATH_LEN;
 			break;
 		}
 
@@ -266,7 +266,7 @@ static uint8_t sd_chdir(const char *newdir)
 		tail++;
 		*tail = 0;
 
-		if (len >= MAX_PATH_LEN)
+		if (len >= FS_MAX_PATH_LEN)
 		{
 			// clamp
 			tail = strrchr(cwd, '/');
@@ -313,7 +313,6 @@ void sd_card_dir_list(void)
 	protocol_send_string(MSG_EOL);
 	if (sd_opendir(&dp, cwd) == FR_OK)
 	{
-
 		for (;;)
 		{
 			res = sd_readdir(&dp, &fno); /* Read a directory item */
@@ -766,6 +765,7 @@ static void system_menu_sd_card_render(uint8_t render_flags)
 	{
 		system_menu_render_header(current_file.fname);
 		char buffer[SYSTEM_MENU_MAX_STR_LEN];
+		memset(buffer, 0, SYSTEM_MENU_MAX_STR_LEN);
 		rom_strcpy(buffer, __romstr__(SD_STR_FILE_PREFIX SD_STR_SD_CONFIRM));
 		system_menu_item_render_label(render_flags, buffer);
 		system_menu_item_render_arg(render_flags, current_file.fname);
@@ -777,8 +777,23 @@ static void system_menu_sd_card_render(uint8_t render_flags)
 		DIR dp;
 
 		// current dir
-		char *last_slash = strrchr(cwd, '/');
-		system_menu_render_header((!last_slash) ? last_slash : "/\0");
+		if (!strlen(cwd))
+		{
+			system_menu_render_header("/\0");
+		}
+		else
+		{
+			char *last_slash = strrchr(cwd, '/');
+			if (last_slash == NULL)
+			{
+				last_slash = cwd;
+			}
+			else
+			{
+				last_slash++;
+			}
+			system_menu_render_header(last_slash);
+		}
 		uint8_t index = 0;
 		if (sd_opendir(&dp, cwd) == FR_OK)
 		{
@@ -793,6 +808,7 @@ static void system_menu_sd_card_render(uint8_t render_flags)
 				if (system_menu_render_menu_item_filter(index))
 				{
 					char buffer[SYSTEM_MENU_MAX_STR_LEN];
+					memset(buffer, 0, SYSTEM_MENU_MAX_STR_LEN);
 					buffer[0] = (fno.fattrib & AM_DIR) ? '/' : ' ';
 					memcpy(&buffer[1], fno.fname, MIN(SYSTEM_MENU_MAX_STR_LEN - 1, strlen(fno.fname)));
 					system_menu_item_render_label(render_flags | ((cur_index == index) ? SYSTEM_MENU_MODE_SELECT : 0), buffer);
