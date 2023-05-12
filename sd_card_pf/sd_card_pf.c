@@ -59,6 +59,7 @@ static char cwd[FS_MAX_PATH_LEN];
 static char *sd_parentdir(void);
 // emulates basic chdir
 static uint8_t sd_chdir(const char *newdir);
+static uint8_t sd_chfile(const char *newdir, uint8_t mode);
 
 #if (SD_FAT_FS == PETIT_FAT_FS)
 #include "petit_fat_fs/pffconf.h"
@@ -74,9 +75,13 @@ static uint8_t sd_chdir(const char *newdir);
 
 typedef struct
 {
-	char *filepath;
-	bool eof;
+	FATFS *fs;
 } FIL;
+
+// file system
+static FATFS cfs;
+// current opend file
+static FIL cwf;
 
 FRESULT sd_mount(FATFS *fs)
 {
@@ -86,75 +91,93 @@ FRESULT sd_mount(FATFS *fs)
 
 #define sd_unmount(fs) (cwd[0] = 0)
 
-FRESULT sd_fopen(FIL *fptr, const char *name, BYTE mode)
+FRESULT sd_fopen(const char *name, BYTE mode)
 {
-	sd_chdir(name);
-	fptr->filepath = cwd;
-	fptr->eof = false;
-	return pf_open(cwd);
+	if (pf_open(cwd) == FR_OK)
+	{
+		cwf.fs = &cfs;
+		return FR_OK;
+	}
+
+	return FR_NO_FILE;
 }
 
-FRESULT sd_fread(FIL *fptr, char *buff, UINT btr, UINT *br)
+FRESULT sd_fread(char *buff, UINT btr, UINT *br)
 {
-	if (fptr->filepath)
+	if (cwf.fs)
 	{
 		return FR_NOT_OPENED;
 	}
 
-	FRESULT res = pf_read(buff, btr, br);
-	fptr->eof = ((btr) > *(br));
-	return res;
+	return pf_read(buff, btr, br);
 }
 
-FRESULT sd_fwrite(FIL *fptr, const char *buff, UINT btw, UINT *bw)
+FRESULT sd_fwrite(const char *buff, UINT btw, UINT *bw)
 {
-	if (fptr->filepath)
+	if (cwf.fs)
 	{
 		return FR_NOT_OPENED;
 	}
 	return pf_write(buff, btw, bw);
 }
 
-FRESULT sd_fseek(FIL *fptr, DWORD ofs)
+FRESULT sd_fseek(DWORD ofs)
 {
-	if (fptr->filepath)
+	if (cwf.fs)
 	{
 		return FR_NOT_OPENED;
 	}
 	return pf_lseek(ofs);
 }
 
-FRESULT sd_fclose(FIL *fptr)
+FRESULT sd_fclose()
 {
-	if ((fptr)->filepath)
+	if (cwf.fs)
 	{
-		(fptr)->filepath = NULL;
-		return sd_chdir("..");
+		cwf.fs = NULL;
+		return sd_chfile("..", 0);
 	}
 
 	return FR_NOT_OPENED;
 }
-#define sd_fsync(fptr)
+#define sd_fsync()
 #define sd_opendir(dj, path) pf_opendir(dj, path)
 #define sd_readdir(dj, fno) pf_readdir(dj, fno)
 #define sd_closedir(fno)
-#define sd_eof(fptr) (fptr)->eof
+bool sd_eof()
+{
+	if (cwf.fs)
+	{
+		return (cwf.fs->fsize == cwf.fs->fptr);
+	}
+	return true;
+}
 #else
 #include "fat_fs/ffconf.h"
 #include "fat_fs/ff.h"
 
+// file system
+static FATFS cfs;
+// current opend file
+static FIL cwf;
+
 #define sd_mount(fs) f_mount(fs, "/", 1)
 #define sd_unmount(fs) f_unmount(fs)
-#define sd_fopen(fptr, path, mode) f_open(fptr, path, mode)
-#define sd_fread(fptr, buff, btr, br) f_read(fptr, buff, btr, br)
-#define sd_fwrite(fptr, buff, btw, bw) f_write(fptr, buff, btw, bw)
-#define sd_fseek(fptr, ofs) f_lseek(fptr, ofs)
-#define sd_fclose(fptr) f_close(fptr)
-#define sd_fsync(fptr) f_sync(fptr)
+#define sd_fopen(path, mode) f_open(&cwf, path, mode)
+#define sd_fread(buff, btr, br) f_read(&cwf, buff, btr, br)
+#define sd_fwrite(buff, btw, bw) f_write(&cwf, buff, btw, bw)
+#define sd_fseek(ofs) f_lseek(&cwf, ofs)
+#define sd_fclose()         \
+	if (cwf.obj.fs)         \
+	{                       \
+		f_close(&cwf);      \
+		sd_chfile("..", 0); \
+	}
+#define sd_fsync() f_sync(&cwf)
 #define sd_opendir(dj, path) f_opendir(dj, path)
 #define sd_readdir(dj, fno) f_readdir(dj, fno)
-#define sd_closedir(fno) f_closedir(fno)
-#define sd_eof(fptr) f_eof(fptr)
+#define sd_closedir(fno) f_closedir(fno);
+#define sd_eof() f_eof(&cwf)
 #endif
 
 #include "diskio.h"
@@ -167,9 +190,6 @@ enum SD_CARD_STATUS
 };
 
 static uint8_t sd_card_mounted;
-static FATFS fs;
-// current opend file
-static FIL cwf;
 // number of runs to executed the file code
 static uint32_t file_runs;
 
@@ -185,12 +205,13 @@ static char *sd_parentdir(void)
 	return tail;
 }
 
-// emulates basic chdir
-static uint8_t sd_chdir(const char *newdir)
+// emulates basic chdir and opens the dir or file if it exists
+static uint8_t sd_chfile(const char *newdir, uint8_t mode)
 {
 	int16_t state = 0;
 	uint16_t len = strlen(cwd);
 	char *tail = &cwd[len];
+	DIR dp;
 
 	if (*newdir == '/')
 	{
@@ -240,6 +261,32 @@ static uint8_t sd_chdir(const char *newdir)
 				}
 			}
 
+			*tail = 0;
+			// checks if is valid dir
+			if (sd_opendir(&dp, cwd) != FR_OK)
+			{
+				// not a valid dir
+				// if the end of the path checks if it's a valid file
+				if (!*newdir && mode)
+				{
+					if (sd_fopen(cwd, mode) == FR_OK)
+					{
+						return FR_OK;
+					}
+				}
+
+				// not a valid path or dir
+				// rewind
+				tail = sd_parentdir();
+				if (*tail == '/')
+				{
+					*tail = 0;
+				}
+				return FR_NO_FILE;
+			}
+
+			*tail = *newdir;
+
 			if (!*newdir)
 			{
 				if (len)
@@ -253,6 +300,7 @@ static uint8_t sd_chdir(const char *newdir)
 				// terminated
 				return FR_OK;
 			}
+
 			state = 0;
 			break;
 		default:
@@ -285,7 +333,7 @@ void sd_card_mount(void)
 {
 	if (sd_card_mounted != SD_MOUNTED)
 	{
-		if ((sd_mount(&fs) == FR_OK))
+		if ((sd_mount(&cfs) == FR_OK))
 		{
 			cwd[0] = 0;
 			protocol_send_feedback(__romstr__(SD_STR_SD_PREFIX SD_STR_SD_MOUNTED));
@@ -357,7 +405,7 @@ void sd_card_cd(void)
 		newdir[++i] = 0;
 	}
 
-	if (sd_chdir(newdir) == FR_OK)
+	if (sd_chfile(newdir, 0) == FR_OK)
 	{
 		serial_print_str(cwd);
 		serial_print_str(">" STR_EOL);
@@ -368,7 +416,6 @@ void sd_card_file_print(void)
 {
 	UINT i = 0;
 	char file[RX_BUFFER_CAPACITY]; /* File name */
-	FIL tmp;
 
 	while (serial_peek() == ' ')
 	{
@@ -381,22 +428,22 @@ void sd_card_file_print(void)
 		file[i] = 0;
 	}
 
-	if (sd_fopen(&tmp, file, FA_READ) == FR_OK)
+	if (sd_chfile(file, FA_READ) == FR_OK)
 	{
-		while (!sd_eof(&tmp))
+		while (!sd_eof())
 		{
-			sd_fread(&tmp, file, RX_BUFFER_CAPACITY, &i);
-			file[i] = 0;
+			memset(file, 0, RX_BUFFER_CAPACITY);
+			sd_fread(file, RX_BUFFER_CAPACITY, &i);
 			serial_print_str(file);
 			serial_flush();
 		}
 
-		sd_fclose(&tmp);
+		sd_fclose();
+		protocol_send_feedback(__romstr__(SD_STR_FILE_PREFIX SD_STR_SD_FINISHED));
 		return;
 	}
 
-	sd_fclose(&tmp);
-	protocol_send_feedback(__romstr__(SD_STR_FILE_PREFIX SD_STR_SD_ERROR));
+	sd_fclose();
 }
 
 void sd_card_file_run(void)
@@ -423,7 +470,7 @@ void sd_card_file_run(void)
 		file++;
 	}
 
-	if (sd_fopen(&cwf, file, FA_READ) == FR_OK)
+	if (sd_chfile(file, FA_READ) == FR_OK)
 	{
 		file_runs = (runs != 0) ? runs : 1;
 		protocol_send_string(MSG_START);
@@ -434,7 +481,7 @@ void sd_card_file_run(void)
 	}
 	else
 	{
-		sd_fclose(&cwf);
+		sd_fclose();
 	}
 
 	protocol_send_feedback(__romstr__(SD_STR_FILE_PREFIX SD_STR_SD_ERROR));
@@ -445,7 +492,7 @@ void sd_card_file_run(void)
 OVERRIDE_EVENT_HANDLER(cnc_exec_cmd_error)
 {
 	file_runs = 0;
-	sd_fclose(&cwf);
+	sd_fclose();
 	serial_rx_clear();
 	// *handled = true;
 	return EVENT_CONTINUE;
@@ -485,14 +532,14 @@ bool sd_card_loop(void *args)
 	{
 		char buff[32];
 		UINT i = 0;
-		while (!sd_eof(&cwf))
+		while (!sd_eof())
 		{
 			if (serial_get_rx_freebytes() < 32)
 			{
 				// leaves the loop to enable code to run
 				return EVENT_CONTINUE;
 			}
-			sd_fread(&cwf, buff, 32, &i);
+			sd_fread(buff, 32, &i);
 			uint8_t j = 0;
 			do
 			{
@@ -506,12 +553,12 @@ bool sd_card_loop(void *args)
 			protocol_send_string(__romstr__(SD_STR_FILE_PREFIX SD_STR_SD_RUNNING " - "));
 			serial_print_int(file_runs);
 			protocol_send_string(MSG_END);
-			sd_fseek(&cwf, 0);
+			sd_fseek(0);
 		}
 		else
 		{
 			protocol_send_feedback(__romstr__(SD_STR_FILE_PREFIX SD_STR_SD_FINISHED));
-			sd_fclose(&cwf);
+			sd_fclose();
 		}
 
 		file_runs = runs;
@@ -534,14 +581,13 @@ bool sd_settings_load(void *args)
 
 	UINT i = 0;
 	bool result = false;
-	FIL tmp;
 	settings_args_t *p = args;
 
-	if (sd_fopen(&tmp, "/uCNC.cfg", FA_READ | FA_OPEN_EXISTING) == FR_OK)
+	if (sd_chfile("/uCNC.cfg", FA_READ | FA_OPEN_EXISTING) == FR_OK)
 	{
 		protocol_send_feedback(__romstr__(SD_STR_SETTINGS_FOUND));
-		sd_fseek(&tmp, p->address);
-		uint8_t error = sd_fread(&tmp, p->data, p->size, &i);
+		sd_fseek(p->address);
+		uint8_t error = sd_fread(p->data, p->size, &i);
 		if (p->size == i && !error)
 		{
 			protocol_send_feedback(__romstr__(SD_STR_SETTINGS_LOADED));
@@ -553,7 +599,7 @@ bool sd_settings_load(void *args)
 		protocol_send_feedback(__romstr__(SD_STR_SETTINGS_NOT_FOUND));
 	}
 
-	sd_fclose(&tmp);
+	sd_fclose();
 
 	return result;
 }
@@ -569,15 +615,14 @@ bool sd_settings_save(void *args)
 	}
 
 	UINT i = 0;
-	FIL tmp;
 	bool result = false;
 	settings_args_t *p = args;
 
-	if (sd_fopen(&tmp, "/uCNC.cfg", FA_OPEN_APPEND | FA_WRITE | FA_READ) == FR_OK)
+	if (sd_chfile("/uCNC.cfg", FA_OPEN_APPEND | FA_WRITE | FA_READ) == FR_OK)
 	{
-		sd_fseek(&tmp, p->address);
-		uint8_t error = sd_fwrite(&tmp, p->data, p->size, &i);
-		sd_fsync(&tmp);
+		sd_fseek(p->address);
+		uint8_t error = sd_fwrite(p->data, p->size, &i);
+		sd_fsync();
 
 		if (p->size == i && !error)
 		{
@@ -586,7 +631,7 @@ bool sd_settings_save(void *args)
 		}
 	}
 
-	sd_fclose(&tmp);
+	sd_fclose();
 
 	return result;
 }
@@ -596,7 +641,6 @@ CREATE_EVENT_LISTENER(settings_save, sd_settings_save);
 bool sd_settings_erase(void *args)
 // OVERRIDE_EVENT_HANDLER(settings_erase)
 {
-	FIL tmp;
 	bool result = false;
 
 	if ((sd_card_mounted != SD_MOUNTED))
@@ -604,13 +648,13 @@ bool sd_settings_erase(void *args)
 		return EVENT_CONTINUE;
 	}
 
-	if (sd_fopen(&tmp, "/uCNC.cfg", FA_CREATE_ALWAYS | FA_WRITE) == FR_OK)
+	if (sd_chfile("/uCNC.cfg", FA_CREATE_ALWAYS | FA_WRITE) == FR_OK)
 	{
 		protocol_send_feedback(__romstr__(SD_STR_SETTINGS_ERASED));
 		result = true;
 	}
 
-	sd_fclose(&tmp);
+	sd_fclose();
 
 	return result;
 }
@@ -740,7 +784,7 @@ static bool system_menu_action_sd_card_item(uint8_t action, system_menu_item_t *
 		else
 		{
 			// go back to root dir
-			sd_chdir(("/"));
+			sd_chfile("/", 0);
 			dir_level = 0;
 			// goto sd card menu
 			g_system_menu.current_menu = 10;
@@ -851,7 +895,7 @@ bool system_menu_sd_card_action(uint8_t action)
 			else
 			{
 				// run file
-				if (sd_fopen(&cwf, current_file.fname, FA_READ) == FR_OK)
+				if (sd_fopen(current_file.fname, FA_READ) == FR_OK)
 				{
 					file_runs = 1;
 					protocol_send_string(MSG_START);
@@ -866,7 +910,7 @@ bool system_menu_sd_card_action(uint8_t action)
 				{
 					rom_strcpy(buffer, __romstr__(SD_STR_FILE_PREFIX SD_STR_SD_FAILED));
 					system_menu_show_modal_popup(SYSTEM_MENU_MODAL_POPUP_MS, buffer);
-					sd_fclose(&cwf);
+					sd_fclose();
 				}
 			}
 		}
@@ -876,8 +920,8 @@ bool system_menu_sd_card_action(uint8_t action)
 			{
 				if (dir_level)
 				{
-					// up one dir
-					sd_chdir((".."));
+					// up one dirs
+					sd_chfile("..", 0);
 					g_system_menu.current_index = 0;
 					g_system_menu.current_multiplier = 0;
 					g_system_menu.total_items = 0;
@@ -895,7 +939,7 @@ bool system_menu_sd_card_action(uint8_t action)
 			{
 				if ((current_file.fattrib & AM_DIR))
 				{
-					if (sd_chdir(current_file.fname) == FR_OK)
+					if (sd_chfile(current_file.fname, 0) == FR_OK)
 					{
 						g_system_menu.current_index = 0;
 						g_system_menu.current_multiplier = 0;

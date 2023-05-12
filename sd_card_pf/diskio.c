@@ -673,14 +673,11 @@ DRESULT disk_readp(
 		return RES_ERROR;
 	}
 
-	if (0xFE)
+	if (!mmcsd_waittoken(0xFE))
 	{
-		if (!mmcsd_waittoken(0xFE))
-		{
-			memset(buff, 0, count);
-			DEBUGSTR("SD card read error CMD17 on response");
-			return RES_ERROR;
-		}
+		memset(buff, 0, count);
+		DEBUGSTR("SD card read error CMD17 on response");
+		return RES_ERROR;
 	}
 
 	uint16_t reminder = MAX((512 - offset - count), 0);
@@ -691,10 +688,11 @@ DRESULT disk_readp(
 		offset--;
 	}
 
-	do
+	while (count)
 	{
 		*buff++ = spi_xmit(0xFF);
-	} while (--count);
+		count--;
+	}
 
 	// discard reminder
 	while (reminder)
