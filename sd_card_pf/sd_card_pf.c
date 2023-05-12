@@ -58,7 +58,6 @@
 static char cwd[FS_MAX_PATH_LEN];
 static char *sd_parentdir(void);
 // emulates basic chdir
-static uint8_t sd_chdir(const char *newdir);
 static uint8_t sd_chfile(const char *newdir, uint8_t mode);
 
 #if (SD_FAT_FS == PETIT_FAT_FS)
