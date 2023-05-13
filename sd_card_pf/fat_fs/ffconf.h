@@ -140,7 +140,9 @@
 /  Also behavior of string I/O functions will be affected by this option.
 /  When LFN is not enabled, this option has no effect. */
 
-#define FF_LFN_BUF FS_MAX_PATH_LEN
+#ifndef FF_LFN_BUF
+#define FF_LFN_BUF 64
+#endif
 #define FF_SFN_BUF 12
 /* This set of options defines size of file name members in the FILINFO structure
 /  which is used to read out directory items. These values should be suffcient for

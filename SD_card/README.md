@@ -38,7 +38,7 @@ To redefine the IO pins and if software or hardware SPI can is used open `cnc_ha
 LOAD_MODULE(sd_card);
 ```
 
-5. The last step is to enable `ENABLE_MAIN_LOOP_MODULES` and `ENABLE_PARSER_MODULES` inside `cnc_config.h`
+5. The last step is to enable `ENABLE_MAIN_LOOP_MODULES` and `ENABLE_PARSER_MODULES`(optional) and `ENABLE_SETTINGS_MODULES`(optional) inside `cnc_config.h`
 
 ## Using SD Card on µCNC
 

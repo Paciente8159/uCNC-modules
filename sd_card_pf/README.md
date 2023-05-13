@@ -30,6 +30,16 @@ To redefine the IO pins and if software or hardware SPI can is used open `cnc_ha
 // #define SD_SPI_CS SPI_CS
 // uncomment to set the input pin used to detect the card presence (this is an optional pin)
 // #define SD_CARD_DETECT_PIN DIN19
+// uncomment to use Petit FS (default)
+// #define SD_FAT_FS 1
+// Or for Fat FS (Fat FS will be used by default if ENABLE_SETTINGS_MODULES are enabled)
+// #define SD_FAT_FS 2
+// uncomment this to disable long file names in Fat FS (default 1)
+// #define FF_USE_LFN 0
+// uncomment this to change the maximum long file name length (default 64)
+// #define FF_LFN_BUF 255
+// uncomment to change the maximum path len (default 128)
+// #define FS_MAX_PATH_LEN 128
 ```
 
 4. Then you need load the module inside µCNC. Open `src/module.c` and at the bottom of the file add the following lines inside the function `load_modules()`
@@ -38,7 +48,7 @@ To redefine the IO pins and if software or hardware SPI can is used open `cnc_ha
 LOAD_MODULE(sd_card_pf);
 ```
 
-5. The last step is to enable `ENABLE_MAIN_LOOP_MODULES` and `ENABLE_PARSER_MODULES` inside `cnc_config.h`
+5. The last step is to enable `ENABLE_MAIN_LOOP_MODULES` and `ENABLE_PARSER_MODULES`(optional) and `ENABLE_SETTINGS_MODULES`(optional) inside `cnc_config.h`
 
 ## Using SD Card PF on µCNC
 
