@@ -911,7 +911,7 @@ bool system_menu_sd_card_action(uint8_t action)
 			else
 			{
 				// run file
-				if (sd_fopen(current_file.fname, FA_READ) == FR_OK)
+				if (sd_chfile(current_file.fname, FA_READ) == FR_OK)
 				{
 					file_runs = 1;
 					protocol_send_string(MSG_START);
