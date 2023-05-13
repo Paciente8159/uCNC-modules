@@ -35,7 +35,7 @@
 #endif
 
 #ifndef SD_FAT_FS
-#define SD_FAT_FS FAT_FS
+#define SD_FAT_FS PETIT_FAT_FS
 #endif
 
 #if (UCNC_MODULE_VERSION > 010700)
@@ -103,7 +103,7 @@ FRESULT sd_fopen(const char *name, BYTE mode)
 
 FRESULT sd_fread(char *buff, UINT btr, UINT *br)
 {
-	if (cwf.fs)
+	if (!cwf.fs)
 	{
 		return FR_NOT_OPENED;
 	}
@@ -113,7 +113,7 @@ FRESULT sd_fread(char *buff, UINT btr, UINT *br)
 
 FRESULT sd_fwrite(const char *buff, UINT btw, UINT *bw)
 {
-	if (cwf.fs)
+	if (!cwf.fs)
 	{
 		return FR_NOT_OPENED;
 	}
@@ -122,7 +122,7 @@ FRESULT sd_fwrite(const char *buff, UINT btw, UINT *bw)
 
 FRESULT sd_fseek(DWORD ofs)
 {
-	if (cwf.fs)
+	if (!cwf.fs)
 	{
 		return FR_NOT_OPENED;
 	}
@@ -201,6 +201,8 @@ static char *sd_parentdir(void)
 		tail = cwd;
 	}
 
+	*tail = 0;
+
 	return tail;
 }
 
@@ -252,10 +254,6 @@ static uint8_t sd_chfile(const char *newdir, uint8_t mode)
 					// path with only dots not allowed
 					*tail = 0;
 					tail = sd_parentdir();
-					if (*tail == '/')
-					{
-						*tail = 0;
-					}
 					return FR_NO_FILE;
 				}
 			}
@@ -274,13 +272,8 @@ static uint8_t sd_chfile(const char *newdir, uint8_t mode)
 					}
 				}
 
-				// not a valid path or dir
 				// rewind
 				tail = sd_parentdir();
-				if (*tail == '/')
-				{
-					*tail = 0;
-				}
 				return FR_NO_FILE;
 			}
 
@@ -400,14 +393,26 @@ void sd_card_cd(void)
 
 	while (serial_peek() != EOL)
 	{
-		newdir[i] = serial_getc();
-		newdir[++i] = 0;
+		newdir[i++] = serial_getc();
 	}
+
+	newdir[i] = 0;
 
 	if (sd_chfile(newdir, 0) == FR_OK)
 	{
-		serial_print_str(cwd);
+		if (strlen(cwd))
+		{
+			serial_print_str(cwd);
+		}
+		else
+		{
+			serial_putc('/');
+		}
 		serial_print_str(">" STR_EOL);
+	}
+	else
+	{
+		protocol_send_feedback(__romstr__(SD_STR_DIR_PREFIX SD_STR_SD_NOT_FOUND));
 	}
 }
 
@@ -424,15 +429,22 @@ void sd_card_file_print(void)
 	while (serial_peek() != EOL)
 	{
 		file[i++] = serial_getc();
-		file[i] = 0;
 	}
+
+	file[i] = 0;
 
 	if (sd_chfile(file, FA_READ) == FR_OK)
 	{
 		while (!sd_eof())
 		{
 			memset(file, 0, RX_BUFFER_CAPACITY);
-			sd_fread(file, RX_BUFFER_CAPACITY, &i);
+			if (sd_fread(file, RX_BUFFER_CAPACITY - 1, &i) != FR_OK)
+			{
+				sd_fclose();
+				protocol_send_feedback(__romstr__(SD_STR_FILE_PREFIX SD_STR_SD_ERROR));
+				return;
+			}
+			file[i] = 0;
 			serial_print_str(file);
 			serial_flush();
 		}
@@ -440,6 +452,10 @@ void sd_card_file_print(void)
 		sd_fclose();
 		protocol_send_feedback(__romstr__(SD_STR_FILE_PREFIX SD_STR_SD_FINISHED));
 		return;
+	}
+	else
+	{
+		protocol_send_feedback(__romstr__(SD_STR_FILE_PREFIX SD_STR_SD_NOT_FOUND));
 	}
 
 	sd_fclose();
@@ -459,8 +475,9 @@ void sd_card_file_run(void)
 	while (serial_peek() != EOL)
 	{
 		args[i++] = serial_getc();
-		args[i] = 0;
 	}
+
+	args[i] = 0;
 
 	uint32_t runs = (uint32_t)strtol(args, &file, 10);
 
