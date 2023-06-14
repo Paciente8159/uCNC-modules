@@ -54,7 +54,8 @@ LOAD_MODULE(sd_card_pf);
 
 SD Card PF module adds a few system commands that allows you to navigate and execute files inside the SD/MMC card.
 
-* ```$mount``` - mounts the sd card. After mounting you will be at the root of the file system.
+* ```$mnt``` - mounts the sd card. After mounting you will be at the root of the file system.
+* ```$unmnt``` - unmounts the sd card.
 * ```$ls``` - list all files and directories in the current directory.
 * ```$cd <directory name>``` - changes the directory.
 * ```$lpr <file name>``` - outputs the file content.
