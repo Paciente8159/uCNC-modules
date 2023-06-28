@@ -44,22 +44,73 @@
 static bool plasma_thc_enabled;
 static int8_t plasma_action;
 
+bool plasma_thc_probe_and_start(float max_probe_depth, float probe_feed, float retract_height)
+{
+	// get current position
+	float pos[AXIS_COUNT];
+	mc_get_position(pos);
+
+	// modify target to probe depth
+	pos[AXIS_Z] -= max_probe_depth;
+	// probe feed speed
+	block_data->feed = probe_feed;
+	// similar to G38.2
+	if (mc_probe(pos, 0, &block) == STATUS_PROBE_SUCCESS)
+	{
+		// modify target to probe depth
+		// pos[AXIS_Z] = something
+		// similar to G38.4
+		if (mc_probe(pos, 2, &block) == STATUS_PROBE_SUCCESS)
+		{
+			// modify target to torch start height
+			mc_get_position(pos);
+			pos[AXIS_Z] += max_probe_depth;
+			// rapid feed
+			block.feed = FLT_MAX;
+			mc_line(pos, &block);
+			// turn torch on and plunge
+			block.feed = FLT_MAX;
+			block.motion_flags.bit.spindle_running = 1;
+			// block.dwell = some dwell time;
+			// pos[AXIS_Z] = something
+			mc_line(pos, &block);
+			// wait to finnish
+			itp_sync();
+
+			// after the torch on dwell and plunge it's ready to continue if arc on is ok
+			if (PLASMA_ARC_OK())
+			{
+				cnc_set_exec_state(EXEC_HOLD);
+				// restore the motion controller, planner and parser
+				mc_restore();
+				planner_restore();
+				parser_sync_position();
+
+				cnc_clear_exec_state(EXEC_HOLD);
+				// continues
+			}
+		}
+	}
+}
+
 #ifdef ENABLE_RT_SYNC_MOTIONS
-void itp_rt_stepbits(uint8_t *stepbits, uint8_t dirbits) {
-	if(!plasma_action)
+void itp_rt_stepbits(uint8_t *stepbits, uint8_t dirbits)
+{
+	if (!plasma_action)
 	{
 		return;
 	}
 
-	switch(plasma_action){
-		case 1:
-			*stepbits |= PLASMA_STEPPERS_MASK;
-			io_set_dirs(dirbits & ~PLASMA_STEPPERS_MASK);
-			return;
-		case -1:
-			*stepbits |= PLASMA_STEPPERS_MASK;
-			io_set_dirs(dirbits | PLASMA_STEPPERS_MASK);
-			return;
+	switch (plasma_action)
+	{
+	case 1:
+		*stepbits |= PLASMA_STEPPERS_MASK;
+		io_set_dirs(dirbits & ~PLASMA_STEPPERS_MASK);
+		return;
+	case -1:
+		*stepbits |= PLASMA_STEPPERS_MASK;
+		io_set_dirs(dirbits | PLASMA_STEPPERS_MASK);
+		return;
 	}
 }
 #endif
@@ -82,57 +133,14 @@ bool plasma_thc_update_loop(void *ptr)
 			// reset planner and sync systems
 			planner_clear();
 			mc_sync_position();
-			// get current position
-			float pos[AXIS_COUNT];
-			mc_get_position(pos);
 
-			// clear the current hold
-			cnc_clear_exec_state(EXEC_HOLD);
-			// modify target to probe depth
-			// pos[AXIS_Z] = something
-			motion_data_t block = {0};
 			// cutoff torch
+			motion_data_t block = {0};
 			block.motion_flags.bit.spindle_running = 0;
 			mc_update_tools(&block);
 
-			// probe feed speed
-			// block_data->feed = feed;
-			// similar to G38.2
-			if (mc_probe(pos, 0, &block) == STATUS_PROBE_SUCCESS)
-			{
-				// modify target to probe depth
-				// pos[AXIS_Z] = something
-				// similar to G38.4
-				if (mc_probe(pos, 2, &block) == STATUS_PROBE_SUCCESS)
-				{
-					// modify target to torch start height
-					// pos[AXIS_Z] = something
-					// rapid feed
-					block.feed = FLT_MAX;
-					mc_line(pos, &block);
-					// turn torch on and plunge
-					block.feed = FLT_MAX;
-					block.motion_flags.bit.spindle_running = 1;
-					// block.dwell = some dwell time;
-					// pos[AXIS_Z] = something
-					mc_line(pos, &block);
-					// wait to finnish
-					itp_sync();
-
-					// after the torch on dwell and plunge it's ready to continue if arc on is ok
-					if (PLASMA_ARC_OK())
-					{
-						cnc_set_exec_state(EXEC_HOLD);
-						// restore the motion controller, planner and parser
-						mc_restore();
-						planner_restore();
-						parser_sync_position();
-
-						cnc_clear_exec_state(EXEC_HOLD);
-						// continues
-					}
-				}
-			}
+			// clear the current hold state
+			cnc_clear_exec_state(EXEC_HOLD);
 		}
 
 		if (PLASMA_UP())
@@ -145,7 +153,6 @@ bool plasma_thc_update_loop(void *ptr)
 
 			// option 2 - mask the step bits directly
 			plasma_action = 1;
-
 		}
 		else if (PLASMA_DOWN())
 		{
