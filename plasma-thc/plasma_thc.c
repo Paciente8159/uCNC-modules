@@ -37,7 +37,32 @@
 #define PLASMA_ARC_OK() mcu_get_input(DIN13)
 #endif
 
+#ifndef PLASMA_STEPPERS_MASK
+#define PLASMA_STEPPERS_MASK 4
+#endif
+
 static bool plasma_thc_enabled;
+static int8_t plasma_action;
+
+#ifdef ENABLE_RT_SYNC_MOTIONS
+void itp_rt_stepbits(uint8_t *stepbits, uint8_t dirbits) {
+	if(!plasma_action)
+	{
+		return;
+	}
+
+	switch(plasma_action){
+		case 1:
+			*stepbits |= PLASMA_STEPPERS_MASK;
+			io_set_dirs(dirbits & ~PLASMA_STEPPERS_MASK);
+			return;
+		case -1:
+			*stepbits |= PLASMA_STEPPERS_MASK;
+			io_set_dirs(dirbits | PLASMA_STEPPERS_MASK);
+			return;
+	}
+}
+#endif
 
 #ifdef ENABLE_MAIN_LOOP_MODULES
 bool plasma_thc_update_loop(void *ptr)
@@ -112,20 +137,36 @@ bool plasma_thc_update_loop(void *ptr)
 
 		if (PLASMA_UP())
 		{
-			planner_block_t *p = planner_get_block();
-			p->steps[2] = p->steps[p->main_stepper];
-			p->dirbits &= 0xFB;
+			// option 1 - modify the planner block
+			// this assumes Z is not moving in this motion
+			// planner_block_t *p = planner_get_block();
+			// p->steps[2] = p->steps[p->main_stepper];
+			// p->dirbits &= 0xFB;
+
+			// option 2 - mask the step bits directly
+			plasma_action = 1;
+
 		}
 		else if (PLASMA_DOWN())
 		{
-			planner_block_t *p = planner_get_block();
-			p->steps[2] = p->steps[p->main_stepper];
-			p->dirbits |= 4;
+			// option 1 - modify the planner block
+			// this assumes Z is not moving in this motion
+			// planner_block_t *p = planner_get_block();
+			// p->steps[2] = p->steps[p->main_stepper];
+			// p->dirbits |= 4;
+
+			// option 2 - mask the step bits directly
+			plasma_action = -1;
 		}
 		else
 		{
-			planner_block_t *p = planner_get_block();
-			p->steps[2] = 0;
+			// option 1 - modify the planner block
+			// this assumes Z is not moving in this motion
+			// planner_block_t *p = planner_get_block();
+			// p->steps[2] = 0;
+
+			// option 2 - mask the step bits directly
+			plasma_action = 0;
 		}
 	}
 	return EVENT_CONTINUE;
