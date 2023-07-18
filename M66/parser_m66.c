@@ -22,7 +22,7 @@
 
 #ifdef ENABLE_PARSER_MODULES
 
-#if (UCNC_MODULE_VERSION > 010800)
+#if (UCNC_MODULE_VERSION > 10800)
 #error "This module is not compatible with the current version of µCNC"
 #endif
 
@@ -57,7 +57,9 @@ bool m66_parse(void *args)
 	if (ptr->word == 'E')
 	{
 		ptr->cmd->words |= GCODE_WORD_A;
-		ptr->words->xyzabc[AXIS_A] = value;
+		ptr->words->xyzabc[3] = ptr->value;
+		*(ptr->error) = STATUS_OK;
+		return EVENT_HANDLED;
 	}
 
 	// if this is not catched by this parser, just send back the error so other extenders can process it
@@ -92,7 +94,7 @@ bool m66_exec(void *args)
 		}
 
 		// A Q value of zero is an error if the L-word is non-zero
-		if (ptr->words->l && CHECKFLAG(ptr->cmd->words, GCODE_WORD_Q))
+		if (ptr->words->l && CHECKFLAG(ptr->cmd->words, GCODE_WORD_Q) && !ptr->words->d)
 		{
 			*(ptr->error) = STATUS_INVALID_STATEMENT;
 			return EVENT_HANDLED;
@@ -110,13 +112,13 @@ bool m66_exec(void *args)
 		// digital pin
 		if (CHECKFLAG(ptr->cmd->words, GCODE_WORD_P))
 		{
-			pin = DOUT_PINS_OFFSET + (uint8_t)ptr->words->p;
+			pin = DIN_PINS_OFFSET + (uint8_t)ptr->words->p;
 		}
 
 		// analog pin
 		if (CHECKFLAG(ptr->cmd->words, GCODE_WORD_A))
 		{
-			pin = ANALOG_PINS_OFFSET + (uint8_t)ptr->words->l;
+			pin = ANALOG_PINS_OFFSET + (uint8_t)ptr->words->xyzabc[3];
 		}
 
 		// initial state
@@ -127,6 +129,11 @@ bool m66_exec(void *args)
 		if (CHECKFLAG(ptr->cmd->words, GCODE_WORD_Q))
 		{
 			timeout = mcu_millis() + (uint32_t)(ptr->words->d * 1000);
+		}
+
+		if (!ptr->words->l)
+		{
+			timeout = 0;
 		}
 
 		*(ptr->error) = STATUS_OK;
