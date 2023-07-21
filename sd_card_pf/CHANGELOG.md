@@ -9,7 +9,7 @@ This version uses PetitFS by default. But it's also possible to use a more featu
 
 ### 2023-05-21
 
-- updated to version 1.8
+- updated to version 1.8 (#29)
 
 ### 2023-05-10
 

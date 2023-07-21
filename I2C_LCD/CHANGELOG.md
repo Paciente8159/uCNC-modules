@@ -7,7 +7,7 @@ It requires any 2 µCNC generic digital input pins of the board. It uses softwar
 
 ### 2023-05-21
 
-- updated to version 1.8
+- updated to version 1.8 (#29)
 
 ### 2023-05-02
 

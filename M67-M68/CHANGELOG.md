@@ -6,7 +6,8 @@ This module adds custom M67-M68 code to the µCNC parser. This similar to LinuxC
 
 ### 2023-07-21
 
-- updated to version 1.8
+- updated to version 1.8 (#29)
+- allow change internal variables like virtual pins (#29)
 
 ### 2023-05-02
 
