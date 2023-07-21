@@ -8,7 +8,7 @@ Addon modules for µCNC - Universal CNC firmware for microcontrollers
 
 # uCNC-modules version notes
 
-##THESE MODULES ARE FOR VERSION 1.8+ OF µCNC
+## THESE MODULES ARE FOR VERSION 1.8+ OF µCNC
 
 For previous version please select the correct branch.
 
