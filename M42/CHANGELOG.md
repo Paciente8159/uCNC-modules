@@ -4,6 +4,10 @@ This module adds custom M42 code to the µCNC parser. This similar to Marlin M42
 
 ## Changelog
 
+### 2023-05-21
+
+- updated to version 1.8 (#29)
+
 ### 2023-05-02
 
 - updated to version 1.7 (#17)

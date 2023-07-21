@@ -29,7 +29,7 @@
 #include "../system_menu.h"
 #include "sd_messages.h"
 
-#if (UCNC_MODULE_VERSION > 010700)
+#if (UCNC_MODULE_VERSION != 10800)
 #error "This module is not compatible with the current version of µCNC"
 #endif
 

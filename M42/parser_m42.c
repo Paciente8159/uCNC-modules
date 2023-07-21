@@ -23,13 +23,9 @@
 
 #ifdef ENABLE_PARSER_MODULES
 
-#if (UCNC_MODULE_VERSION > 010700)
+#if (UCNC_MODULE_VERSION != 10800)
 #error "This module is not compatible with the current version of µCNC"
 #endif
-
-// if all conventions changes this must be updated
-#define PWM0_ID 24
-#define DOUT0_ID 46
 
 // this ID must be unique for each code
 #define M42 EXTENDED_MCODE(42)
@@ -74,14 +70,9 @@ bool m42_exec(void *args)
 			return EVENT_HANDLED;
 		}
 
-		if (ptr->words->p >= PWM0_ID && ptr->words->p < DOUT0_ID)
+		if (ptr->words->p >= PWM_PINS_OFFSET && ptr->words->p < (DOUT_PINS_OFFSET + 32))
 		{
-			io_set_pwm(ptr->words->p, (uint8_t)CLAMP(0, ptr->words->s, 255));
-		}
-
-		if (ptr->words->p >= DOUT0_ID && ptr->words->p < (DOUT0_ID + 32))
-		{
-			io_set_output(ptr->words->p, (ptr->words->s != 0));
+			io_set_pinvalue(ptr->words->p, (uint8_t)CLAMP(0, ptr->words->s, 255));
 		}
 
 		*(ptr->error) = STATUS_OK;

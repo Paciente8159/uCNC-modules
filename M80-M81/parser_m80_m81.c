@@ -22,7 +22,7 @@
 
 #ifdef ENABLE_PARSER_MODULES
 
-#if (UCNC_MODULE_VERSION > 010700)
+#if (UCNC_MODULE_VERSION != 10800)
 #error "This module is not compatible with the current version of µCNC"
 #endif
 
@@ -80,11 +80,11 @@ bool m80_m81_exec(void *args)
 	switch (ptr->cmd->group_extended)
 	{
 	case M80:
-		io_set_output(PSU_PIN, PSU_ON);
+		io_set_pinvalue(PSU_PIN, PSU_ON);
 		*(ptr->error) = STATUS_OK;
 		return EVENT_HANDLED;
 	case M81:
-		io_set_output(PSU_PIN, !PSU_ON);
+		io_set_pinvalue(PSU_PIN, !PSU_ON);
 		*(ptr->error) = STATUS_OK;
 		return EVENT_HANDLED;
 	}

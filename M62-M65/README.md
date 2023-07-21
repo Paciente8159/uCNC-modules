@@ -25,4 +25,8 @@ The M62-M65 can be used like this.
 
 ```
 M62-M65 P<Generic output pin number from 0 to 31>
+
+or 
+
+M62-M65 P<Custom internal function variable number > 64>
 ```

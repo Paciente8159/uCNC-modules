@@ -4,6 +4,10 @@ Smoothieware S Cluster support module. This can be used with the files generated
 
 ## Changelog
 
+### 2023-05-21
+
+- updated to version 1.8 (#29)
+
 ### 2023-05-02
 
 - updated to version 1.7 (#17)
