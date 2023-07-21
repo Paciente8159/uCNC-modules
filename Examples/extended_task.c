@@ -16,7 +16,7 @@
 /**
  * @brief	Check if your current module is up to date with the current core version of module 
  */
-#if (UCNC_MODULE_VERSION > 010700)
+#if (UCNC_MODULE_VERSION != 10800)
 #error "This module is not compatible with the current version of µCNC"
 #endif
 

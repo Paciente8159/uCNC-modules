@@ -4,6 +4,10 @@ This module adds graphic display support for µCNC.
 
 ## Changelog
 
+### 2023-05-21
+
+- updated to version 1.8
+
 ### 2023-05-08
 
 - slight change to idle screen elements position (#25)

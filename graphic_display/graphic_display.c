@@ -25,7 +25,7 @@
 #include <math.h>
 #include "../system_menu.h"
 
-#if (UCNC_MODULE_VERSION > 010700)
+#if (UCNC_MODULE_VERSION != 10800)
 #error "This module is not compatible with the current version of µCNC"
 #endif
 
@@ -217,72 +217,72 @@ uint8_t u8x8_gpio_and_delay_ucnc(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int, voi
 		break;			   // arg_int=1: delay by 5us, arg_int = 4: delay by 1.25us
 	case U8X8_MSG_GPIO_D0: // D0 or SPI clock pin: Output level in arg_int
 #if GRAPHIC_DISPLAY_SPI_CLOCK != UNDEF_PIN
-		io_set_output(GRAPHIC_DISPLAY_SPI_CLOCK, (bool)arg_int);
+		io_set_pinvalue(GRAPHIC_DISPLAY_SPI_CLOCK, (bool)arg_int);
 #endif
 		break;
 	case U8X8_MSG_GPIO_D1: // D1 or SPI data pin: Output level in arg_int
 #if GRAPHIC_DISPLAY_SPI_CLOCK != UNDEF_PIN
-		io_set_output(GRAPHIC_DISPLAY_SPI_CLOCK, (bool)arg_int);
+		io_set_pinvalue(GRAPHIC_DISPLAY_SPI_CLOCK, (bool)arg_int);
 #endif
 		break;
 	case U8X8_MSG_GPIO_D2: // D2 pin: Output level in arg_int
 #ifdef U8X8_MSG_GPIO_D2_PIN
-		io_set_output(U8X8_MSG_GPIO_D2_PIN, (bool)arg_int);
+		io_set_pinvalue(U8X8_MSG_GPIO_D2_PIN, (bool)arg_int);
 #endif
 		break;
 	case U8X8_MSG_GPIO_D3: // D3 pin: Output level in arg_int
 #ifdef U8X8_MSG_GPIO_D3_PIN
-		io_set_output(U8X8_MSG_GPIO_D3_PIN, (bool)arg_int);
+		io_set_pinvalue(U8X8_MSG_GPIO_D3_PIN, (bool)arg_int);
 #endif
 		break;
 	case U8X8_MSG_GPIO_D4: // D4 pin: Output level in arg_int
 #ifdef U8X8_MSG_GPIO_D4_PIN
-		io_set_output(U8X8_MSG_GPIO_D4_PIN, (bool)arg_int);
+		io_set_pinvalue(U8X8_MSG_GPIO_D4_PIN, (bool)arg_int);
 #endif
 		break;
 	case U8X8_MSG_GPIO_D5: // D5 pin: Output level in arg_int
 #ifdef U8X8_MSG_GPIO_D5_PIN
-		io_set_output(U8X8_MSG_GPIO_D5_PIN, (bool)arg_int);
+		io_set_pinvalue(U8X8_MSG_GPIO_D5_PIN, (bool)arg_int);
 #endif
 		break;
 	case U8X8_MSG_GPIO_D6: // D6 pin: Output level in arg_int
 #ifdef U8X8_MSG_GPIO_D6_PIN
-		io_set_output(U8X8_MSG_GPIO_D6_PIN, (bool)arg_int);
+		io_set_pinvalue(U8X8_MSG_GPIO_D6_PIN, (bool)arg_int);
 #endif
 		break;
 	case U8X8_MSG_GPIO_D7: // D7 pin: Output level in arg_int
 #ifdef U8X8_MSG_GPIO_D7_PIN
-		io_set_output(U8X8_MSG_GPIO_D7_PIN, (bool)arg_int);
+		io_set_pinvalue(U8X8_MSG_GPIO_D7_PIN, (bool)arg_int);
 #endif
 		break;
 	case U8X8_MSG_GPIO_E: // E/WR pin: Output level in arg_int
 #ifdef U8X8_MSG_GPIO_E_PIN
-		io_set_output(U8X8_MSG_GPIO_E_PIN, (bool)arg_int);
+		io_set_pinvalue(U8X8_MSG_GPIO_E_PIN, (bool)arg_int);
 #endif
 		break;
 	case U8X8_MSG_GPIO_CS: // CS (chip select) pin: Output level in arg_int
 #if GRAPHIC_DISPLAY_SPI_CS != UNDEF_PIN
-		io_set_output(GRAPHIC_DISPLAY_SPI_CS, (bool)arg_int);
+		io_set_pinvalue(GRAPHIC_DISPLAY_SPI_CS, (bool)arg_int);
 #endif
 		break;
 	case U8X8_MSG_GPIO_DC: // DC (data/cmd, A0, register select) pin: Output level in arg_int
 #ifdef U8X8_MSG_GPIO_DC_PIN
-		io_set_output(U8X8_MSG_GPIO_DC_PIN, (bool)arg_int);
+		io_set_pinvalue(U8X8_MSG_GPIO_DC_PIN, (bool)arg_int);
 #endif
 		break;
 	case U8X8_MSG_GPIO_RESET: // Reset pin: Output level in arg_int
 #ifdef U8X8_MSG_GPIO_RESET_PIN
-		io_set_output(U8X8_MSG_GPIO_RESET_PIN, (bool)arg_int);
+		io_set_pinvalue(U8X8_MSG_GPIO_RESET_PIN, (bool)arg_int);
 #endif
 		break;
 	case U8X8_MSG_GPIO_CS1: // CS1 (chip select) pin: Output level in arg_int
 #ifdef U8X8_MSG_GPIO_CS1_PIN
-		io_set_output(U8X8_MSG_GPIO_CS1_PIN, (bool)arg_int);
+		io_set_pinvalue(U8X8_MSG_GPIO_CS1_PIN, (bool)arg_int);
 #endif
 		break;
 	case U8X8_MSG_GPIO_CS2: // CS2 (chip select) pin: Output level in arg_int
 #ifdef U8X8_MSG_GPIO_CS2_PIN
-		io_set_output(U8X8_MSG_GPIO_CS2_PIN, (bool)arg_int);
+		io_set_pinvalue(U8X8_MSG_GPIO_CS2_PIN, (bool)arg_int);
 #endif
 		break;
 	case U8X8_MSG_GPIO_I2C_CLOCK: // arg_int=0: Output low at I2C clock pin

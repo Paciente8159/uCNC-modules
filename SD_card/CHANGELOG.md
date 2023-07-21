@@ -6,6 +6,10 @@ For best performance the hardware SPI should be used.
 
 ## Changelog
 
+### 2023-05-21
+
+- updated to version 1.8
+
 ### 2023-05-09
 
 - integrated sd with system menus (#24)

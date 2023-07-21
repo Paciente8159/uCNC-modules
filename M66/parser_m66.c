@@ -54,12 +54,15 @@ bool m66_parse(void *args)
 	}
 
 	// catches E if GCODE_ACCEPT_WORD_E disabled and place it in A
-	if (ptr->word == 'E')
+	if (ptr->cmd->group_extended == M66)
 	{
-		ptr->cmd->words |= GCODE_WORD_A;
-		ptr->words->xyzabc[3] = ptr->value;
-		*(ptr->error) = STATUS_OK;
-		return EVENT_HANDLED;
+		if (ptr->word == 'E')
+		{
+			ptr->cmd->words |= GCODE_WORD_A;
+			ptr->words->xyzabc[3] = ptr->value;
+			*(ptr->error) = STATUS_OK;
+			return EVENT_HANDLED;
+		}
 	}
 
 	// if this is not catched by this parser, just send back the error so other extenders can process it

@@ -6,6 +6,12 @@
 # uCNC-modules
 Addon modules for µCNC - Universal CNC firmware for microcontrollers
 
+# uCNC-modules version notes
+
+##THESE MODULES ARE FOR VERSION 1.8+ OF µCNC
+
+For previous version please select the correct branch.
+
 ## About µCNC
 
 Heavily inspired by [Grbl](https://github.com/gnea/grbl) and [LinuxCNC](http://linuxcnc.org/), µCNC started to take shape in the second half of 2019, in an attempt to come out with a G-Code interpreter/controller software/firmware that is both compact and powerful as Grbl and flexible and modular as LinuxCNC, with the following goals in mind:
