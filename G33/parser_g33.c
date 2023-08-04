@@ -39,12 +39,21 @@
 #define SYNC_STARTING 2
 #define SYNC_RUNNING 4
 
+static volatile int32_t itp_sync_step_counter;
 static volatile uint8_t synched_motion_status;
 static volatile int32_t spindle_index_counter;
 static uint32_t steps_per_index;
 static float steps_per_index_inv;
 static uint32_t motion_total_steps;
 static float rpm_to_stepfeed_constant;
+
+void itp_rt_stepcount_cb_handler(uint8_t stepbits, uint8_t itp_flags)
+{
+	if (itp_flags & ITP_SYNC)
+	{
+		itp_sync_step_counter++;
+	}
+}
 
 void spindle_index_cb_handler(void)
 {
@@ -266,7 +275,9 @@ bool g33_exec(void *args)
 		}
 
 		// attach the index event callback
-		encoder_attach_index_cb(&spindle_index_cb_handler);
+		HOOK_ATTACH_CALLBACK(encoder_index, spindle_index_cb_handler);
+		// attach the stepcounter callback
+		HOOK_ATTACH_CALLBACK(itp_rt_stepbits, itp_rt_stepcount_cb_handler);
 
 		// flag the spindle index callback that it can start the threading motion
 		synched_motion_status = SYNC_READY;
@@ -280,7 +291,9 @@ bool g33_exec(void *args)
 
 		synched_motion_status = SYNC_DISABLED;
 
-		encoder_dettach_index_cb();
+		// encoder_dettach_index_cb();
+		HOOK_RELEASE(encoder_index);
+		HOOK_RELEASE(itp_rt_stepbits);
 
 		*(ptr->error) = STATUS_OK;
 		return EVENT_HANDLED;
