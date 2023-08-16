@@ -446,7 +446,6 @@ void sd_card_file_print(void)
 			}
 			file[i] = 0;
 			serial_print_str(file);
-			serial_flush();
 		}
 
 		sd_fclose();
