@@ -384,11 +384,11 @@ uint8_t graphic_display_rotary_encoder_control(void)
 		pin_state = 0;
 		break;
 	case 4:
-		pin_state = (last_rot_transition == 0) ? 2 : 0;
+		pin_state = (last_rot_transition == 0) ? 2 : (last_rot_transition == 3) ? 4 : 0;
 		last_rot_transition = 1;
 		break;
 	case 2:
-		pin_state = (last_rot_transition == 0) ? 4 : 0;
+		pin_state = (last_rot_transition == 0) ? 4 : (last_rot_transition == 3) ? 2 : 0;
 		last_rot_transition = 2;
 		break;
 	default:
@@ -532,9 +532,9 @@ void system_menu_render_idle(void)
 	system_menu_flt_to_str(&buff[1], axis[5]);
 	u8g2_DrawStr(U8G2, (LCDWIDTH >> 1), y, buff);
 #endif
-	y -= (FONTHEIGHT + 3);
 	memset(buff, 0, 32);
 	u8g2_DrawLine(U8G2, 0, y - FONTHEIGHT - 1, LCDWIDTH, y - FONTHEIGHT - 1);
+	y -= (FONTHEIGHT + 3);
 #endif
 
 #if (AXIS_COUNT >= 3)

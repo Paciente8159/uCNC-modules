@@ -4,6 +4,13 @@ This module adds graphic display support for µCNC.
 
 ## Changelog
 
+### 2023-09-17
+- fixed line separator drawing for 5-axis or more
+- increased encoder sensitivity (soft polling)
+
+### 2023-09-10
+- fixed I2C graphic display IO call missing argument
+
 ### 2023-05-08
 
 - slight change to idle screen elements position (#25)
