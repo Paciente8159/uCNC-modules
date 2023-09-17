@@ -384,11 +384,11 @@ uint8_t graphic_display_rotary_encoder_control(void)
 		pin_state = 0;
 		break;
 	case 4:
-		pin_state = (last_rot_transition == 0) ? 2 : 0;
+		pin_state = (last_rot_transition == 0) ? 2 : (last_rot_transition == 3) ? 4 : 0;
 		last_rot_transition = 1;
 		break;
 	case 2:
-		pin_state = (last_rot_transition == 0) ? 4 : 0;
+		pin_state = (last_rot_transition == 0) ? 4 : (last_rot_transition == 3) ? 2 : 0;
 		last_rot_transition = 2;
 		break;
 	default:
