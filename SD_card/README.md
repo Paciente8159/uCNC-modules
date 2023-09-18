@@ -2,6 +2,10 @@
 
 Addon modules for µCNC - Universal CNC firmware for microcontrollers
 
+### WARNING
+
+**This module will be deprecated and will no longer be updated. Please use the sd_card_pf module instead.**
+
 ## About SD Card for µCNC
 
 SD Card allows to add an SD/MMC card support to µCNC via hardware/software SPI.

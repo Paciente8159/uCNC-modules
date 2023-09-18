@@ -7,6 +7,10 @@ This version uses PetitFS by default. But it's also possible to use a more featu
 
 ## Changelog
 
+### 2023-09-18
+
+- commented deprecated serial_flush function
+
 ### 2023-05-10
 
 - initial implementation

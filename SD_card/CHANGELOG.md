@@ -6,6 +6,10 @@ For best performance the hardware SPI should be used.
 
 ## Changelog
 
+### 2023-09-18
+
+- commented deprecated serial_flush function
+
 ### 2023-05-09
 
 - integrated sd with system menus (#24)

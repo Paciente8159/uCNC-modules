@@ -172,7 +172,7 @@ void sd_card_file_print(void)
 			f_read(&tmp, file, 100, &i);
 			file[i] = 0;
 			serial_print_str(file);
-			serial_flush();
+			// serial_flush(); // deprecated
 		}
 
 		f_close(&tmp);
