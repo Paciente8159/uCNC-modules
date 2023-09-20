@@ -524,6 +524,12 @@ void system_menu_render_startup(void)
 	u8g2_DrawStr(U8G2, ALIGN_CENTER(buff), JUSTIFY_CENTER + FONTHEIGHT, buff);
 	u8g2_SendBuffer(U8G2);
 	u8g2_NextPage(U8G2);
+
+	// reset menu on actual alarm reset or soft reset
+	if (cnc_get_exec_state(EXEC_INTERLOCKING_FAIL) || cnc_has_alarm())
+	{
+		system_menu_reset();
+	}
 }
 
 void system_menu_render_idle(void)
