@@ -4,6 +4,10 @@ This module adds graphic display support for µCNC.
 
 ## Changelog
 
+### 2023-09-20
+- added long press (5s) on button to do soft reset (#31)
+- added alarm screen popup (#31)
+
 ### 2023-09-17
 - fixed line separator drawing for 5-axis or more
 - increased encoder sensitivity (soft polling)

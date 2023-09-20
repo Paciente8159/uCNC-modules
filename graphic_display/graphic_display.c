@@ -361,12 +361,13 @@ uint8_t u8x8_gpio_and_delay_ucnc(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int, voi
 #ifndef GRAPHIC_DISPLAY_ENCODER_ENC2
 #define GRAPHIC_DISPLAY_ENCODER_ENC2 DIN18
 #endif
-// reads inputs and returns a mask with a pin state transition (only rising or only falling)
+// reads inputs and returns a mask with a pin state transition
 uint8_t graphic_display_rotary_encoder_control(void)
 {
 	static uint8_t last_pin_state = 0;
 	static uint8_t last_rot_transition = 0;
 	uint8_t pin_state = 0;
+	static uint32_t long_press_timeout = 0;
 
 // rotation encoder
 #ifndef GRAPHIC_DISPLAY_INVERT_ENCODER_DIR
@@ -384,11 +385,13 @@ uint8_t graphic_display_rotary_encoder_control(void)
 		pin_state = 0;
 		break;
 	case 4:
-		pin_state = (last_rot_transition == 0) ? 2 : (last_rot_transition == 3) ? 4 : 0;
+		pin_state = (last_rot_transition == 0) ? 2 : (last_rot_transition == 3) ? 4
+																				: 0;
 		last_rot_transition = 1;
 		break;
 	case 2:
-		pin_state = (last_rot_transition == 0) ? 4 : (last_rot_transition == 3) ? 2 : 0;
+		pin_state = (last_rot_transition == 0) ? 4 : (last_rot_transition == 3) ? 2
+																				: 0;
 		last_rot_transition = 2;
 		break;
 	default:
@@ -401,9 +404,32 @@ uint8_t graphic_display_rotary_encoder_control(void)
 
 	pin_state = ~pin_state;
 
+	// if btn is pressed
+	if ((pin_state & 1))
+	{
+		uint32_t long_press = long_press_timeout;
+		if (long_press && long_press < mcu_millis())
+		{
+			// forces a soft reset
+			cnc_call_rt_command(0x18);
+			long_press_timeout = 0;
+		}
+	}
+	else
+	{
+		// resets long press timer
+		long_press_timeout = 0;
+	}
+
 	uint8_t pin_diff = last_pin_state ^ pin_state;
 	if (pin_diff)
 	{
+		// if btn is pressed (1st transition)
+		if ((pin_state & 1))
+		{
+			// set soft reset timeout (5s)
+			long_press_timeout = mcu_millis() + 5000;
+		}
 		last_pin_state = pin_state;
 		return (pin_diff & pin_state);
 	}
@@ -498,6 +524,12 @@ void system_menu_render_startup(void)
 	u8g2_DrawStr(U8G2, ALIGN_CENTER(buff), JUSTIFY_CENTER + FONTHEIGHT, buff);
 	u8g2_SendBuffer(U8G2);
 	u8g2_NextPage(U8G2);
+
+	// reset menu on actual alarm reset or soft reset
+	if (cnc_get_exec_state(EXEC_INTERLOCKING_FAIL) || cnc_has_alarm())
+	{
+		system_menu_reset();
+	}
 }
 
 void system_menu_render_idle(void)
@@ -900,4 +932,14 @@ static uint8_t graphic_display_str_line_len(const char *__s)
 	}
 
 	return chars;
+}
+
+// define this way so it can be translated
+// this defaults to english
+#ifndef STR_USER_NEEDS_SYSTEM_RESET
+#define STR_USER_NEEDS_SYSTEM_RESET "ALARM\nPress btn for\n5s to reset"
+#endif
+
+void system_menu_render_alarm(void){
+	system_menu_show_modal_popup(0,__romstr__(STR_USER_NEEDS_SYSTEM_RESET));
 }
