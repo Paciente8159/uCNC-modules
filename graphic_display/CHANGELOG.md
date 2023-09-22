@@ -4,6 +4,9 @@ This module adds graphic display support for µCNC.
 
 ## Changelog
 
+### 2023-09-22
+- redesigned alarm screen (#32)
+
 ### 2023-09-20
 - added long press (5s) on button to do soft reset (#31)
 - added alarm screen popup (#31)
