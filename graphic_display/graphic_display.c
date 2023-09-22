@@ -509,6 +509,67 @@ DECL_MODULE(graphic_display)
 #endif
 }
 
+static void io_states_str(char *buff)
+{
+	uint8_t controls = io_get_controls();
+	uint8_t limits = io_get_limits();
+	uint8_t probe = io_get_probe();
+	rom_strcpy(buff, __romstr__("Sw:"));
+	uint8_t i = 3;
+	if (CHECKFLAG(controls, (ESTOP_MASK | SAFETY_DOOR_MASK | FHOLD_MASK)) || CHECKFLAG(limits, LIMITS_MASK) || probe)
+	{
+		if (CHECKFLAG(controls, ESTOP_MASK))
+		{
+			buff[i++] = 'R';
+		}
+
+		if (CHECKFLAG(controls, SAFETY_DOOR_MASK))
+		{
+			buff[i++] = 'D';
+		}
+
+		if (CHECKFLAG(controls, FHOLD_MASK))
+		{
+			buff[i++] = 'H';
+		}
+
+		if (probe)
+		{
+			buff[i++] = 'P';
+		}
+
+		if (CHECKFLAG(limits, LIMIT_X_MASK))
+		{
+			buff[i++] = 'X';
+		}
+
+		if (CHECKFLAG(limits, LIMIT_Y_MASK))
+		{
+			buff[i++] = 'Y';
+		}
+
+		if (CHECKFLAG(limits, LIMIT_Z_MASK))
+		{
+			buff[i++] = 'Z';
+		}
+
+		if (CHECKFLAG(limits, LIMIT_A_MASK))
+		{
+			buff[i++] = 'A';
+		}
+
+		if (CHECKFLAG(limits, LIMIT_B_MASK))
+		{
+			buff[i++] = 'B';
+		}
+
+		if (CHECKFLAG(limits, LIMIT_C_MASK))
+		{
+			buff[i++] = 'C';
+		}
+	}
+}
+
 // system menu overrides
 
 void system_menu_render_startup(void)
@@ -682,65 +743,9 @@ void system_menu_render_idle(void)
 		}
 	}
 	u8g2_DrawStr(U8G2, ALIGN_LEFT, y, buff);
+
 	memset(buff, 0, 32);
-
-	uint8_t controls = io_get_controls();
-	uint8_t limits = io_get_limits();
-	uint8_t probe = io_get_probe();
-	rom_strcpy(buff, __romstr__("Sw:"));
-	i = 3;
-	if (CHECKFLAG(controls, (ESTOP_MASK | SAFETY_DOOR_MASK | FHOLD_MASK)) || CHECKFLAG(limits, LIMITS_MASK) || probe)
-	{
-		if (CHECKFLAG(controls, ESTOP_MASK))
-		{
-			buff[i++] = 'R';
-		}
-
-		if (CHECKFLAG(controls, SAFETY_DOOR_MASK))
-		{
-			buff[i++] = 'D';
-		}
-
-		if (CHECKFLAG(controls, FHOLD_MASK))
-		{
-			buff[i++] = 'H';
-		}
-
-		if (probe)
-		{
-			buff[i++] = 'P';
-		}
-
-		if (CHECKFLAG(limits, LIMIT_X_MASK))
-		{
-			buff[i++] = 'X';
-		}
-
-		if (CHECKFLAG(limits, LIMIT_Y_MASK))
-		{
-			buff[i++] = 'Y';
-		}
-
-		if (CHECKFLAG(limits, LIMIT_Z_MASK))
-		{
-			buff[i++] = 'Z';
-		}
-
-		if (CHECKFLAG(limits, LIMIT_A_MASK))
-		{
-			buff[i++] = 'A';
-		}
-
-		if (CHECKFLAG(limits, LIMIT_B_MASK))
-		{
-			buff[i++] = 'B';
-		}
-
-		if (CHECKFLAG(limits, LIMIT_C_MASK))
-		{
-			buff[i++] = 'C';
-		}
-	}
+	io_states_str(buff);
 	u8g2_DrawStr(U8G2, (LCDWIDTH >> 1), y, buff);
 	u8g2_NextPage(U8G2);
 }
@@ -936,10 +941,88 @@ static uint8_t graphic_display_str_line_len(const char *__s)
 
 // define this way so it can be translated
 // this defaults to english
-#ifndef STR_USER_NEEDS_SYSTEM_RESET
-#define STR_USER_NEEDS_SYSTEM_RESET "ALARM\nPress btn for\n5s to reset"
+#ifndef STR_USER_NEEDS_SYSTEM_RESET_1
+#define STR_USER_NEEDS_SYSTEM_RESET_1 "Press btn for 5s"
 #endif
 
-void system_menu_render_alarm(void){
-	system_menu_show_modal_popup(0,__romstr__(STR_USER_NEEDS_SYSTEM_RESET));
+#ifndef STR_USER_NEEDS_SYSTEM_RESET_2
+#define STR_USER_NEEDS_SYSTEM_RESET_2 "to reset"
+#endif
+
+void system_menu_render_alarm(void)
+{
+	// system_menu_show_modal_popup(0,__romstr__(STR_USER_NEEDS_SYSTEM_RESET));
+	// system_menu_show_modal_popup(0,__romstr__(STR_USER_NEEDS_SYSTEM_RESET));
+	u8g2_ClearBuffer(U8G2);
+	// coordinates
+	uint8_t y = JUSTIFY_TOP + 1;
+	char buff[SYSTEM_MENU_MAX_STR_LEN];
+	u8g2_SetFontMode(U8G2, 1);
+	u8g2_SetDrawColor(U8G2, 1); /* color 1 for the box */
+	u8g2_DrawBox(U8G2, 0, 0, LCDWIDTH, FONTHEIGHT);
+	u8g2_SetDrawColor(U8G2, 0); /* color 1 for the font */
+	rom_strcpy(buff, __romstr__("ALARM "));
+	uint8_t alarm = cnc_get_alarm();
+	system_menu_int_to_str(&buff[6], alarm);
+	u8g2_DrawStr(U8G2, ALIGN_CENTER(buff), y, buff);
+	u8g2_SetDrawColor(U8G2, 1); /* color 1 for the font */
+	y += JUSTIFY_TOP + 2;
+
+	switch (alarm)
+	{
+	case 1:
+		rom_strcpy(buff, __romstr__(STR_ALARM_1));
+		break;
+	case 2:
+		rom_strcpy(buff, __romstr__(STR_ALARM_2));
+		break;
+	case 3:
+		rom_strcpy(buff, __romstr__(STR_ALARM_3));
+		break;
+	case 4:
+		rom_strcpy(buff, __romstr__(STR_ALARM_4));
+		break;
+	case 5:
+		rom_strcpy(buff, __romstr__(STR_ALARM_5));
+		break;
+	case 6:
+		rom_strcpy(buff, __romstr__(STR_ALARM_6));
+		break;
+	case 7:
+		rom_strcpy(buff, __romstr__(STR_ALARM_7));
+		break;
+	case 8:
+		rom_strcpy(buff, __romstr__(STR_ALARM_8));
+		break;
+	case 9:
+		rom_strcpy(buff, __romstr__(STR_ALARM_9));
+		break;
+	case 10:
+		rom_strcpy(buff, __romstr__(STR_ALARM_10));
+		break;
+	case 11:
+		rom_strcpy(buff, __romstr__(STR_ALARM_11));
+		break;
+	case 12:
+		rom_strcpy(buff, __romstr__(STR_ALARM_12));
+		break;
+	case 13:
+		rom_strcpy(buff, __romstr__(STR_ALARM_13));
+		break;
+	default:
+		rom_strcpy(buff, __romstr__(STR_ALARM_0));
+		break;
+	}
+
+	u8g2_DrawStr(U8G2, ALIGN_CENTER(buff), y, buff);
+	y += JUSTIFY_TOP + 2;
+	io_states_str(buff, 32);
+	u8g2_DrawStr(U8G2, ALIGN_CENTER(buff), y, buff);
+	y += JUSTIFY_TOP + 2;
+	rom_strcpy(buff, __romstr__("Press btn for 5s"));
+	u8g2_DrawStr(U8G2, ALIGN_CENTER(buff), y, buff);
+	y += JUSTIFY_TOP + 2;
+	rom_strcpy(buff, __romstr__("to reset"));
+	u8g2_DrawStr(U8G2, ALIGN_CENTER(buff), y, buff);
+	u8g2_NextPage(U8G2);
 }
