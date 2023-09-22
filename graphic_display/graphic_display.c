@@ -1016,7 +1016,7 @@ void system_menu_render_alarm(void)
 
 	u8g2_DrawStr(U8G2, ALIGN_CENTER(buff), y, buff);
 	y += JUSTIFY_TOP + 2;
-	io_states_str(buff, 32);
+	io_states_str(buff);
 	u8g2_DrawStr(U8G2, ALIGN_CENTER(buff), y, buff);
 	y += JUSTIFY_TOP + 2;
 	rom_strcpy(buff, __romstr__("Press btn for 5s"));
