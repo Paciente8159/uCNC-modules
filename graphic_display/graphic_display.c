@@ -102,6 +102,11 @@ SOFTSPI(graphic_spi, 100000UL, 0, GRAPHIC_DISPLAY_SPI_DATA, GRAPHIC_DISPLAY_SPI_
 
 uint8_t u8x8_byte_ucnc_hw_spi(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int, void *arg_ptr)
 {
+	if (!cnc_get_exec_state(EXEC_ALARM))
+	{
+		cnc_dotasks();
+	}
+
 	uint8_t *data;
 	switch (msg)
 	{
@@ -112,6 +117,10 @@ uint8_t u8x8_byte_ucnc_hw_spi(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int, void *
 			softspi_xmit(graphic_port, (uint8_t)*data);
 			data++;
 			arg_int--;
+			if (!cnc_get_exec_state(EXEC_ALARM))
+			{
+				cnc_dotasks();
+			}
 		}
 		break;
 	case U8X8_MSG_BYTE_INIT:
@@ -186,6 +195,11 @@ uint8_t u8x8_byte_ucnc_hw_i2c(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int, void *
 
 uint8_t u8x8_gpio_and_delay_ucnc(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int, void *arg_ptr)
 {
+	if (!cnc_get_exec_state(EXEC_ALARM))
+	{
+		cnc_dotasks();
+	}
+
 	switch (msg)
 	{
 	case U8X8_MSG_GPIO_AND_DELAY_INIT: // called once during init phase of u8g2/u8x8
@@ -384,11 +398,13 @@ uint8_t graphic_display_rotary_encoder_control(void)
 		pin_state = 0;
 		break;
 	case 4:
-		pin_state = (last_rot_transition == 0) ? 2 : (last_rot_transition == 3) ? 4 : 0;
+		pin_state = (last_rot_transition == 0) ? 2 : (last_rot_transition == 3) ? 4
+																				: 0;
 		last_rot_transition = 1;
 		break;
 	case 2:
-		pin_state = (last_rot_transition == 0) ? 4 : (last_rot_transition == 3) ? 2 : 0;
+		pin_state = (last_rot_transition == 0) ? 4 : (last_rot_transition == 3) ? 2
+																				: 0;
 		last_rot_transition = 2;
 		break;
 	default:
@@ -401,9 +417,32 @@ uint8_t graphic_display_rotary_encoder_control(void)
 
 	pin_state = ~pin_state;
 
+	// if btn is pressed
+	if ((pin_state & 1))
+	{
+		uint32_t long_press = long_press_timeout;
+		if (long_press && long_press < mcu_millis())
+		{
+			// forces a soft reset
+			cnc_call_rt_command(0x18);
+			long_press_timeout = 0;
+		}
+	}
+	else
+	{
+		// resets long press timer
+		long_press_timeout = 0;
+	}
+
 	uint8_t pin_diff = last_pin_state ^ pin_state;
 	if (pin_diff)
 	{
+		// if btn is pressed (1st transition)
+		if ((pin_state & 1))
+		{
+			// set soft reset timeout (5s)
+			long_press_timeout = mcu_millis() + 5000;
+		}
 		last_pin_state = pin_state;
 		return (pin_diff & pin_state);
 	}
@@ -424,25 +463,40 @@ CREATE_EVENT_LISTENER(cnc_reset, graphic_display_start);
 
 bool graphic_display_update(void *args)
 {
-	switch (graphic_display_rotary_encoder_control())
-	{
-	case 0:
-		// no action needed to go idle
-		system_menu_action(SYSTEM_MENU_ACTION_NONE);
-		break;
-	case GRAPHIC_DISPLAY_SELECT:
-		system_menu_action(SYSTEM_MENU_ACTION_SELECT);
-		break;
-	case GRAPHIC_DISPLAY_NEXT:
-		system_menu_action(SYSTEM_MENU_ACTION_NEXT);
-		break;
-	case GRAPHIC_DISPLAY_PREV:
-		system_menu_action(SYSTEM_MENU_ACTION_PREV);
-		break;
-	}
+	static bool running = false;
 
-	// render menu
-	system_menu_render();
+	if (!running)
+	{
+		running = true;
+		switch (graphic_display_rotary_encoder_control())
+		{
+		case 0:
+			// no action needed to go idle
+			system_menu_action(SYSTEM_MENU_ACTION_NONE);
+			break;
+		case GRAPHIC_DISPLAY_SELECT:
+			system_menu_action(SYSTEM_MENU_ACTION_SELECT);
+			break;
+		case GRAPHIC_DISPLAY_NEXT:
+			system_menu_action(SYSTEM_MENU_ACTION_NEXT);
+			break;
+		case GRAPHIC_DISPLAY_PREV:
+			system_menu_action(SYSTEM_MENU_ACTION_PREV);
+			break;
+		}
+
+		if (!cnc_get_exec_state(EXEC_ALARM))
+		{
+			cnc_dotasks();
+		}
+		// render menu
+		system_menu_render();
+		if (!cnc_get_exec_state(EXEC_ALARM))
+		{
+			cnc_dotasks();
+		}
+		running = false;
+	}
 
 	return false;
 }
@@ -483,180 +537,13 @@ DECL_MODULE(graphic_display)
 #endif
 }
 
-// system menu overrides
-
-void system_menu_render_startup(void)
+static void io_states_str(char *buff)
 {
-	u8g2_ClearBuffer(U8G2);
-	char buff[SYSTEM_MENU_MAX_STR_LEN];
-	rom_strcpy(buff, __romstr__("µCNC"));
-	u8g2_ClearBuffer(U8G2);
-	u8g2_SetFont(U8G2, u8g2_font_9x15_t_symbols);
-	u8g2_DrawUTF8X2(U8G2, (LCDWIDTH / 2 - u8g2_GetUTF8Width(U8G2, buff)), JUSTIFY_CENTER - FONTHEIGHT / 2, buff);
-	rom_strcpy(buff, __romstr__(("v" CNC_VERSION)));
-	u8g2_SetFont(U8G2, u8g2_font_6x12_tr);
-	u8g2_DrawStr(U8G2, ALIGN_CENTER(buff), JUSTIFY_CENTER + FONTHEIGHT, buff);
-	u8g2_SendBuffer(U8G2);
-	u8g2_NextPage(U8G2);
-}
-
-void system_menu_render_idle(void)
-{
-	u8g2_ClearBuffer(U8G2);
-	// starts from the bottom up
-
-	// coordinates
-	char buff[SYSTEM_MENU_MAX_STR_LEN];
-	uint8_t y = JUSTIFY_BOTTOM;
-
-	// u8g2_SetFont(U8G2, u8g2_font_6x12_t_symbols);
-	// rom_strcpy(buff, __romstr__("µCNC v" CNC_VERSION));
-	// u8g2_DrawButtonUTF8(U8G2, (LCDWIDTH>>1), JUSTIFY_TOP + 1,U8G2_BTN_INV|U8G2_BTN_HCENTER, LCDWIDTH, 1, 1, buff);
-	// u8g2_SetFont(U8G2, u8g2_font_6x12_tr);
-
-	memset(buff, 0, 32);
-
-	float axis[MAX(AXIS_COUNT, 3)];
-	int32_t steppos[STEPPER_COUNT];
-	itp_get_rt_position(steppos);
-	kinematics_apply_forward(steppos, axis);
-	kinematics_apply_reverse_transform(axis);
-
-#if (AXIS_COUNT >= 5)
-	buff[0] = 'B';
-	system_menu_flt_to_str(&buff[1], axis[4]);
-	u8g2_DrawStr(U8G2, ALIGN_LEFT, y, buff);
-
-#if (AXIS_COUNT >= 6)
-	buff[0] = 'C';
-	system_menu_flt_to_str(&buff[1], axis[5]);
-	u8g2_DrawStr(U8G2, (LCDWIDTH >> 1), y, buff);
-#endif
-	y -= (FONTHEIGHT + 3);
-	memset(buff, 0, 32);
-	u8g2_DrawLine(U8G2, 0, y - FONTHEIGHT - 1, LCDWIDTH, y - FONTHEIGHT - 1);
-#endif
-
-#if (AXIS_COUNT >= 3)
-	buff[0] = 'Z';
-	system_menu_flt_to_str(&buff[1], axis[2]);
-	u8g2_DrawStr(U8G2, ALIGN_LEFT, y, buff);
-
-#if (AXIS_COUNT >= 4)
-	memset(buff, 0, 32);
-	buff[0] = 'A';
-	system_menu_flt_to_str(&buff[1], axis[3]);
-	u8g2_DrawStr(U8G2, (LCDWIDTH >> 1), y, buff);
-#endif
-	memset(buff, 0, 32);
-	u8g2_DrawLine(U8G2, 0, y - FONTHEIGHT - 1, LCDWIDTH, y - FONTHEIGHT - 1);
-	y -= (FONTHEIGHT + 3);
-#endif
-
-#if (AXIS_COUNT >= 1)
-	buff[0] = 'X';
-	system_menu_flt_to_str(&buff[1], axis[0]);
-	u8g2_DrawStr(U8G2, ALIGN_LEFT, y, buff);
-#if (AXIS_COUNT >= 2)
-	buff[0] = 'Y';
-	system_menu_flt_to_str(&buff[1], axis[1]);
-	u8g2_DrawStr(U8G2, (LCDWIDTH >> 1), y, buff);
-#endif
-	memset(buff, 0, 32);
-	u8g2_DrawLine(U8G2, 0, y - FONTHEIGHT - 1, LCDWIDTH, y - FONTHEIGHT - 1);
-	y -= (FONTHEIGHT + 3);
-#endif
-
-	// units, feed and tool
-	if (g_settings.report_inches)
-	{
-		rom_strcpy(buff, __romstr__("IN F"));
-	}
-	else
-	{
-		rom_strcpy(buff, __romstr__("MM F"));
-	}
-
-	// Realtime feed
-	system_menu_flt_to_str(&buff[4], itp_get_rt_feed());
-	u8g2_DrawStr(U8G2, ALIGN_LEFT, y, buff);
-	memset(buff, 0, 32);
-
-	// Tool
-	char tool[5];
-	uint8_t modalgroups[14];
-	uint16_t feed;
-	uint16_t spindle;
-	uint8_t coolant;
-	parser_get_modes(modalgroups, &feed, &spindle, &coolant);
-	rom_strcpy(tool, __romstr__(" T"));
-	system_menu_int_to_str(&tool[2], modalgroups[11]);
-	// Realtime tool speed
-	rom_strcpy(buff, __romstr__("S"));
-	system_menu_int_to_str(&buff[1], tool_get_speed());
-	strcat(buff, tool);
-	u8g2_DrawStr(U8G2, ALIGN_RIGHT(buff), y, buff);
-	memset(buff, 0, 32);
-	u8g2_DrawLine(U8G2, 0, y - FONTHEIGHT - 1, LCDWIDTH, y - FONTHEIGHT - 1);
-
-	y -= (FONTHEIGHT + 3);
-
-	// system status
-	uint8_t i;
-
-	rom_strcpy(buff, __romstr__("St:"));
-	uint8_t state = cnc_get_exec_state(0xFF);
-	uint8_t filter = 0x80;
-	while (!(state & filter) && filter)
-	{
-		filter >>= 1;
-	}
-
-	state &= filter;
-	if (cnc_has_alarm())
-	{
-		rom_strcpy(&buff[3], MSG_STATUS_ALARM);
-	}
-	else if (mc_get_checkmode())
-	{
-		rom_strcpy(&buff[3], MSG_STATUS_CHECK);
-	}
-	else
-	{
-		switch (state)
-		{
-		case EXEC_DOOR:
-			rom_strcpy(&buff[3], MSG_STATUS_DOOR);
-			break;
-		case EXEC_KILL:
-		case EXEC_UNHOMED:
-			rom_strcpy(&buff[3], MSG_STATUS_ALARM);
-			break;
-		case EXEC_HOLD:
-			rom_strcpy(&buff[3], MSG_STATUS_HOLD);
-			break;
-		case EXEC_HOMING:
-			rom_strcpy(&buff[3], MSG_STATUS_HOME);
-			break;
-		case EXEC_JOG:
-			rom_strcpy(&buff[3], MSG_STATUS_JOG);
-			break;
-		case EXEC_RUN:
-			rom_strcpy(&buff[3], MSG_STATUS_RUN);
-			break;
-		default:
-			rom_strcpy(&buff[3], MSG_STATUS_IDLE);
-			break;
-		}
-	}
-	u8g2_DrawStr(U8G2, ALIGN_LEFT, y, buff);
-	memset(buff, 0, 32);
-
 	uint8_t controls = io_get_controls();
 	uint8_t limits = io_get_limits();
 	uint8_t probe = io_get_probe();
 	rom_strcpy(buff, __romstr__("Sw:"));
-	i = 3;
+	uint8_t i = 3;
 	if (CHECKFLAG(controls, (ESTOP_MASK | SAFETY_DOOR_MASK | FHOLD_MASK)) || CHECKFLAG(limits, LIMITS_MASK) || probe)
 	{
 		if (CHECKFLAG(controls, ESTOP_MASK))
@@ -709,8 +596,209 @@ void system_menu_render_idle(void)
 			buff[i++] = 'C';
 		}
 	}
+}
+
+// system menu overrides
+
+void system_menu_render_startup(void)
+{
+	u8g2_ClearBuffer(U8G2);
+	char buff[SYSTEM_MENU_MAX_STR_LEN];
+	rom_strcpy(buff, __romstr__("µCNC"));
+	u8g2_ClearBuffer(U8G2);
+	u8g2_SetFont(U8G2, u8g2_font_9x15_t_symbols);
+	u8g2_DrawUTF8X2(U8G2, (LCDWIDTH / 2 - u8g2_GetUTF8Width(U8G2, buff)), JUSTIFY_CENTER - FONTHEIGHT / 2, buff);
+	rom_strcpy(buff, __romstr__(("v" CNC_VERSION)));
+	u8g2_SetFont(U8G2, u8g2_font_6x12_tr);
+	u8g2_DrawStr(U8G2, ALIGN_CENTER(buff), JUSTIFY_CENTER + FONTHEIGHT, buff);
+	u8g2_SendBuffer(U8G2);
+
+	// reset menu on actual alarm reset or soft reset
+	if (cnc_get_exec_state(EXEC_INTERLOCKING_FAIL) || cnc_has_alarm())
+	{
+		system_menu_reset();
+	}
+}
+
+void system_menu_render_idle(void)
+{
+	u8g2_ClearBuffer(U8G2);
+	// starts from the bottom up
+
+	// coordinates
+	char buff[SYSTEM_MENU_MAX_STR_LEN];
+	uint8_t y = JUSTIFY_BOTTOM;
+
+	// u8g2_SetFont(U8G2, u8g2_font_6x12_t_symbols);
+	// rom_strcpy(buff, __romstr__("µCNC v" CNC_VERSION));
+	// u8g2_DrawButtonUTF8(U8G2, (LCDWIDTH>>1), JUSTIFY_TOP + 1,U8G2_BTN_INV|U8G2_BTN_HCENTER, LCDWIDTH, 1, 1, buff);
+	// u8g2_SetFont(U8G2, u8g2_font_6x12_tr);
+
+	memset(buff, 0, 32);
+
+	float axis[MAX(AXIS_COUNT, 3)];
+	int32_t steppos[STEPPER_COUNT];
+	itp_get_rt_position(steppos);
+	kinematics_apply_forward(steppos, axis);
+	kinematics_apply_reverse_transform(axis);
+
+#if (AXIS_COUNT >= 5)
+	buff[0] = 'B';
+	system_menu_flt_to_str(&buff[1], axis[4]);
+	u8g2_DrawStr(U8G2, ALIGN_LEFT, y, buff);
+
+#if (AXIS_COUNT >= 6)
+	buff[0] = 'C';
+	system_menu_flt_to_str(&buff[1], axis[5]);
 	u8g2_DrawStr(U8G2, (LCDWIDTH >> 1), y, buff);
-	u8g2_NextPage(U8G2);
+#endif
+	memset(buff, 0, 32);
+	u8g2_DrawLine(U8G2, 0, y - FONTHEIGHT - 1, LCDWIDTH, y - FONTHEIGHT - 1);
+	y -= (FONTHEIGHT + 3);
+#endif
+
+	if (!cnc_get_exec_state(EXEC_ALARM))
+	{
+		cnc_dotasks();
+	}
+
+#if (AXIS_COUNT >= 3)
+	buff[0] = 'Z';
+	system_menu_flt_to_str(&buff[1], axis[2]);
+	u8g2_DrawStr(U8G2, ALIGN_LEFT, y, buff);
+
+#if (AXIS_COUNT >= 4)
+	memset(buff, 0, 32);
+	buff[0] = 'A';
+	system_menu_flt_to_str(&buff[1], axis[3]);
+	u8g2_DrawStr(U8G2, (LCDWIDTH >> 1), y, buff);
+#endif
+	memset(buff, 0, 32);
+	u8g2_DrawLine(U8G2, 0, y - FONTHEIGHT - 1, LCDWIDTH, y - FONTHEIGHT - 1);
+	y -= (FONTHEIGHT + 3);
+#endif
+
+	if (!cnc_get_exec_state(EXEC_ALARM))
+	{
+		cnc_dotasks();
+	}
+
+#if (AXIS_COUNT >= 1)
+	buff[0] = 'X';
+	system_menu_flt_to_str(&buff[1], axis[0]);
+	u8g2_DrawStr(U8G2, ALIGN_LEFT, y, buff);
+#if (AXIS_COUNT >= 2)
+	buff[0] = 'Y';
+	system_menu_flt_to_str(&buff[1], axis[1]);
+	u8g2_DrawStr(U8G2, (LCDWIDTH >> 1), y, buff);
+#endif
+	memset(buff, 0, 32);
+	u8g2_DrawLine(U8G2, 0, y - FONTHEIGHT - 1, LCDWIDTH, y - FONTHEIGHT - 1);
+	y -= (FONTHEIGHT + 3);
+#endif
+
+	if (!cnc_get_exec_state(EXEC_ALARM))
+	{
+		cnc_dotasks();
+	}
+
+	// units, feed and tool
+	if (g_settings.report_inches)
+	{
+		rom_strcpy(buff, __romstr__("IN F"));
+	}
+	else
+	{
+		rom_strcpy(buff, __romstr__("MM F"));
+	}
+
+	// Realtime feed
+	system_menu_flt_to_str(&buff[4], itp_get_rt_feed());
+	u8g2_DrawStr(U8G2, ALIGN_LEFT, y, buff);
+	memset(buff, 0, 32);
+
+	// Tool
+	char tool[5];
+	uint8_t modalgroups[14];
+	uint16_t feed;
+	uint16_t spindle;
+	uint8_t coolant;
+	parser_get_modes(modalgroups, &feed, &spindle, &coolant);
+	rom_strcpy(tool, __romstr__(" T"));
+	system_menu_int_to_str(&tool[2], modalgroups[11]);
+	// Realtime tool speed
+	rom_strcpy(buff, __romstr__("S"));
+	system_menu_int_to_str(&buff[1], tool_get_speed());
+	strcat(buff, tool);
+	u8g2_DrawStr(U8G2, ALIGN_RIGHT(buff), y, buff);
+	memset(buff, 0, 32);
+	u8g2_DrawLine(U8G2, 0, y - FONTHEIGHT - 1, LCDWIDTH, y - FONTHEIGHT - 1);
+
+	y -= (FONTHEIGHT + 3);
+
+	if (!cnc_get_exec_state(EXEC_ALARM))
+	{
+		cnc_dotasks();
+	}
+
+	// system status
+	rom_strcpy(buff, __romstr__("St:"));
+	uint8_t state = cnc_get_exec_state(0xFF);
+	uint8_t filter = 0x80;
+	while (!(state & filter) && filter)
+	{
+		filter >>= 1;
+	}
+
+	state &= filter;
+	if (cnc_has_alarm())
+	{
+		rom_strcpy(&buff[3], MSG_STATUS_ALARM);
+	}
+	else if (mc_get_checkmode())
+	{
+		rom_strcpy(&buff[3], MSG_STATUS_CHECK);
+	}
+	else
+	{
+		switch (state)
+		{
+		case EXEC_DOOR:
+			rom_strcpy(&buff[3], MSG_STATUS_DOOR);
+			break;
+		case EXEC_KILL:
+		case EXEC_UNHOMED:
+			rom_strcpy(&buff[3], MSG_STATUS_ALARM);
+			break;
+		case EXEC_HOLD:
+			rom_strcpy(&buff[3], MSG_STATUS_HOLD);
+			break;
+		case EXEC_HOMING:
+			rom_strcpy(&buff[3], MSG_STATUS_HOME);
+			break;
+		case EXEC_JOG:
+			rom_strcpy(&buff[3], MSG_STATUS_JOG);
+			break;
+		case EXEC_RUN:
+			rom_strcpy(&buff[3], MSG_STATUS_RUN);
+			break;
+		default:
+			rom_strcpy(&buff[3], MSG_STATUS_IDLE);
+			break;
+		}
+	}
+
+	u8g2_DrawStr(U8G2, ALIGN_LEFT, y, buff);
+	memset(buff, 0, 32);
+	io_states_str(buff);
+	u8g2_DrawStr(U8G2, (LCDWIDTH >> 1), y, buff);
+
+	if (!cnc_get_exec_state(EXEC_ALARM))
+	{
+		cnc_dotasks();
+	}
+
+	u8g2_SendBuffer(U8G2);
 }
 
 static uint8_t y_coord;
@@ -741,6 +829,10 @@ void system_menu_item_render_label(uint8_t render_flags, const char *label)
 	uint8_t y = y_coord;
 	if (label)
 	{
+		if (!cnc_get_exec_state(EXEC_ALARM))
+		{
+			cnc_dotasks();
+		}
 		if (render_flags & SYSTEM_MENU_MODE_EDIT)
 		{
 			y_coord += FONTHEIGHT + 1;
@@ -764,6 +856,11 @@ void system_menu_item_render_arg(uint8_t render_flags, const char *value)
 {
 	if (value)
 	{
+		if (!cnc_get_exec_state(EXEC_ALARM))
+		{
+			cnc_dotasks();
+		}
+
 		uint8_t y = y_coord;
 
 		if (render_flags & SYSTEM_MENU_MODE_EDIT)
@@ -814,7 +911,7 @@ void system_menu_item_render_arg(uint8_t render_flags, const char *value)
 void system_menu_render_footer(void)
 {
 	u8g2_SetDrawColor(U8G2, 1);
-	u8g2_NextPage(U8G2);
+	u8g2_SendBuffer(U8G2);
 }
 
 bool system_menu_render_menu_item_filter(uint8_t item_index)
@@ -861,7 +958,7 @@ void system_menu_render_modal_popup(const char *__s)
 		y_start += FONTHEIGHT + 1;
 	} while (--lines);
 
-	u8g2_NextPage(U8G2);
+	u8g2_SendBuffer(U8G2);
 }
 
 static uint8_t graphic_display_str_lines(const char *__s, uint8_t *max_len)
@@ -900,4 +997,93 @@ static uint8_t graphic_display_str_line_len(const char *__s)
 	}
 
 	return chars;
+}
+
+// define this way so it can be translated
+// this defaults to english
+#ifndef STR_USER_NEEDS_SYSTEM_RESET_1
+#define STR_USER_NEEDS_SYSTEM_RESET_1 "Press btn for 5s"
+#endif
+
+#ifndef STR_USER_NEEDS_SYSTEM_RESET_2
+#define STR_USER_NEEDS_SYSTEM_RESET_2 "to reset"
+#endif
+
+void system_menu_render_alarm(void)
+{
+	u8g2_ClearBuffer(U8G2);
+	// coordinates
+	uint8_t y = JUSTIFY_TOP + 1;
+	char buff[SYSTEM_MENU_MAX_STR_LEN];
+	u8g2_SetFontMode(U8G2, 1);
+	u8g2_SetDrawColor(U8G2, 1); /* color 1 for the box */
+	u8g2_DrawBox(U8G2, 0, 0, LCDWIDTH, FONTHEIGHT);
+	u8g2_SetDrawColor(U8G2, 0); /* color 1 for the font */
+	rom_strcpy(buff, __romstr__("ALARM "));
+	uint8_t alarm = cnc_get_alarm();
+	system_menu_int_to_str(&buff[6], alarm);
+	u8g2_DrawStr(U8G2, ALIGN_CENTER(buff), y, buff);
+	u8g2_SetDrawColor(U8G2, 1); /* color 1 for the font */
+	y += JUSTIFY_TOP + 2;
+
+	memset(buff, 0, SYSTEM_MENU_MAX_STR_LEN);
+
+	switch (alarm)
+	{
+	case 1:
+		rom_strcpy(buff, __romstr__(STR_ALARM_1));
+		break;
+	case 2:
+		rom_strcpy(buff, __romstr__(STR_ALARM_2));
+		break;
+	case 3:
+		rom_strcpy(buff, __romstr__(STR_ALARM_3));
+		break;
+	case 4:
+		rom_strcpy(buff, __romstr__(STR_ALARM_4));
+		break;
+	case 5:
+		rom_strcpy(buff, __romstr__(STR_ALARM_5));
+		break;
+	case 6:
+		rom_strcpy(buff, __romstr__(STR_ALARM_6));
+		break;
+	case 7:
+		rom_strcpy(buff, __romstr__(STR_ALARM_7));
+		break;
+	case 8:
+		rom_strcpy(buff, __romstr__(STR_ALARM_8));
+		break;
+	case 9:
+		rom_strcpy(buff, __romstr__(STR_ALARM_9));
+		break;
+	case 10:
+		rom_strcpy(buff, __romstr__(STR_ALARM_10));
+		break;
+	case 11:
+		rom_strcpy(buff, __romstr__(STR_ALARM_11));
+		break;
+	case 12:
+		rom_strcpy(buff, __romstr__(STR_ALARM_12));
+		break;
+	case 13:
+		rom_strcpy(buff, __romstr__(STR_ALARM_13));
+		break;
+	default:
+		rom_strcpy(buff, __romstr__(STR_ALARM_0));
+		break;
+	}
+
+	u8g2_DrawStr(U8G2, ALIGN_CENTER(buff), y, buff);
+	y += JUSTIFY_TOP + 2;
+	memset(buff, 0, SYSTEM_MENU_MAX_STR_LEN);
+	io_states_str(buff);
+	u8g2_DrawStr(U8G2, ALIGN_CENTER(buff), y, buff);
+	y += JUSTIFY_TOP + 2;
+	rom_strcpy(buff, __romstr__(STR_USER_NEEDS_SYSTEM_RESET_1));
+	u8g2_DrawStr(U8G2, ALIGN_CENTER(buff), y, buff);
+	y += JUSTIFY_TOP + 2;
+	rom_strcpy(buff, __romstr__(STR_USER_NEEDS_SYSTEM_RESET_2));
+	u8g2_DrawStr(U8G2, ALIGN_CENTER(buff), y, buff);
+	u8g2_SendBuffer(U8G2);
 }
