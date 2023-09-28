@@ -55,13 +55,13 @@ void i2clcd_rw(uint8_t rlow, uint8_t data)
 	uint8_t val2 = (val | 0x04);
 
 	#if (defined(I2C_LCD_USE_HW_I2C) && defined(MCU_HAS_I2C))
-	softi2c_send(NULL, 0x27, &val, 1);
-    softi2c_send(NULL, 0x27, &val2, 1);
-    softi2c_send(NULL, 0x27, &val, 1);
+	softi2c_send(NULL, 0x27, &val, 1, false);
+    softi2c_send(NULL, 0x27, &val2, 1, false);
+    softi2c_send(NULL, 0x27, &val, 1, true);
 	#else
-    softi2c_send(&lcdi2c, 0x27, &val, 1);
-    softi2c_send(&lcdi2c, 0x27, &val2, 1);
-    softi2c_send(&lcdi2c, 0x27, &val, 1);
+    softi2c_send(&lcdi2c, 0x27, &val, 1, false);
+    softi2c_send(&lcdi2c, 0x27, &val2, 1, false);
+    softi2c_send(&lcdi2c, 0x27, &val, 1, true);
 	#endif
 }
 
