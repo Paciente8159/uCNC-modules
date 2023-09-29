@@ -4,6 +4,9 @@ This module adds graphic display support for µCNC.
 
 ## Changelog
 
+### 2023-09-26
+- added encoder sampling accumulator and debounce to improve encoder accuracy (decreases encoder response a bit but gets more controlable) (#34)
+
 ### 2023-09-23
 - added multiple main loop calls to prevent planner starving and inconsistent motion (#33)
 
