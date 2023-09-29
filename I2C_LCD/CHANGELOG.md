@@ -6,7 +6,7 @@ It requires any 2 µCNC generic digital input pins of the board. It uses softwar
 ## Changelog
 
 ### 2023-09-28
-- fixed i2c function calls (#34)
+- fixed i2c function calls
 
 ### 2023-05-02
 
