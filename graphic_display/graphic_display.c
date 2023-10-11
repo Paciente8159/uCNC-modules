@@ -535,7 +535,8 @@ uint8_t system_menu_send_cmd(const uint8_t *__s)
 
 	while (*__s)
 	{
-		uint8_t c = (uint8_t)*__s if (mcu_com_rx_cb(c))
+		uint8_t c = (uint8_t)*__s;
+		if (mcu_com_rx_cb(c))
 		{
 			if (BUFFER_FULL(graphic_stream_buffer))
 			{
@@ -576,9 +577,9 @@ DECL_MODULE(graphic_display)
 	u8g2_SetPowerSave(U8G2, 0); // wake up display
 	u8g2_FirstPage(U8G2);
 
-	#ifdef DECL_SERIAL_STREAM
+#ifdef DECL_SERIAL_STREAM
 	serial_stream_register(&graphic_stream);
-	#endif
+#endif
 
 	// STARTS SYSTEM MENU MODULE
 	system_menu_init();
