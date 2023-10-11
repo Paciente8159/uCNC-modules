@@ -7,6 +7,9 @@ This version uses PetitFS by default. But it's also possible to use a more featu
 
 ## Changelog
 
+### 2023-10-11
+- integration of multistream
+
 ### 2023-05-21
 
 - updated to version 1.8 (#29)

@@ -520,6 +520,36 @@ OVERRIDE_EVENT_HANDLER(cnc_exec_cmd_error)
 /**
  * Handles SD card in the main loop
  * */
+
+#ifdef DECL_SERIAL_STREAM
+// declares a buffer
+DECL_BUFFER(uint8_t, sdcard_buffer, 32);
+
+// declares the stream function callbacks
+uint8_t sd_card_getc(void)
+{
+	uint8_t c = 0;
+	BUFFER_DEQUEUE(sdcard_buffer, &c);
+	return c;
+}
+
+uint8_t sd_card_available(void)
+{
+	if (!f_eof(&fp) || file_runs)
+	{
+		// while runs or eof not reached always return available
+		return 1;
+	}
+
+	return BUFFER_READ_AVAILABLE(sdcard_buffer);
+}
+
+void sd_card_clear(void)
+{
+	BUFFER_CLEAR(sdcard_buffer);
+}
+#endif
+
 bool sd_card_loop(void *args)
 {
 #if (ASSERT_PIN(SD_CARD_DETECT_PIN))
@@ -547,6 +577,13 @@ bool sd_card_loop(void *args)
 	{
 		char buff[32];
 		UINT i = 0;
+
+#ifdef DECL_SERIAL_STREAM
+		// open a readonly stream
+		// the output is sent to the current holding interface
+		serial_stream_readonly(&sd_card_getc, &sd_card_available, &sd_card_clear);
+#endif
+
 		while (!sd_eof())
 		{
 			if (serial_get_rx_freebytes() < 32)
@@ -558,7 +595,22 @@ bool sd_card_loop(void *args)
 			uint8_t j = 0;
 			do
 			{
-				mcu_com_rx_cb(buff[j++]);
+#ifdef DECL_SERIAL_STREAM
+				// converts TCHAR to uint8_t
+				uint8_t c = (uint8_t)buff[j++];
+				if (mcu_com_rx_cb(c))
+				{
+					if (BUFFER_FULL(sdcard_buffer))
+					{
+						c = OVF;
+					}
+
+					*(BUFFER_NEXT_FREE(sdcard_buffer)) = c;
+					BUFFER_STORE(sdcard_buffer);
+				}
+#else
+				mcu_com_rx_cb((uint8_t)buff[j++]);
+#endif
 			} while (--i);
 		}
 
@@ -579,6 +631,10 @@ bool sd_card_loop(void *args)
 		file_runs = runs;
 	}
 
+#ifdef DECL_SERIAL_STREAM
+	// frees the stream
+	serial_stream_change(NULL);
+#endif
 	return EVENT_CONTINUE;
 }
 
