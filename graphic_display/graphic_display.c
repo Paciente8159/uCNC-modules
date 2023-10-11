@@ -504,6 +504,55 @@ bool graphic_display_update(void *args)
 CREATE_EVENT_LISTENER(cnc_io_dotasks, graphic_display_update);
 #endif
 
+#ifdef DECL_SERIAL_STREAM
+DECL_BUFFER(uint8_t, graphic_stream_buffer, 32);
+static uint8_t graphic_display_getc(void)
+{
+	uint8_t c = 0;
+	BUFFER_DEQUEUE(graphic_stream_buffer, &c);
+	return c;
+}
+
+uint8_t graphic_display_available(void)
+{
+	return BUFFER_READ_AVAILABLE(graphic_stream_buffer);
+}
+
+void graphic_display_clear(void)
+{
+	BUFFER_CLEAR(graphic_stream_buffer);
+}
+
+DECL_SERIAL_STREAM(graphic_stream, &graphic_display_getc, &graphic_display_available, &graphic_display_clear, NULL, NULL);
+
+uint8_t system_menu_send_cmd(const uint8_t *__s)
+{
+	// if machine is running rejects the command
+	if (cnc_get_exec_state(EXEC_RUN | EXEC_JOG) == EXEC_RUN)
+	{
+		return STATUS_SYSTEM_GC_LOCK;
+	}
+
+	while (*__s)
+	{
+		uint8_t c = (uint8_t)*__s if (mcu_com_rx_cb(c))
+		{
+			if (BUFFER_FULL(graphic_stream_buffer))
+			{
+				c = OVF;
+			}
+
+			*(BUFFER_NEXT_FREE(graphic_stream_buffer)) = c;
+			BUFFER_STORE(graphic_stream_buffer);
+		}
+
+		__s++;
+	}
+	return STATUS_OK;
+}
+
+#endif
+
 DECL_MODULE(graphic_display)
 {
 // initializes the display port
@@ -526,6 +575,10 @@ DECL_MODULE(graphic_display)
 	u8g2_ClearDisplay(U8G2);
 	u8g2_SetPowerSave(U8G2, 0); // wake up display
 	u8g2_FirstPage(U8G2);
+
+	#ifdef DECL_SERIAL_STREAM
+	serial_stream_register(&graphic_stream);
+	#endif
 
 	// STARTS SYSTEM MENU MODULE
 	system_menu_init();
