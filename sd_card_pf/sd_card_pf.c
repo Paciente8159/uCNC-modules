@@ -349,7 +349,7 @@ void sd_card_dir_list(void)
 
 	// current dir
 	protocol_send_string(__romstr__(SD_STR_DIR_PREFIX));
-	serial_print_str(cwd);
+	serial_print_str((const uint8_t*)cwd);
 	protocol_send_string(MSG_EOL);
 	if (sd_opendir(&dp, cwd) == FR_OK)
 	{
@@ -402,13 +402,13 @@ void sd_card_cd(void)
 	{
 		if (strlen(cwd))
 		{
-			serial_print_str(cwd);
+			serial_print_str((const uint8_t*)cwd);
 		}
 		else
 		{
 			serial_putc('/');
 		}
-		serial_print_str(">" STR_EOL);
+		serial_print_str((const uint8_t*)">" STR_EOL);
 	}
 	else
 	{
@@ -445,7 +445,7 @@ void sd_card_file_print(void)
 				return;
 			}
 			file[i] = 0;
-			serial_print_str(file);
+			serial_print_str((const uint8_t*)file);
 		}
 
 		sd_fclose();
@@ -508,7 +508,7 @@ OVERRIDE_EVENT_HANDLER(cnc_exec_cmd_error)
 {
 	file_runs = 0;
 	sd_fclose();
-	serial_rx_clear();
+	serial_clear();
 	// *handled = true;
 	return EVENT_CONTINUE;
 }
@@ -535,7 +535,7 @@ uint8_t sd_card_getc(void)
 
 uint8_t sd_card_available(void)
 {
-	if (!f_eof(&fp) || file_runs)
+	if (!sd_eof() || file_runs)
 	{
 		// while runs or eof not reached always return available
 		return 1;
@@ -586,7 +586,7 @@ bool sd_card_loop(void *args)
 
 		while (!sd_eof())
 		{
-			if (serial_get_rx_freebytes() < 32)
+			if (serial_freebytes() < 32)
 			{
 				// leaves the loop to enable code to run
 				return EVENT_CONTINUE;
@@ -823,7 +823,7 @@ static void system_menu_render_sd_card_item(uint8_t render_flags, system_menu_it
 		rom_strcpy(buffer, __romstr__(SD_STR_SD_MOUNTED));
 	}
 
-	system_menu_item_render_arg(render_flags, buffer);
+	system_menu_item_render_arg(render_flags, (const uint8_t*)buffer);
 }
 
 static bool system_menu_action_sd_card_item(uint8_t action, system_menu_item_t *item)
@@ -878,12 +878,12 @@ static void system_menu_sd_card_render(uint8_t render_flags)
 
 	if (render_flags & SYSTEM_MENU_MODE_EDIT)
 	{
-		system_menu_render_header(current_file.fname);
+		system_menu_render_header((const uint8_t*)current_file.fname);
 		char buffer[SYSTEM_MENU_MAX_STR_LEN];
 		memset(buffer, 0, SYSTEM_MENU_MAX_STR_LEN);
 		rom_strcpy(buffer, __romstr__(SD_STR_FILE_PREFIX SD_STR_SD_CONFIRM));
-		system_menu_item_render_label(render_flags, buffer);
-		system_menu_item_render_arg(render_flags, current_file.fname);
+		system_menu_item_render_label(render_flags, (const uint8_t*)buffer);
+		system_menu_item_render_arg(render_flags, (const uint8_t*)current_file.fname);
 	}
 	else
 	{
@@ -894,7 +894,7 @@ static void system_menu_sd_card_render(uint8_t render_flags)
 		// current dir
 		if (!strlen(cwd))
 		{
-			system_menu_render_header("/\0");
+			system_menu_render_header((const uint8_t*)"/\0");
 		}
 		else
 		{
@@ -907,7 +907,7 @@ static void system_menu_sd_card_render(uint8_t render_flags)
 			{
 				last_slash++;
 			}
-			system_menu_render_header(last_slash);
+			system_menu_render_header((const uint8_t*)last_slash);
 		}
 		uint8_t index = 0;
 		if (sd_opendir(&dp, cwd) == FR_OK)
@@ -926,7 +926,7 @@ static void system_menu_sd_card_render(uint8_t render_flags)
 					memset(buffer, 0, SYSTEM_MENU_MAX_STR_LEN);
 					buffer[0] = (fno.fattrib & AM_DIR) ? '/' : ' ';
 					memcpy(&buffer[1], fno.fname, MIN(SYSTEM_MENU_MAX_STR_LEN - 1, strlen(fno.fname)));
-					system_menu_item_render_label(render_flags | ((cur_index == index) ? SYSTEM_MENU_MODE_SELECT : 0), buffer);
+					system_menu_item_render_label(render_flags | ((cur_index == index) ? SYSTEM_MENU_MODE_SELECT : 0), (const uint8_t*)buffer);
 					// stores the current file info
 					if ((cur_index == index))
 					{
@@ -975,12 +975,12 @@ bool system_menu_sd_card_action(uint8_t action)
 					protocol_send_string(MSG_END);
 					system_menu_go_idle();
 					rom_strcpy(buffer, __romstr__(SD_STR_FILE_PREFIX SD_STR_SD_RUNNING));
-					system_menu_show_modal_popup(SYSTEM_MENU_MODAL_POPUP_MS, buffer);
+					system_menu_show_modal_popup(SYSTEM_MENU_MODAL_POPUP_MS, (const uint8_t*)buffer);
 				}
 				else
 				{
 					rom_strcpy(buffer, __romstr__(SD_STR_FILE_PREFIX SD_STR_SD_FAILED));
-					system_menu_show_modal_popup(SYSTEM_MENU_MODAL_POPUP_MS, buffer);
+					system_menu_show_modal_popup(SYSTEM_MENU_MODAL_POPUP_MS, (const uint8_t*)buffer);
 					sd_fclose();
 				}
 			}
@@ -1020,7 +1020,7 @@ bool system_menu_sd_card_action(uint8_t action)
 					else
 					{
 						rom_strcpy(buffer, __romstr__(SD_STR_SD_PREFIX SD_STR_SD_ERROR));
-						system_menu_show_modal_popup(SYSTEM_MENU_MODAL_POPUP_MS, buffer);
+						system_menu_show_modal_popup(SYSTEM_MENU_MODAL_POPUP_MS, (const uint8_t*)buffer);
 					}
 				}
 				else
@@ -1033,7 +1033,7 @@ bool system_menu_sd_card_action(uint8_t action)
 			else
 			{
 				rom_strcpy(buffer, __romstr__(SD_STR_SD_PREFIX SD_STR_SD_ERROR));
-				system_menu_show_modal_popup(SYSTEM_MENU_MODAL_POPUP_MS, buffer);
+				system_menu_show_modal_popup(SYSTEM_MENU_MODAL_POPUP_MS, (const uint8_t*)buffer);
 			}
 		}
 
@@ -1049,7 +1049,7 @@ DECL_MODULE(sd_card_pf)
 	// STARTS SYSTEM MENU MODULE
 	LOAD_MODULE(system_menu);
 	// adds the sd card item to main menu
-	DECL_MENU_ENTRY(1, sd_menu, "SD Card", NULL, system_menu_render_sd_card_item, NULL, system_menu_action_sd_card_item, NULL);
+	DECL_MENU_ENTRY(1, sd_menu, (const uint8_t*)"SD Card", NULL, system_menu_render_sd_card_item, NULL, system_menu_action_sd_card_item, NULL);
 
 	// sd card file system rendering menu
 	DECL_DYNAMIC_MENU(10, 1, system_menu_sd_card_render, system_menu_sd_card_action);
