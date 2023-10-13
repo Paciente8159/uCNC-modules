@@ -381,6 +381,7 @@ uint8_t graphic_display_rotary_encoder_control(void)
 	static uint8_t last_pin_state = 0;
 	static uint8_t last_rot_transition = 0;
 	uint8_t pin_state = 0;
+	static uint32_t long_press_timeout;
 
 // rotation encoder
 #ifndef GRAPHIC_DISPLAY_INVERT_ENCODER_DIR
@@ -523,9 +524,9 @@ void graphic_display_clear(void)
 	BUFFER_CLEAR(graphic_stream_buffer);
 }
 
-DECL_SERIAL_STREAM(graphic_stream, &graphic_display_getc, &graphic_display_available, &graphic_display_clear, NULL, NULL);
+DECL_SERIAL_STREAM(graphic_stream, graphic_display_getc, graphic_display_available, graphic_display_clear, NULL, NULL);
 
-uint8_t system_menu_send_cmd(const uint8_t *__s)
+uint8_t system_menu_send_cmd(const char *__s)
 {
 	// if machine is running rejects the command
 	if (cnc_get_exec_state(EXEC_RUN | EXEC_JOG) == EXEC_RUN)
@@ -533,22 +534,17 @@ uint8_t system_menu_send_cmd(const uint8_t *__s)
 		return STATUS_SYSTEM_GC_LOCK;
 	}
 
-	while (*__s)
+	uint8_t len = strlen(__s);
+	uint8_t w;
+	BUFFER_WRITE(graphic_stream_buffer, __s, len, w);
+	memcpy(graphic_stream_buffer_bufferdata, __s, len);
+	graphic_stream_buffer.count = len;
+	// redirect stream if no other is using the channel
+	if (serial_available() > 0)
 	{
-		uint8_t c = (uint8_t)*__s;
-		if (mcu_com_rx_cb(c))
-		{
-			if (BUFFER_FULL(graphic_stream_buffer))
-			{
-				c = OVF;
-			}
-
-			*(BUFFER_NEXT_FREE(graphic_stream_buffer)) = c;
-			BUFFER_STORE(graphic_stream_buffer);
-		}
-
-		__s++;
+		return STATUS_STREAM_FAILED;
 	}
+
 	return STATUS_OK;
 }
 
@@ -620,32 +616,37 @@ static void io_states_str(char *buff)
 			buff[i++] = 'P';
 		}
 
-		if (CHECKFLAG(limits, LIMIT_X_MASK))
+		if (CHECKFLAG(limits, LINACT0_LIMIT_MASK))
 		{
 			buff[i++] = 'X';
 		}
 
-		if (CHECKFLAG(limits, LIMIT_Y_MASK))
+		if (CHECKFLAG(limits, LINACT1_LIMIT_MASK))
 		{
+
+#if ((AXIS_COUNT == 2) && defined(USE_Y_AS_Z_ALIAS))
+			buff[i++] = 'Z';
+#else
 			buff[i++] = 'Y';
+#endif
 		}
 
-		if (CHECKFLAG(limits, LIMIT_Z_MASK))
+		if (CHECKFLAG(limits, LINACT2_LIMIT_MASK))
 		{
 			buff[i++] = 'Z';
 		}
 
-		if (CHECKFLAG(limits, LIMIT_A_MASK))
+		if (CHECKFLAG(limits, LINACT3_LIMIT_MASK))
 		{
 			buff[i++] = 'A';
 		}
 
-		if (CHECKFLAG(limits, LIMIT_B_MASK))
+		if (CHECKFLAG(limits, LINACT4_LIMIT_MASK))
 		{
 			buff[i++] = 'B';
 		}
 
-		if (CHECKFLAG(limits, LIMIT_C_MASK))
+		if (CHECKFLAG(limits, LINACT5_LIMIT_MASK))
 		{
 			buff[i++] = 'C';
 		}
