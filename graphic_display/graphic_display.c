@@ -375,12 +375,21 @@ uint8_t u8x8_gpio_and_delay_ucnc(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int, voi
 #ifndef GRAPHIC_DISPLAY_ENCODER_ENC2
 #define GRAPHIC_DISPLAY_ENCODER_ENC2 DIN18
 #endif
-// reads inputs and returns a mask with a pin state transition (only rising or only falling)
-uint8_t graphic_display_rotary_encoder_control(void)
+#ifndef GRAPHIC_DISPLAY_ENCODER_DEBOUNCE_MS
+#define GRAPHIC_DISPLAY_ENCODER_DEBOUNCE_MS 200
+#endif
+
+static int8_t graphic_display_rotary_encoder_counter;
+static int8_t graphic_display_rotary_encoder_pressed;
+
+void graphic_display_rotary_encoder_control_sample()
 {
 	static uint8_t last_pin_state = 0;
 	static uint8_t last_rot_transition = 0;
 	uint8_t pin_state = 0;
+	static uint32_t long_press_timeout = 0;
+	// btn debounce
+	static uint32_t short_press_timeout = 0;
 
 // rotation encoder
 #ifndef GRAPHIC_DISPLAY_INVERT_ENCODER_DIR
@@ -391,31 +400,56 @@ uint8_t graphic_display_rotary_encoder_control(void)
 	pin_state |= io_get_pinvalue(GRAPHIC_DISPLAY_ENCODER_ENC2) ? 2 : 0;
 #endif
 
+	int8_t counter = graphic_display_rotary_encoder_counter;
+	uint8_t last_rot = last_rot_transition;
+
 	switch (pin_state)
 	{
 	case 6:
 		last_rot_transition = 0;
-		pin_state = 0;
 		break;
 	case 4:
-		pin_state = (last_rot_transition == 0) ? 2 : (last_rot_transition == 3) ? 4
-																				: 0;
-		last_rot_transition = 1;
+		if (last_rot == 0 || last_rot == 1)
+		{
+			last_rot_transition = 1;
+		}
+		else
+		{
+			last_rot_transition = 5;
+		}
 		break;
 	case 2:
-		pin_state = (last_rot_transition == 0) ? 4 : (last_rot_transition == 3) ? 2
-																				: 0;
-		last_rot_transition = 2;
+		if (last_rot == 0 || last_rot == 2)
+		{
+			last_rot_transition = 2;
+		}
+		else
+		{
+			last_rot_transition = 5;
+		}
 		break;
 	default:
+		if (last_rot == 1)
+		{
+			if (counter < 127)
+			{
+				graphic_display_rotary_encoder_counter++;
+			}
+		}
+
+		if (last_rot == 2)
+		{
+			if (counter > -127)
+			{
+				graphic_display_rotary_encoder_counter--;
+			}
+		}
+
 		last_rot_transition = 3;
-		pin_state = 0;
 		break;
 	}
 
-	pin_state |= io_get_pinvalue(GRAPHIC_DISPLAY_ENCODER_BTN) ? 1 : 0;
-
-	pin_state = ~pin_state;
+	pin_state = !io_get_pinvalue(GRAPHIC_DISPLAY_ENCODER_BTN) ? 1 : 0;
 
 	// if btn is pressed
 	if ((pin_state & 1))
@@ -444,7 +478,37 @@ uint8_t graphic_display_rotary_encoder_control(void)
 			long_press_timeout = mcu_millis() + 5000;
 		}
 		last_pin_state = pin_state;
-		return (pin_diff & pin_state);
+		if (pin_diff & pin_state)
+		{
+			uint32_t short_press = short_press_timeout;
+			if (short_press < mcu_millis())
+			{
+				short_press_timeout = mcu_millis() + GRAPHIC_DISPLAY_ENCODER_DEBOUNCE_MS;
+				graphic_display_rotary_encoder_pressed++;
+			}
+		}
+	}
+}
+
+// reads inputs and returns a mask with a pin state transition
+uint8_t graphic_display_rotary_encoder_control(void)
+{
+	if (graphic_display_rotary_encoder_pressed != 0)
+	{
+		graphic_display_rotary_encoder_pressed = 0;
+		return GRAPHIC_DISPLAY_SELECT;
+	}
+
+	if (graphic_display_rotary_encoder_counter > 0)
+	{
+		graphic_display_rotary_encoder_counter = 0;
+		return GRAPHIC_DISPLAY_NEXT;
+	}
+
+	if (graphic_display_rotary_encoder_counter < 0)
+	{
+		graphic_display_rotary_encoder_counter = 0;
+		return GRAPHIC_DISPLAY_PREV;
 	}
 
 	return 0;
@@ -465,6 +529,8 @@ bool graphic_display_update(void *args)
 {
 	static bool running = false;
 
+	graphic_display_rotary_encoder_control_sample();
+
 	if (!running)
 	{
 		running = true;
@@ -476,6 +542,8 @@ bool graphic_display_update(void *args)
 			break;
 		case GRAPHIC_DISPLAY_SELECT:
 			system_menu_action(SYSTEM_MENU_ACTION_SELECT);
+			// prevent double click
+			graphic_display_rotary_encoder_pressed = 0;
 			break;
 		case GRAPHIC_DISPLAY_NEXT:
 			system_menu_action(SYSTEM_MENU_ACTION_NEXT);
@@ -504,6 +572,49 @@ bool graphic_display_update(void *args)
 CREATE_EVENT_LISTENER(cnc_io_dotasks, graphic_display_update);
 #endif
 
+#ifdef DECL_SERIAL_STREAM
+DECL_BUFFER(uint8_t, graphic_stream_buffer, 32);
+static uint8_t graphic_display_getc(void)
+{
+	uint8_t c = 0;
+	BUFFER_DEQUEUE(graphic_stream_buffer, &c);
+	return c;
+}
+
+uint8_t graphic_display_available(void)
+{
+	return BUFFER_READ_AVAILABLE(graphic_stream_buffer);
+}
+
+void graphic_display_clear(void)
+{
+	BUFFER_CLEAR(graphic_stream_buffer);
+}
+
+DECL_SERIAL_STREAM(graphic_stream, graphic_display_getc, graphic_display_available, graphic_display_clear, NULL, NULL);
+
+uint8_t system_menu_send_cmd(const char *__s)
+{
+	// if machine is running rejects the command
+	if (cnc_get_exec_state(EXEC_RUN | EXEC_JOG) == EXEC_RUN)
+	{
+		return STATUS_SYSTEM_GC_LOCK;
+	}
+
+	uint8_t len = strlen(__s);
+	uint8_t w;
+	
+	if(BUFFER_WRITE_AVAILABLE(graphic_stream_buffer)<len){
+		return STATUS_STREAM_FAILED;
+	}
+	
+	BUFFER_WRITE(graphic_stream_buffer, __s, len, w);
+
+	return STATUS_OK;
+}
+
+#endif
+
 DECL_MODULE(graphic_display)
 {
 // initializes the display port
@@ -526,6 +637,10 @@ DECL_MODULE(graphic_display)
 	u8g2_ClearDisplay(U8G2);
 	u8g2_SetPowerSave(U8G2, 0); // wake up display
 	u8g2_FirstPage(U8G2);
+
+#ifdef DECL_SERIAL_STREAM
+	serial_stream_register(&graphic_stream);
+#endif
 
 	// STARTS SYSTEM MENU MODULE
 	system_menu_init();
@@ -566,32 +681,37 @@ static void io_states_str(char *buff)
 			buff[i++] = 'P';
 		}
 
-		if (CHECKFLAG(limits, LIMIT_X_MASK))
+		if (CHECKFLAG(limits, LINACT0_LIMIT_MASK))
 		{
 			buff[i++] = 'X';
 		}
 
-		if (CHECKFLAG(limits, LIMIT_Y_MASK))
+		if (CHECKFLAG(limits, LINACT1_LIMIT_MASK))
 		{
+
+#if ((AXIS_COUNT == 2) && defined(USE_Y_AS_Z_ALIAS))
+			buff[i++] = 'Z';
+#else
 			buff[i++] = 'Y';
+#endif
 		}
 
-		if (CHECKFLAG(limits, LIMIT_Z_MASK))
+		if (CHECKFLAG(limits, LINACT2_LIMIT_MASK))
 		{
 			buff[i++] = 'Z';
 		}
 
-		if (CHECKFLAG(limits, LIMIT_A_MASK))
+		if (CHECKFLAG(limits, LINACT3_LIMIT_MASK))
 		{
 			buff[i++] = 'A';
 		}
 
-		if (CHECKFLAG(limits, LIMIT_B_MASK))
+		if (CHECKFLAG(limits, LINACT4_LIMIT_MASK))
 		{
 			buff[i++] = 'B';
 		}
 
-		if (CHECKFLAG(limits, LIMIT_C_MASK))
+		if (CHECKFLAG(limits, LINACT5_LIMIT_MASK))
 		{
 			buff[i++] = 'C';
 		}

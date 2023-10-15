@@ -60,6 +60,16 @@ static char *sd_parentdir(void);
 // emulates basic chdir
 static uint8_t sd_chfile(const char *newdir, uint8_t mode);
 
+#ifdef DECL_SERIAL_STREAM
+// declares a buffer
+DECL_BUFFER(uint8_t, sdcard_buffer, RX_BUFFER_SIZE);
+// declares the stream function callbacks
+uint8_t sd_card_getc(void);
+uint8_t sd_card_available(void);
+void sd_card_clear(void);
+static bool sd_card_stream_running;
+#endif
+
 #if (SD_FAT_FS == PETIT_FAT_FS)
 #include "petit_fat_fs/pffconf.h"
 #include "petit_fat_fs/pff.h"
@@ -492,6 +502,12 @@ void sd_card_file_run(void)
 		protocol_send_string(__romstr__(SD_STR_FILE_PREFIX SD_STR_SD_RUNNING " - "));
 		serial_print_int(file_runs);
 		protocol_send_string(MSG_END);
+#ifdef DECL_SERIAL_STREAM
+		// open a readonly stream
+		// the output is sent to the current holding interface
+		sd_card_stream_running = true;
+		serial_stream_readonly(&sd_card_getc, &sd_card_available, &sd_card_clear);
+#endif
 		return;
 	}
 	else
@@ -508,7 +524,7 @@ OVERRIDE_EVENT_HANDLER(cnc_exec_cmd_error)
 {
 	file_runs = 0;
 	sd_fclose();
-	serial_rx_clear();
+	serial_clear();
 	// *handled = true;
 	return EVENT_CONTINUE;
 }
@@ -520,7 +536,7 @@ OVERRIDE_EVENT_HANDLER(cnc_exec_cmd_error)
 /**
  * Handles SD card in the main loop
  * */
-bool sd_card_loop(void *args)
+bool sd_card_dotasks(void *args)
 {
 #if (ASSERT_PIN(SD_CARD_DETECT_PIN))
 	if (mcu_get_input(SD_CARD_DETECT_PIN) && sd_card_mounted)
@@ -543,46 +559,86 @@ bool sd_card_loop(void *args)
 #endif
 
 	uint32_t runs = file_runs;
-	while (runs)
+	if (runs)
 	{
-		char buff[32];
 		UINT i = 0;
-		while (!sd_eof())
+
+		if (!sd_eof())
 		{
-			if (serial_get_rx_freebytes() < 32)
+			if (BUFFER_WRITE_AVAILABLE(sdcard_buffer) <= 32)
 			{
-				// leaves the loop to enable code to run
 				return EVENT_CONTINUE;
 			}
+			uint8_t buff[32];
+			uint8_t j;
 			sd_fread(buff, 32, &i);
-			uint8_t j = 0;
-			do
-			{
-				mcu_com_rx_cb(buff[j++]);
-			} while (--i);
-		}
-
-		if (--runs)
-		{
-			protocol_send_string(MSG_START);
-			protocol_send_string(__romstr__(SD_STR_FILE_PREFIX SD_STR_SD_RUNNING " - "));
-			serial_print_int(file_runs);
-			protocol_send_string(MSG_END);
-			sd_fseek(0);
+			BUFFER_WRITE(sdcard_buffer, buff, i, j);
 		}
 		else
 		{
-			protocol_send_feedback(__romstr__(SD_STR_FILE_PREFIX SD_STR_SD_FINISHED));
-			sd_fclose();
-		}
+			if (--runs)
+			{
+				protocol_send_string(MSG_START);
+				protocol_send_string(__romstr__(SD_STR_FILE_PREFIX SD_STR_SD_RUNNING " - "));
+				serial_print_int(file_runs);
+				protocol_send_string(MSG_END);
+				sd_fseek(0);
+			}
+			else
+			{
+				protocol_send_feedback(__romstr__(SD_STR_FILE_PREFIX SD_STR_SD_FINISHED));
+				sd_fclose();
+			}
 
-		file_runs = runs;
+			file_runs = runs;
+		}
+	}
+	else if (sd_card_stream_running)
+	{
+		if (BUFFER_EMPTY(sdcard_buffer))
+		{
+#ifdef DECL_SERIAL_STREAM
+			// frees the stream
+			serial_stream_change(NULL);
+#endif
+			sd_card_stream_running = false;
+		}
 	}
 
 	return EVENT_CONTINUE;
 }
 
-CREATE_EVENT_LISTENER(cnc_dotasks, sd_card_loop);
+CREATE_EVENT_LISTENER(cnc_dotasks, sd_card_dotasks);
+
+#ifdef DECL_SERIAL_STREAM
+// declares the stream function callbacks
+uint8_t sd_card_getc(void)
+{
+	uint8_t c = 0;
+	if (sd_card_available() > 0)
+	{
+		BUFFER_DEQUEUE(sdcard_buffer, &c);
+	}
+	return c;
+}
+
+uint8_t sd_card_available(void)
+{
+	if (BUFFER_READ_AVAILABLE(sdcard_buffer) < 32)
+	{
+		// if empty runs the sdcard tasks to see if it's filled
+		sd_card_dotasks(NULL);
+	}
+
+	return BUFFER_READ_AVAILABLE(sdcard_buffer);
+}
+
+void sd_card_clear(void)
+{
+	BUFFER_CLEAR(sdcard_buffer);
+}
+#endif
+
 #endif
 
 #ifdef ENABLE_SETTINGS_MODULES
@@ -999,7 +1055,7 @@ DECL_MODULE(sd_card_pf)
 	DECL_DYNAMIC_MENU(10, 1, system_menu_sd_card_render, system_menu_sd_card_action);
 
 #ifdef ENABLE_MAIN_LOOP_MODULES
-	ADD_EVENT_LISTENER(cnc_dotasks, sd_card_loop);
+	ADD_EVENT_LISTENER(cnc_dotasks, sd_card_dotasks);
 #else
 #warning "Main loop extensions are not enabled. SD card will not work."
 #endif

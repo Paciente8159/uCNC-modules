@@ -4,6 +4,9 @@ This module adds graphic display support for µCNC.
 
 ## Changelog
 
+### 2023-10-11
+- integration of multistream
+
 ### 2023-09-23
 - added multiple main loop calls to prevent planner starving and inconsistent motion (#33)
 
