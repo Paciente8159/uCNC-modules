@@ -4,6 +4,10 @@ This module adds custom m80_m81 code to the µCNC parser. This similar to Marlin
 
 ## Changelog
 
+### 2023-10-19
+
+- full use of extended codes macros (#37)
+
 ### 2023-05-21
 
 - updated to version 1.8 (#29)
