@@ -53,7 +53,7 @@ bool m17_m18_parse(void *args)
 		{
 		case 17:
 		case 18:
-			ptr->cmd->group_extended = EXTENDED_MCODE_BASE + ptr->code;
+			ptr->cmd->group_extended = EXTENDED_MCODE(ptr->code);
 			// stops event propagation
 			*(ptr->error) = STATUS_OK;
 			return EVENT_HANDLED;
