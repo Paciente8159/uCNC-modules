@@ -14,7 +14,7 @@
 
 #ifdef ENABLE_SETTINGS_MODULES
 
-#if (UCNC_MODULE_VERSION != 10800)
+#if (UCNC_MODULE_VERSION < 10800 || UCNC_MODULE_VERSION > 99999)
 #error "This module is not compatible with the current version of µCNC"
 #endif
 
