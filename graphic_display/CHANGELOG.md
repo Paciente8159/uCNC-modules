@@ -4,6 +4,9 @@ This module adds graphic display support for µCNC.
 
 ## Changelog
 
+### 2023-10-21
+- popup with fixed width
+
 ### 2023-10-20
 - modified event hooks used to prevent loop inception that caused some menus to become irresponsive (#39)
 

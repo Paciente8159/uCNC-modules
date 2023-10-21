@@ -1047,9 +1047,9 @@ void system_menu_render_modal_popup(const char *__s)
 	w += 6;
 	uint8_t bh = (FONTHEIGHT + 1) * (lines + 1);
 	u8g2_SetDrawColor(U8G2, 0);
-	u8g2_DrawBox(U8G2, (LCDWIDTH - w - 10) >> 1, (LCDHEIGHT - bh) >> 1, w + 10, bh);
+	u8g2_DrawBox(U8G2, 5, (LCDHEIGHT - bh) >> 1, (LCDWIDTH - 10), bh);
 	u8g2_SetDrawColor(U8G2, 1);
-	u8g2_DrawFrame(U8G2, (LCDWIDTH - w - 10) >> 1, (LCDHEIGHT - bh) >> 1, w + 10, bh);
+	u8g2_DrawFrame(U8G2, 5, (LCDHEIGHT - bh) >> 1, (LCDWIDTH - 10), bh);
 	uint8_t y_start = (LCDHEIGHT >> 1) - (((FONTHEIGHT + 1) * (lines - 1)) >> 1) + ((FONTHEIGHT + 1) >> 2);
 	do
 	{
