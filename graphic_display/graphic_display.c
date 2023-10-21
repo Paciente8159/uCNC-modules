@@ -25,7 +25,7 @@
 #include <math.h>
 #include "../system_menu.h"
 
-#if (UCNC_MODULE_VERSION != 10800)
+#if (UCNC_MODULE_VERSION < 10801 || UCNC_MODULE_VERSION > 99999)
 #error "This module is not compatible with the current version of µCNC"
 #endif
 
@@ -102,10 +102,7 @@ SOFTSPI(graphic_spi, 100000UL, 0, GRAPHIC_DISPLAY_SPI_DATA, GRAPHIC_DISPLAY_SPI_
 
 uint8_t u8x8_byte_ucnc_hw_spi(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int, void *arg_ptr)
 {
-	if (!cnc_get_exec_state(EXEC_ALARM))
-	{
-		cnc_dotasks();
-	}
+	cnc_dotasks();
 
 	uint8_t *data;
 	switch (msg)
@@ -117,10 +114,7 @@ uint8_t u8x8_byte_ucnc_hw_spi(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int, void *
 			softspi_xmit(graphic_port, (uint8_t)*data);
 			data++;
 			arg_int--;
-			if (!cnc_get_exec_state(EXEC_ALARM))
-			{
-				cnc_dotasks();
-			}
+			cnc_dotasks();
 		}
 		break;
 	case U8X8_MSG_BYTE_INIT:
@@ -195,10 +189,7 @@ uint8_t u8x8_byte_ucnc_hw_i2c(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int, void *
 
 uint8_t u8x8_gpio_and_delay_ucnc(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int, void *arg_ptr)
 {
-	if (!cnc_get_exec_state(EXEC_ALARM))
-	{
-		cnc_dotasks();
-	}
+	cnc_dotasks();
 
 	switch (msg)
 	{
@@ -382,7 +373,51 @@ uint8_t u8x8_gpio_and_delay_ucnc(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int, voi
 static int8_t graphic_display_rotary_encoder_counter;
 static int8_t graphic_display_rotary_encoder_pressed;
 
-void graphic_display_rotary_encoder_control_sample()
+// reads inputs and returns a mask with a pin state transition
+uint8_t graphic_display_rotary_encoder_control(void)
+{
+	if (graphic_display_rotary_encoder_pressed != 0)
+	{
+		graphic_display_rotary_encoder_pressed = 0;
+		return GRAPHIC_DISPLAY_SELECT;
+	}
+
+	if (graphic_display_rotary_encoder_counter > 0)
+	{
+		graphic_display_rotary_encoder_counter = 0;
+		return GRAPHIC_DISPLAY_NEXT;
+	}
+
+	if (graphic_display_rotary_encoder_counter < 0)
+	{
+		graphic_display_rotary_encoder_counter = 0;
+		return GRAPHIC_DISPLAY_PREV;
+	}
+
+	return 0;
+}
+
+// static bool graphic_display_current_menu_active;
+#ifdef ENABLE_MAIN_LOOP_MODULES
+bool graphic_display_start(void *args)
+{
+	// clear
+	system_menu_render_startup();
+
+	return false;
+}
+CREATE_EVENT_LISTENER(cnc_reset, graphic_display_start);
+
+bool graphic_display_alarm(void *args)
+{
+	// renders the alarm
+	system_menu_render();
+
+	return EVENT_CONTINUE;
+}
+
+
+bool graphic_display_rotary_encoder_control_sample(void *args)
 {
 	static uint8_t last_pin_state = 0;
 	static uint8_t last_rot_transition = 0;
@@ -488,88 +523,50 @@ void graphic_display_rotary_encoder_control_sample()
 			}
 		}
 	}
+
+	return EVENT_CONTINUE;
 }
 
-// reads inputs and returns a mask with a pin state transition
-uint8_t graphic_display_rotary_encoder_control(void)
-{
-	if (graphic_display_rotary_encoder_pressed != 0)
-	{
-		graphic_display_rotary_encoder_pressed = 0;
-		return GRAPHIC_DISPLAY_SELECT;
-	}
-
-	if (graphic_display_rotary_encoder_counter > 0)
-	{
-		graphic_display_rotary_encoder_counter = 0;
-		return GRAPHIC_DISPLAY_NEXT;
-	}
-
-	if (graphic_display_rotary_encoder_counter < 0)
-	{
-		graphic_display_rotary_encoder_counter = 0;
-		return GRAPHIC_DISPLAY_PREV;
-	}
-
-	return 0;
-}
-
-// static bool graphic_display_current_menu_active;
-#ifdef ENABLE_MAIN_LOOP_MODULES
-bool graphic_display_start(void *args)
-{
-	// clear
-	system_menu_render_startup();
-
-	return false;
-}
-CREATE_EVENT_LISTENER(cnc_reset, graphic_display_start);
+CREATE_EVENT_LISTENER(cnc_io_dotasks, graphic_display_rotary_encoder_control_sample);
 
 bool graphic_display_update(void *args)
 {
 	static bool running = false;
 
-	graphic_display_rotary_encoder_control_sample();
-
 	if (!running)
 	{
 		running = true;
+		uint8_t action = SYSTEM_MENU_ACTION_NONE;
 		switch (graphic_display_rotary_encoder_control())
 		{
-		case 0:
-			// no action needed to go idle
-			system_menu_action(SYSTEM_MENU_ACTION_NONE);
-			break;
 		case GRAPHIC_DISPLAY_SELECT:
-			system_menu_action(SYSTEM_MENU_ACTION_SELECT);
+			action = SYSTEM_MENU_ACTION_SELECT;
 			// prevent double click
 			graphic_display_rotary_encoder_pressed = 0;
 			break;
 		case GRAPHIC_DISPLAY_NEXT:
-			system_menu_action(SYSTEM_MENU_ACTION_NEXT);
+			action = SYSTEM_MENU_ACTION_NEXT;
 			break;
 		case GRAPHIC_DISPLAY_PREV:
-			system_menu_action(SYSTEM_MENU_ACTION_PREV);
+			action = SYSTEM_MENU_ACTION_PREV;
 			break;
 		}
 
-		if (!cnc_get_exec_state(EXEC_ALARM))
-		{
-			cnc_dotasks();
-		}
+		system_menu_action(action);
+
+		cnc_dotasks();
 		// render menu
 		system_menu_render();
-		if (!cnc_get_exec_state(EXEC_ALARM))
-		{
-			cnc_dotasks();
-		}
+		cnc_dotasks();
+
 		running = false;
 	}
 
-	return false;
+	return EVENT_CONTINUE;
 }
 
-CREATE_EVENT_LISTENER(cnc_io_dotasks, graphic_display_update);
+CREATE_EVENT_LISTENER(cnc_dotasks, graphic_display_update);
+CREATE_EVENT_LISTENER(cnc_alarm, graphic_display_update);
 #endif
 
 #ifdef DECL_SERIAL_STREAM
@@ -603,11 +600,12 @@ uint8_t system_menu_send_cmd(const char *__s)
 
 	uint8_t len = strlen(__s);
 	uint8_t w;
-	
-	if(BUFFER_WRITE_AVAILABLE(graphic_stream_buffer)<len){
+
+	if (BUFFER_WRITE_AVAILABLE(graphic_stream_buffer) < len)
+	{
 		return STATUS_STREAM_FAILED;
 	}
-	
+
 	BUFFER_WRITE(graphic_stream_buffer, __s, len, w);
 
 	return STATUS_OK;
@@ -646,7 +644,9 @@ DECL_MODULE(graphic_display)
 	system_menu_init();
 #ifdef ENABLE_MAIN_LOOP_MODULES
 	ADD_EVENT_LISTENER(cnc_reset, graphic_display_start);
-	ADD_EVENT_LISTENER(cnc_io_dotasks, graphic_display_update);
+	ADD_EVENT_LISTENER(cnc_alarm, graphic_display_update);
+	ADD_EVENT_LISTENER(cnc_dotasks, graphic_display_update);
+	ADD_EVENT_LISTENER(cnc_io_dotasks, graphic_display_rotary_encoder_control_sample);
 #else
 #warning "Main loop extensions are not enabled. Graphic display card will not work."
 #endif
@@ -777,10 +777,7 @@ void system_menu_render_idle(void)
 	y -= (FONTHEIGHT + 3);
 #endif
 
-	if (!cnc_get_exec_state(EXEC_ALARM))
-	{
-		cnc_dotasks();
-	}
+	cnc_dotasks();
 
 #if (AXIS_COUNT >= 3)
 	buff[0] = 'Z';
@@ -798,7 +795,8 @@ void system_menu_render_idle(void)
 	y -= (FONTHEIGHT + 3);
 #endif
 
-	if (!cnc_get_exec_state(EXEC_ALARM))
+	cnc_dotasks();
+
 	{
 		cnc_dotasks();
 	}
@@ -817,10 +815,7 @@ void system_menu_render_idle(void)
 	y -= (FONTHEIGHT + 3);
 #endif
 
-	if (!cnc_get_exec_state(EXEC_ALARM))
-	{
-		cnc_dotasks();
-	}
+	cnc_dotasks();
 
 	// units, feed and tool
 	if (g_settings.report_inches)
@@ -856,10 +851,7 @@ void system_menu_render_idle(void)
 
 	y -= (FONTHEIGHT + 3);
 
-	if (!cnc_get_exec_state(EXEC_ALARM))
-	{
-		cnc_dotasks();
-	}
+	cnc_dotasks();
 
 	// system status
 	rom_strcpy(buff, __romstr__("St:"));
@@ -913,10 +905,7 @@ void system_menu_render_idle(void)
 	io_states_str(buff);
 	u8g2_DrawStr(U8G2, (LCDWIDTH >> 1), y, buff);
 
-	if (!cnc_get_exec_state(EXEC_ALARM))
-	{
-		cnc_dotasks();
-	}
+	cnc_dotasks();
 
 	u8g2_SendBuffer(U8G2);
 }
@@ -949,10 +938,8 @@ void system_menu_item_render_label(uint8_t render_flags, const char *label)
 	uint8_t y = y_coord;
 	if (label)
 	{
-		if (!cnc_get_exec_state(EXEC_ALARM))
-		{
-			cnc_dotasks();
-		}
+		cnc_dotasks();
+
 		if (render_flags & SYSTEM_MENU_MODE_EDIT)
 		{
 			y_coord += FONTHEIGHT + 1;
@@ -976,10 +963,7 @@ void system_menu_item_render_arg(uint8_t render_flags, const char *value)
 {
 	if (value)
 	{
-		if (!cnc_get_exec_state(EXEC_ALARM))
-		{
-			cnc_dotasks();
-		}
+		cnc_dotasks();
 
 		uint8_t y = y_coord;
 
@@ -1063,9 +1047,9 @@ void system_menu_render_modal_popup(const char *__s)
 	w += 6;
 	uint8_t bh = (FONTHEIGHT + 1) * (lines + 1);
 	u8g2_SetDrawColor(U8G2, 0);
-	u8g2_DrawBox(U8G2, (LCDWIDTH - w - 10) >> 1, (LCDHEIGHT - bh) >> 1, w + 10, bh);
+	u8g2_DrawBox(U8G2, 5, (LCDHEIGHT - bh) >> 1, (LCDWIDTH - 10), bh);
 	u8g2_SetDrawColor(U8G2, 1);
-	u8g2_DrawFrame(U8G2, (LCDWIDTH - w - 10) >> 1, (LCDHEIGHT - bh) >> 1, w + 10, bh);
+	u8g2_DrawFrame(U8G2, 5, (LCDHEIGHT - bh) >> 1, (LCDWIDTH - 10), bh);
 	uint8_t y_start = (LCDHEIGHT >> 1) - (((FONTHEIGHT + 1) * (lines - 1)) >> 1) + ((FONTHEIGHT + 1) >> 2);
 	do
 	{
