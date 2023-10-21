@@ -22,17 +22,13 @@
 
 #ifdef ENABLE_PARSER_MODULES
 
-#if (UCNC_MODULE_VERSION != 10800)
+#if (UCNC_MODULE_VERSION < 10801)
 #error "This module is not compatible with the current version of µCNC"
 #endif
 
 // this ID must be unique for each code
 #define G28_1 EXTENDED_GCODE(28.1)
 #define G30_1 EXTENDED_GCODE(30.1)
-
-#define PARSER_CORDSYS_ADDRESS SETTINGS_PARSER_PARAMETERS_ADDRESS_OFFSET							  // 1st coordinate system offset eeprom address (G54)
-#define G28ADDRESS (SETTINGS_PARSER_PARAMETERS_ADDRESS_OFFSET + (PARSER_PARAM_ADDR_OFFSET * G28HOME)) // G28 coordinate offset eeprom address
-#define G30ADDRESS (SETTINGS_PARSER_PARAMETERS_ADDRESS_OFFSET + (PARSER_PARAM_ADDR_OFFSET * G30HOME)) // G30 coordinate offset eeprom address
 
 bool g28_1_g30_1_parse(void *args);
 bool g28_1_g30_1_exec(void *args);
@@ -65,7 +61,7 @@ bool g28_1_g30_1_parse(void *args)
 		{
 		case 28:
 		case 30:
-			ptr->cmd->group_extended = EXTENDED_MCODE(ptr->value);
+			ptr->cmd->group_extended = EXTENDED_GCODE(ptr->value);
 			// stops event propagation
 			*(ptr->error) = STATUS_OK;
 			return EVENT_HANDLED;
@@ -82,17 +78,18 @@ bool g28_1_g30_1_exec(void *args)
 	gcode_exec_args_t *ptr = (gcode_exec_args_t *)args;
 	// read parser current position (coordinate system 253)
 	float axis[AXIS_COUNT];
+	memset(axis, 0, sizeof(axis));
 	switch (ptr->cmd->group_extended)
 	{
 	case G28_1:
 		parser_get_coordsys(253, axis);
-		settings_save(G28ADDRESS, (uint8_t *)axis, PARSER_PARAM_SIZE);
+		settings_save(G28ADDRESS, (uint8_t *)axis, sizeof(axis));
 		// stops event propagation
 		*(ptr->error) = STATUS_OK;
 		return EVENT_HANDLED;
 	case G30_1:
 		parser_get_coordsys(253, axis);
-		settings_save(G30ADDRESS, (uint8_t *)axis, PARSER_PARAM_SIZE);
+		settings_save(G30ADDRESS, (uint8_t *)axis, sizeof(axis));
 		// stops event propagation
 		*(ptr->error) = STATUS_OK;
 		return EVENT_HANDLED;
