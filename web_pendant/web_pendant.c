@@ -107,27 +107,18 @@ void web_pendant_request(void)
 
 		if (endpoint_request_arg("cmd", cmd, RX_BUFFER_CAPACITY))
 		{
-			web_pendant_send_cmd(cmd);
-			serial_stream_change(&web_pendant_stream);
-			uint8_t error = cnc_parse_cmd();
-
-			switch (error)
+			if (web_pendant_send_cmd(cmd) != STATUS_OK)
 			{
-			case STATUS_OK:
-				endpoint_send(200, "application/json", "{\"res\":\"ok\"}");
-				break;
-
-			default:
 				memset(cmd, 0, RX_BUFFER_CAPACITY);
-				sprintf(cmd, "{\"res\":\"error\", \"code\": %d}", error);
-				endpoint_send(200, "application/json", cmd);
-				break;
+				sprintf(cmd, "{\"res\":\"error\", \"code\": %d}", STATUS_STREAM_FAILED);
+				endpoint_send(429, "application/json", cmd);
 			}
+			endpoint_send(200, "application/json", "{\"res\":\"ok\"}");
 
 			return;
 		}
 
-		endpoint_send(404, "application/json", "{}");
+		endpoint_send(400, "application/json", "{}");
 	}
 }
 
