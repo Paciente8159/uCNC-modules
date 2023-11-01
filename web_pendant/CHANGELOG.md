@@ -7,4 +7,4 @@ This is available for MCU's that support WiFi.
 
 ### 2023-10-26
 
-- initial implementation
+- initial implementation (#40)
