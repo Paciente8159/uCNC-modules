@@ -205,32 +205,39 @@ bool ucnc_lcd_refresh(void* args)
         lcd_putc(&ucnc_lcd, 'n');
         lcd_putc(&ucnc_lcd, ':');
 
-        if (CHECKFLAG(limits, LIMIT_X_MASK))
+        if (CHECKFLAG(limits, LINACT0_LIMIT_MASK))
         {
             lcd_putc(&ucnc_lcd, 'X');
         }
-        else
-        {
-            lcd_putc(&ucnc_lcd, ' ');
-        }
 
-        if (CHECKFLAG(limits, LIMIT_Y_MASK))
-        {
-            lcd_putc(&ucnc_lcd, 'Y');
-        }
-        else
-        {
-            lcd_putc(&ucnc_lcd, ' ');
-        }
+		if (CHECKFLAG(limits, LINACT1_LIMIT_MASK))
+		{
+#if ((AXIS_COUNT == 2) && defined(USE_Y_AS_Z_ALIAS))
+			lcd_putc(&ucnc_lcd, 'Z');
+#else
+			 lcd_putc(&ucnc_lcd, 'Y');
+#endif
+		}
 
-        if (CHECKFLAG(limits, LIMIT_Z_MASK))
-        {
-            lcd_putc(&ucnc_lcd, 'Z');
-        }
-        else
-        {
-            lcd_putc(&ucnc_lcd, ' ');
-        }
+		if (CHECKFLAG(limits, LINACT2_LIMIT_MASK))
+		{
+			lcd_putc(&ucnc_lcd, 'Z');
+		}
+
+		if (CHECKFLAG(limits, LINACT3_LIMIT_MASK))
+		{
+			lcd_putc(&ucnc_lcd, 'A');
+		}
+
+		if (CHECKFLAG(limits, LINACT4_LIMIT_MASK))
+		{
+			lcd_putc(&ucnc_lcd, 'B');
+		}
+
+		if (CHECKFLAG(limits, LINACT5_LIMIT_MASK))
+		{
+			lcd_putc(&ucnc_lcd, 'C');
+		}
 
 #endif
 
