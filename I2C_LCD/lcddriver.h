@@ -43,7 +43,7 @@ extern "C"
         lcd_delay_ms delay_ms;
     } lcd_driver_t;
 
-#define LCD(NAME, ROWS, COLUMNS, RW_CB, DELAY_CB) lcd_driver_t NAME = {.backlight = 0, .row = 0, .max_rows = ROWS, .max_columns = COLUMNS, .rw = RW_CB, .delay_ms = DELAY_CB}
+#define DECL_LCD(NAME, ROWS, COLUMNS, RW_CB, DELAY_CB) lcd_driver_t NAME = {.backlight = 0, .row = 0, .max_rows = ROWS, .max_columns = COLUMNS, .rw = RW_CB, .delay_ms = DELAY_CB}
 
     void lcd_init(lcd_driver_t *lcd);
     void lcd_clear(lcd_driver_t *lcd);

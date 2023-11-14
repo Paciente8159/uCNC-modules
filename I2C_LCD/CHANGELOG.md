@@ -5,6 +5,11 @@ It requires any 2 µCNC generic digital input pins of the board. It uses softwar
 
 ## Changelog
 
+### 2023-11-14
+
+- basic integration with system menu
+- LCD dimension multi adapt
+
 ### 2023-09-28
 
 - fixed I2C function calls

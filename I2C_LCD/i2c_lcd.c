@@ -23,8 +23,7 @@
 #include <math.h>
 #include <stdint.h>
 #include <stdbool.h>
-
-#ifdef ENABLE_MAIN_LOOP_MODULES
+#include "../system_menu.h"
 
 #if (UCNC_MODULE_VERSION < 10800 || UCNC_MODULE_VERSION > 99999)
 #error "This module is not compatible with the current version of µCNC"
@@ -45,6 +44,18 @@
 #define LCD_I2C_SDA DIN31
 #endif
 
+#define LCDWIDTH LCD_COLUMNS
+#define LCDMID (LCD_COLUMNS >> 1)
+#define LCDHEIGHT LCD_ROWS
+#define FONTHEIGHT 1
+#define ALIGN_CENTER(t) ((LCD_COLUMNS - strlen(t)) >> 1)
+#define ALIGN_RIGHT(t) (LCD_COLUMNS - strlen(t))
+#define ALIGN_LEFT 0
+#define JUSTIFY_CENTER ((LCD_ROWS >> 1) - 1)
+#define JUSTIFY_BOTTOM (LCD_ROWS - 1)
+#define JUSTIFY_TOP 0
+#define TEXT_WIDTH(t) strlen(t)
+
 #if (!defined(I2C_LCD_USE_HW_I2C) || !defined(MCU_HAS_I2C))
 SOFTI2C(lcdi2c, 100000, LCD_I2C_SCL, LCD_I2C_SDA);
 #endif
@@ -52,17 +63,17 @@ SOFTI2C(lcdi2c, 100000, LCD_I2C_SCL, LCD_I2C_SDA);
 void i2clcd_rw(uint8_t rlow, uint8_t data)
 {
     uint8_t val = (((data << 4) | rlow) & ~0x04);
-	uint8_t val2 = (val | 0x04);
+    uint8_t val2 = (val | 0x04);
 
-	#if (defined(I2C_LCD_USE_HW_I2C) && defined(MCU_HAS_I2C))
-	softi2c_send(NULL, 0x27, &val, 1, false);
+#if (defined(I2C_LCD_USE_HW_I2C) && defined(MCU_HAS_I2C))
+    softi2c_send(NULL, 0x27, &val, 1, false);
     softi2c_send(NULL, 0x27, &val2, 1, false);
     softi2c_send(NULL, 0x27, &val, 1, true);
-	#else
+#else
     softi2c_send(&lcdi2c, 0x27, &val, 1, false);
     softi2c_send(&lcdi2c, 0x27, &val2, 1, false);
     softi2c_send(&lcdi2c, 0x27, &val, 1, true);
-	#endif
+#endif
 }
 
 void i2clcd_delay(uint8_t delay)
@@ -70,193 +81,276 @@ void i2clcd_delay(uint8_t delay)
     cnc_delay_ms((uint32_t)delay);
 }
 
-LCD(ucnc_lcd, LCD_ROWS, LCD_COLUMNS, &i2clcd_rw, &i2clcd_delay);
+DECL_LCD(ucnc_lcd, LCD_ROWS, LCD_COLUMNS, &i2clcd_rw, &i2clcd_delay);
+
+#define LCD (&ucnc_lcd)
 
 // copied from serial
 void lcd_print_str(lcd_driver_t *lcd, const char *__s)
 {
-    unsigned char c = (unsigned char)rom_strptr(__s++);
-    do
+    while (*__s != 0)
     {
-        lcd_putc(lcd, c);
-        c = (unsigned char)rom_strptr(__s++);
-    } while (c != 0);
+        lcd_putc(lcd, *__s++);
+    }
 }
 
-void lcd_print_int(lcd_driver_t *lcd, int32_t num)
+void system_menu_render_startup(void)
 {
-    if (num == 0)
-    {
-        lcd_putc(lcd, '0');
-        return;
-    }
-
-    unsigned char buffer[11];
-    uint8_t i = 0;
-
-    if (num < 0)
-    {
-        lcd_putc(lcd, '-');
-        num = -num;
-    }
-
-    while (num > 0)
-    {
-        uint8_t digit = num % 10;
-        num = (uint32_t)truncf((float)num * 0.1f);
-        buffer[i++] = digit;
-    }
-
-    do
-    {
-        i--;
-        lcd_putc(lcd, '0' + buffer[i]);
-    } while (i);
+    char str[LCDWIDTH] = {0xe4, 'C', 'N', 'C'};
+    lcd_clear(LCD);
+    lcd_gotoxy(LCD, ALIGN_CENTER(str), JUSTIFY_CENTER);
+    lcd_print_str(LCD, str);
+    memset(str, 0, LCDWIDTH);
+    rom_strcpy(str, __romstr__("v" CNC_VERSION));
+    lcd_gotoxy(LCD, ALIGN_CENTER(str), JUSTIFY_CENTER + 1);
+    lcd_print_str(LCD, str);
 }
 
-void lcd_print_flt(lcd_driver_t *lcd, float num)
+void system_menu_render_idle(void)
 {
-    if (num < 0)
-    {
-        lcd_putc(lcd, '-');
-        num = -num;
-    }
+    float axis[MAX(AXIS_COUNT, 3)];
+    int32_t steppos[STEPPER_COUNT];
+    uint8_t limits = io_get_limits();
+    itp_get_rt_position(steppos);
+    kinematics_apply_forward(steppos, axis);
+    kinematics_apply_reverse_transform(axis);
+    char str[32];
+    // fill with spaces
+    memset(str, 32, LCDWIDTH);
 
-    uint32_t interger = (uint32_t)floorf(num);
-    num -= interger;
-    uint32_t mult = (!g_settings.report_inches) ? 1000 : 10000;
-    num *= mult;
-    uint32_t digits = (uint32_t)roundf(num);
-    if (digits == mult)
-    {
-        interger++;
-        digits = 0;
-    }
-
-    lcd_print_int(lcd, interger);
-    lcd_putc(lcd, '.');
-    if (g_settings.report_inches)
-    {
-        if (digits < 1000)
-        {
-            lcd_putc(lcd, '0');
-        }
-    }
-
-    if (digits < 100)
-    {
-        lcd_putc(lcd, '0');
-    }
-
-    if (digits < 10)
-    {
-        lcd_putc(lcd, '0');
-    }
-
-    lcd_print_int(lcd, digits);
-}
-
-uint32_t lcd_next_update;
-
-bool ucnc_lcd_init(void* args)
-{
-    // runs only once at startup
-    if (lcd_next_update == 0)
-    {
-        lcd_init(&ucnc_lcd);
-        lcd_backlight(&ucnc_lcd, true);
-        lcd_putc(&ucnc_lcd, 0xe4);
-        lcd_print_str(&ucnc_lcd, __romstr__("CNC v" CNC_VERSION));
-        lcd_next_update = mcu_millis() + 5000;
-    }
-
-	return EVENT_CONTINUE;
-}
-
-CREATE_EVENT_LISTENER(cnc_reset, ucnc_lcd_init);
-
-bool ucnc_lcd_refresh(void* args)
-{
-    if (lcd_next_update < mcu_millis())
-    {
-        float axis[MAX(AXIS_COUNT, 3)];
-        int32_t steppos[STEPPER_COUNT];
-        uint8_t limits = io_get_limits();
-        itp_get_rt_position(steppos);
-        kinematics_apply_forward(steppos, axis);
-        kinematics_apply_reverse_transform(axis);
-#if LCD_ROWS == 2
-        lcd_gotoxy(&ucnc_lcd, 0, 0);
-        lcd_putc(&ucnc_lcd, 'X');
-        lcd_putc(&ucnc_lcd, ':');
-        lcd_print_flt(&ucnc_lcd, axis[0]);
-        lcd_gotoxy(&ucnc_lcd, 7, 0);
-        lcd_putc(&ucnc_lcd, ' ');
-        lcd_putc(&ucnc_lcd, 'Y');
-        lcd_putc(&ucnc_lcd, ':');
-        lcd_print_flt(&ucnc_lcd, axis[1]);
-        lcd_gotoxy(&ucnc_lcd, 0, 1);
-        lcd_putc(&ucnc_lcd, 'Z');
-        lcd_putc(&ucnc_lcd, ':');
-        lcd_print_flt(&ucnc_lcd, axis[2]);
-        lcd_gotoxy(&ucnc_lcd, 7, 1);
-        lcd_putc(&ucnc_lcd, ' ');
-        lcd_putc(&ucnc_lcd, 'P');
-        lcd_putc(&ucnc_lcd, 'n');
-        lcd_putc(&ucnc_lcd, ':');
-
-        if (CHECKFLAG(limits, LINACT0_LIMIT_MASK))
-        {
-            lcd_putc(&ucnc_lcd, 'X');
-        }
-
-		if (CHECKFLAG(limits, LINACT1_LIMIT_MASK))
-		{
+//  X/Y
+#if (AXIS_COUNT >= 1)
+    lcd_gotoxy(LCD, ALIGN_LEFT, JUSTIFY_TOP);
+    str[0] = 'X';
+    str[1] = ':';
+    system_menu_flt_to_str(&str[2], axis[0]);
+#if (AXIS_COUNT >= 2)
+    str[strlen(str)] = ' ';
 #if ((AXIS_COUNT == 2) && defined(USE_Y_AS_Z_ALIAS))
-			lcd_putc(&ucnc_lcd, 'Z');
+    str[LCDMID] = 'Z';
 #else
-			 lcd_putc(&ucnc_lcd, 'Y');
+    str[LCDMID] = 'Y';
 #endif
-		}
-
-		if (CHECKFLAG(limits, LINACT2_LIMIT_MASK))
-		{
-			lcd_putc(&ucnc_lcd, 'Z');
-		}
-
-		if (CHECKFLAG(limits, LINACT3_LIMIT_MASK))
-		{
-			lcd_putc(&ucnc_lcd, 'A');
-		}
-
-		if (CHECKFLAG(limits, LINACT4_LIMIT_MASK))
-		{
-			lcd_putc(&ucnc_lcd, 'B');
-		}
-
-		if (CHECKFLAG(limits, LINACT5_LIMIT_MASK))
-		{
-			lcd_putc(&ucnc_lcd, 'C');
-		}
-
+    str[LCDMID + 1] = ':';
+    system_menu_flt_to_str(&str[LCDMID + 2], axis[1]);
+#endif
+    str[LCDWIDTH] = 0;
+    lcd_print_str(LCD, str);
 #endif
 
-        lcd_next_update = mcu_millis() + 250;
+// Z/A
+#if (AXIS_COUNT >= 3)
+    lcd_gotoxy(LCD, ALIGN_LEFT, JUSTIFY_TOP + 1);
+    memset(str, ' ', LCDWIDTH);
+    str[0] = 'Z';
+    str[1] = ':';
+    system_menu_flt_to_str(&str[2], axis[2]);
+#if (AXIS_COUNT >= 4)
+    str[strlen(str)] = ' ';
+    str[LCDMID] = 'A';
+    str[LCDMID + 1] = ':';
+    system_menu_flt_to_str(&str[LCDMID + 2], axis[3]);
+#endif
+    str[LCDWIDTH] = 0;
+    lcd_print_str(LCD, str);
+#endif
+
+// B/C
+#if (AXIS_COUNT >= 5)
+    lcd_gotoxy(LCD, ALIGN_LEFT, JUSTIFY_TOP + 2);
+    memset(str, ' ', LCDWIDTH);
+    str[0] = 'B';
+    str[1] = ':';
+    system_menu_flt_to_str(&str[2], axis[4]);
+#if (AXIS_COUNT >= 6)
+    str[strlen(str)] = ' ';
+    str[LCDMID] = 'C';
+    str[LCDMID + 1] = ':';
+    system_menu_flt_to_str(&str[LCDMID + 2], axis[5]);
+#endif
+    str[LCDWIDTH] = 0;
+    lcd_print_str(LCD, str);
+#endif
+
+// odd number of coordinates (place pin status in the middle)
+#if (AXIS_COUNT & 1)
+#if (((AXIS_COUNT - 1) >> 1) >= LCD_ROWS)
+    return;
+#endif
+    lcd_gotoxy(LCD, LCDMID, ((AXIS_COUNT - 1) >> 1));
+#else
+#if ((AXIS_COUNT >> 1) >= LCD_ROWS)
+    return;
+#endif
+    lcd_gotoxy(LCD, ALIGN_LEFT, (AXIS_COUNT >> 1));
+#endif
+    memset(str, ' ', LCDWIDTH);
+    str[0] = 'P';
+    str[1] = 'n';
+    str[2] = ':';
+    uint8_t i = 3;
+    if (CHECKFLAG(limits, LINACT0_LIMIT_MASK))
+    {
+        str[i++] = 'X';
     }
 
-	return EVENT_CONTINUE;
+    if (CHECKFLAG(limits, LINACT1_LIMIT_MASK))
+    {
+#if ((AXIS_COUNT == 2) && defined(USE_Y_AS_Z_ALIAS))
+        str[i++] = 'Z';
+#else
+        str[i++] = 'Y';
+#endif
+    }
+
+    if (CHECKFLAG(limits, LINACT2_LIMIT_MASK))
+    {
+        str[i++] = 'Z';
+    }
+
+    if (CHECKFLAG(limits, LINACT3_LIMIT_MASK))
+    {
+        str[i++] = 'A';
+    }
+
+    if (CHECKFLAG(limits, LINACT4_LIMIT_MASK))
+    {
+        str[i++] = 'B';
+    }
+
+    if (CHECKFLAG(limits, LINACT5_LIMIT_MASK))
+    {
+        str[i++] = 'C';
+    }
+
+    str[LCDMID] = 0;
+    lcd_print_str(LCD, str);
+
+    // odd number of coordinates (place pin status in the middle)
+#if (AXIS_COUNT & 1)
+#if ((AXIS_COUNT >> 1) + 1 >= LCD_ROWS)
+    return;
+#endif
+    lcd_gotoxy(LCD, ALIGN_LEFT, (AXIS_COUNT >> 1) + 1);
+#else
+#if ((AXIS_COUNT >> 1) >= LCD_ROWS)
+    return;
+#endif
+    lcd_gotoxy(LCD, LCDMID, (AXIS_COUNT >> 1));
+#endif
+    // system status
+    memset(str, ' ', LCDWIDTH);
+    rom_strcpy(str, __romstr__("St:"));
+    uint8_t state = cnc_get_exec_state(0xFF);
+    uint8_t filter = 0x80;
+    while (!(state & filter) && filter)
+    {
+        filter >>= 1;
+    }
+
+    state &= filter;
+    if (cnc_has_alarm())
+    {
+        rom_strcpy(&str[3], MSG_STATUS_ALARM);
+    }
+    else if (mc_get_checkmode())
+    {
+        rom_strcpy(&str[3], MSG_STATUS_CHECK);
+    }
+    else
+    {
+        switch (state)
+        {
+        case EXEC_DOOR:
+            rom_strcpy(&str[3], MSG_STATUS_DOOR);
+            break;
+        case EXEC_KILL:
+        case EXEC_UNHOMED:
+            rom_strcpy(&str[3], MSG_STATUS_ALARM);
+            break;
+        case EXEC_HOLD:
+            rom_strcpy(&str[3], MSG_STATUS_HOLD);
+            break;
+        case EXEC_HOMING:
+            rom_strcpy(&str[3], MSG_STATUS_HOME);
+            break;
+        case EXEC_JOG:
+            rom_strcpy(&str[3], MSG_STATUS_JOG);
+            break;
+        case EXEC_RUN:
+            rom_strcpy(&str[3], MSG_STATUS_RUN);
+            break;
+        default:
+            rom_strcpy(&str[3], MSG_STATUS_IDLE);
+            break;
+        }
+    }
+    str[LCDMID] = 0;
+    lcd_print_str(LCD, str);
 }
 
-CREATE_EVENT_LISTENER(cnc_dotasks, ucnc_lcd_refresh);
+void system_menu_render_alarm(void)
+{
+    char str[LCDWIDTH];
+    lcd_clear(LCD);
+    rom_strcpy(str, __romstr__("ALARM "));
+    uint8_t alarm = cnc_get_alarm();
+    system_menu_int_to_str(&str[6], alarm);
+    lcd_clear(LCD);
+    lcd_gotoxy(LCD, ALIGN_CENTER(str), JUSTIFY_CENTER);
+    lcd_print_str(LCD, str);
+}
+
+#ifdef ENABLE_MAIN_LOOP_MODULES
+bool lcd_reset(void *args)
+{
+    // clear
+    system_menu_render_startup();
+    return false;
+}
+CREATE_EVENT_LISTENER(cnc_reset, lcd_reset);
+
+bool lcd_alarm(void *args)
+{
+    // renders the alarm
+    system_menu_render();
+    return EVENT_CONTINUE;
+}
+
+bool lcd_update(void *args)
+{
+    static bool running = false;
+
+    if (!running)
+    {
+        running = true;
+        // just update action with no action
+        system_menu_action(0);
+        // render menu
+        system_menu_render();
+        running = false;
+    }
+
+    return EVENT_CONTINUE;
+}
+
+CREATE_EVENT_LISTENER(cnc_dotasks, lcd_update);
+CREATE_EVENT_LISTENER(cnc_alarm, lcd_update);
 
 #endif
 
 DECL_MODULE(i2c_lcd)
 {
+    lcd_init(LCD);
+    lcd_backlight(LCD, true);
+
+    // STARTS SYSTEM MENU MODULE
+    system_menu_init();
 #ifdef ENABLE_MAIN_LOOP_MODULES
-    ADD_EVENT_LISTENER(cnc_reset, ucnc_lcd_init);
-    ADD_EVENT_LISTENER(cnc_dotasks, ucnc_lcd_refresh);
+    ADD_EVENT_LISTENER(cnc_reset, lcd_reset);
+    ADD_EVENT_LISTENER(cnc_alarm, lcd_update);
+    ADD_EVENT_LISTENER(cnc_dotasks, lcd_update);
 #else
-#warning "Main loop extensions are not enabled. I2C LCD will not work."
+#warning "Main loop extensions are not enabled. Graphic display card will not work."
 #endif
 }
