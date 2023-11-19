@@ -89,10 +89,10 @@ void lcd_gotoxy(lcd_driver_t *lcd, uint8_t x, uint8_t y)
     case 1:
         row_addr = ROW_TWO;
         break;
-    case 3:
+    case 2:
         row_addr = ROW_THREE;
         break;
-    case 4:
+    case 3:
         row_addr = ROW_FOUR;
         break;
     default:
