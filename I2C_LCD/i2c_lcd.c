@@ -117,12 +117,23 @@ static void lcd_print_str_info(const char *s)
 {
 	char str[LCDMID + 1];
 	memset(str, ' ', LCDMID);
-	memcpy(str, s, MIN(LCDMID, strlen(s)));
-	str[MIN(LCDMID, strlen(s))] = ' ';
+	if (s)
+	{
+		memcpy(str, s, MIN(LCDMID, strlen(s)));
+		str[MIN(LCDMID, strlen(s))] = ' ';
+	}
 	str[LCDMID] = 0;
 	lcd_gotoxy(LCD, (current_pos & 1) ? LCDMID : 0, current_pos >> 1);
 	lcd_print_str(LCD, str);
 	current_pos++;
+}
+
+static void lcd_blank_fill(void)
+{
+	while (current_pos < (LCD_ROWS << 1))
+	{
+		lcd_print_str_info(NULL);
+	}
 }
 
 void system_menu_render_idle(void)
@@ -282,6 +293,8 @@ void system_menu_render_idle(void)
 	str[LCDMID] = 0;
 	lcd_print_str_info(str);
 #endif
+
+	lcd_blank_fill();
 }
 
 void system_menu_render_alarm(void)

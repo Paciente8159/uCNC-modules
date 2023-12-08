@@ -5,6 +5,10 @@ It requires any 2 µCNC generic digital input pins of the board. It uses softwar
 
 ## Changelog
 
+### 2023-12-08
+
+- clear remaining screen via space filling
+
 ### 2023-11-20
 
 - clear screen without flicker
