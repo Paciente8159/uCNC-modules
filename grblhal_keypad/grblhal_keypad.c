@@ -22,6 +22,7 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
+#include "../system_menu.h"
 
 #ifndef KEYPAD_PORT
 // use 1 for HW I2C and 2 for HW UART
@@ -69,29 +70,156 @@ SOFTI2C(keypad_i2c, 400000, KEYPAD_SCL, KEYPAD_SDA);
 #error "This module is not compatible with the current version of µCNC"
 #endif
 
-DECL_BUFFER(uint8_t, grblhal_keypad_stream, KEYPAD_BUFFER_SIZE);
+static volatile uint8_t keypad_value;
+
+/**
+ *
+ * GrblHAL setting
+ *	$50=<float> : default plugin dependent.
+ *	Jogging step speed in mm/min. Not used by core, indended use by driver and/or sender. Senders may query this for keyboard jogging modified by CTRL key.
+ *
+ *	$51=<float> : default plugin dependent.
+ *	Jogging slow speed in mm/min. Not used by core, indended use by driver and/or sender. Senders may query this for keyboard jogging.
+ *
+ *	$52=<float> : default plugin dependent.
+ *	Jogging fast speed in mm/min. Not used by core, indended use by driver and/or sender. Senders may query this for keyboard jogging modified by SHIFT key.
+ *
+ *	$53=<float> : default plugin dependent.
+ *	Jogging step distance in mm. Not used by core, indended use by driver and/or sender. Senders may query this for keyboard jogging modified by CTRL key.
+ *
+ *	$54=<float> : default plugin dependent.
+ *	Jogging slow distance in mm. Not used by core, indended use by driver and/or sender. Senders may query this for keyboard jogging.
+ *
+ *	$55=<float> : default plugin dependent.
+ *	Jogging fast distance in mm. Not used by core, indended use by driver and/or sender. Senders may query this for keyboard jogging modified by SHIFT key.
+ *
+ *
+ * **/
+
+static float keypad_settings[6];
+#ifdef ENABLE_SETTINGS_MODULES
+// using settings helper macros
+#define KEYPAD_SETTING_ID 1050
+// declarate the setting with
+//  args are:
+//  ID - setting ID
+//  var - pointer to var
+//  type - type of var
+//  count - var array length (iff single var set to 1)
+//  print_cb - protocol setting print callback
+
+DECL_EXTENDED_SETTING(KEYPAD_SETTING_ID, &keypad_settings, float, 6, protocol_send_gcode_setting_line_flt);
+
+// then just call the initializator from any point in the code
+// the initialization will run only once
+// ID - setting ID
+// var - var as argument (not the pointer)
+#endif
+
+#define KEYPAD_MAX_CMD_LEN 64
+#if defined(DECL_SERIAL_SIMPLE_STREAM)
+// this will expose keypad_stream_send_cmd to send commands to the machine
+// 64 chars should do
+DECL_SERIAL_SIMPLE_STREAM(keypad_stream, KEYPAD_MAX_CMD_LEN);
+#elif defined(DECL_SERIAL_STREAM)
+// this is for backward compatibility with pre version 010807
+static uint8_t keypad_stream_stream_buffer_bufferdata[KEYPAD_MAX_CMD_LEN];
+static const uint8_t keypad_stream_stream_buffer_size = KEYPAD_MAX_CMD_LEN;
+static ring_buffer_t keypad_stream_stream_buffer;
+static uint8_t keypad_stream_getc(void)
+{
+	uint8_t c = 0;
+	{
+		if (!(!keypad_stream_stream_buffer.count))
+		{
+			uint8_t tail;
+			for (uint8_t __restore_atomic__ __attribute__((__cleanup__(__atomic_out))) = ((*(volatile uint8_t *)((0x3F) + 0x20)) & 0x80), __AtomLock = __atomic_in(); __AtomLock; __AtomLock = 0)
+			{
+				tail = keypad_stream_stream_buffer.tail;
+			}
+			memcpy(&c, &keypad_stream_stream_buffer_bufferdata[tail], sizeof(keypad_stream_stream_buffer_bufferdata[0]));
+			tail++;
+			if (tail >= keypad_stream_stream_buffer_size)
+			{
+				tail = 0;
+			}
+			for (uint8_t __restore_atomic__ __attribute__((__cleanup__(__atomic_out))) = ((*(volatile uint8_t *)((0x3F) + 0x20)) & 0x80), __AtomLock = __atomic_in(); __AtomLock; __AtomLock = 0)
+			{
+				keypad_stream_stream_buffer.tail = tail;
+				keypad_stream_stream_buffer.count--;
+			}
+		}
+	};
+	return c;
+}
+uint8_t keypad_stream_available(void) { return (keypad_stream_stream_buffer.count); }
+void keypad_stream_clear(void)
+{
+	{
+		for (uint8_t __restore_atomic__ __attribute__((__cleanup__(__atomic_out))) = ((*(volatile uint8_t *)((0x3F) + 0x20)) & 0x80), __AtomLock = __atomic_in(); __AtomLock; __AtomLock = 0)
+		{
+			keypad_stream_stream_buffer_bufferdata[0] = 0;
+			keypad_stream_stream_buffer.tail = 0;
+			keypad_stream_stream_buffer.head = 0;
+			keypad_stream_stream_buffer.count = 0;
+		}
+	};
+}
+serial_stream_t keypad_stream_stream = {keypad_stream_getc, keypad_stream_available, keypad_stream_clear, ((void *)0), ((void *)0), ((void *)0)};
+uint8_t keypad_stream_send_cmd(const char *__s)
+{
+	if (cnc_get_exec_state(1 | 4) == 1)
+	{
+		return 9;
+	}
+	uint8_t len = strlen(__s);
+	uint8_t w;
+	if ((keypad_stream_stream_buffer_size - keypad_stream_stream_buffer.count) < len)
+	{
+		return 58;
+	}
+	({ uint8_t count, head; for (uint8_t __restore_atomic__ __attribute__((__cleanup__(__atomic_out))) = ((*(volatile uint8_t *)((0x3F) + 0x20)) & 0x80), __AtomLock = __atomic_in(); __AtomLock; __AtomLock = 0) { head = keypad_stream_stream_buffer.head; count = keypad_stream_stream_buffer.count; } count = (((keypad_stream_stream_buffer_size - count) <= (len)) ? (keypad_stream_stream_buffer_size - count) : (len)); w = 0; if (count) { uint8_t avail = (keypad_stream_stream_buffer_size - head); if (avail < count && avail) { memcpy(&keypad_stream_stream_buffer_bufferdata[head], __s, avail * sizeof(keypad_stream_stream_buffer_bufferdata[0])); w = avail; count -= avail; head = 0; } else { avail = 0; } if (count) { memcpy(&keypad_stream_stream_buffer_bufferdata[head], &__s[avail], count * sizeof(keypad_stream_stream_buffer_bufferdata[0])); w += count; for (uint8_t __restore_atomic__ __attribute__((__cleanup__(__atomic_out))) = ((*(volatile uint8_t *)((0x3F) + 0x20)) & 0x80), __AtomLock = __atomic_in(); __AtomLock; __AtomLock = 0) { head += count; if (head == keypad_stream_stream_buffer_size) { head = 0; } keypad_stream_stream_buffer.head = head; keypad_stream_stream_buffer.count += w; } } } });
+	return 0;
+}
+#endif
+
 #ifdef ENABLE_MAIN_LOOP_MODULES
 bool grblhal_keypad_process(void *args)
 {
+	static uint8_t jogmode = 1;
+	uint8_t mode = jogmode;
 	// just do whatever you need here
-	uint8_t c;
+	uint8_t c = 0;
+	__ATOMIC__ { c = keypad_value; }
+	uint8_t cmd[KEYPAD_MAX_CMD_LEN];
+	memset(cmd, 0, KEYPAD_MAX_CMD_LEN);
+	char *ptr = cmd;
 
-	BUFFER_DEQUEUE(grblhal_keypad_stream, &c);
-	switch (calloc)
+	switch (c)
 	{
 	case 0:
 		break;
 	case '0':
-		break;
 	case '1':
-		break;
 	case '2':
+		jogmode = c - '0';
 		break;
 	case 'h':
+		if (++jogmode == 3)
+		{
+			jogmode = 0;
+		}
 		break;
 	case 'H':
+		rom_strcpy(ptr, __romstr__("$H"));
 		break;
 	case 'R':
+		rom_strcpy(ptr, __romstr__("$J=G91X"));
+		// search for the end of string
+		while (*++ptr)
+			;
+		// makes use of system menu helper to print the float
+		system_menu_flt_to_str(ptr, keypad_settings[mode + 3]);
 		break;
 	case 'L':
 		break;
@@ -139,6 +267,8 @@ bool grblhal_keypad_process(void *args)
 		break;
 	}
 
+	keypad_stream_send_cmd(cmd);
+
 	// you must return EVENT_CONTINUE to enable other tasks to run or return EVENT_HANDLED to terminate the event handling within this callback
 	return EVENT_CONTINUE;
 }
@@ -151,13 +281,15 @@ CREATE_EVENT_LISTENER(cnc_dotasks, grblhal_keypad_process);
 MCU_CALLBACK bool grblhal_keypad_pressed(void *args)
 {
 
-	// uint8_t args[] = {inputs, diff};
-	if (diff & KEYPAD_DOWN_MASK)
+	uint8_t *keys = (uint8_t *)args;
+	// keys = {inputs, diff};
+	if (keys[1] & KEYPAD_DOWN_MASK)
 	{
-		if (inputs & KEYPAD_DOWN_MASK)
+		if (keys[0] & KEYPAD_DOWN_MASK)
 		{
 			// button released
 			cnc_call_rt_command(CMD_CODE_JOG_CANCEL);
+			keypad_value = 0;
 		}
 		else
 		{
@@ -168,7 +300,8 @@ MCU_CALLBACK bool grblhal_keypad_pressed(void *args)
 			if (mcu_com_rx_cb(c))
 			{
 				// it's not an extended command
-				// do something
+				// enqueue key for process
+				keypad_value = c;
 			}
 		}
 	}
@@ -192,6 +325,22 @@ DECL_MODULE(grblhal_keypad)
 #else
 	keypad_port = NULL;
 #endif
+#endif
+
+#ifdef ENABLE_SETTINGS_MODULES
+	EXTENDED_SETTING_INIT(KEYPAD_SETTING_ID, keypad_settings);
+#else
+	keypad_settings[0] = 500;
+	keypad_settings[1] = 100;
+	keypad_settings[2] = 500;
+	keypad_settings[3] = 10;
+	keypad_settings[4] = 1;
+	keypad_settings[5] = 10;
+#endif
+
+
+#ifdef DECL_SERIAL_STREAM
+	serial_stream_register(&keypad_stream);
 #endif
 
 #ifdef ENABLE_MAIN_LOOP_MODULES
