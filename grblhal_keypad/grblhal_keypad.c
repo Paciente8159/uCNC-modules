@@ -17,17 +17,22 @@
 */
 
 #include "../../cnc.h"
-#include "../softi2c.h"
 #include <stdint.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
 #include "../system_menu.h"
 
+#define KEYPAD_PORT_HW_I2C 1
+#define KEYPAD_PORT_SW_I2C 2
+#define KEYPAD_PORT_HW_UART 3
+#define KEYPAD_PORT_SW_UART 4
+#define KEYPAD_PORT_HW_UART2 5
+
 #ifndef KEYPAD_PORT
 // use 1 for HW I2C and 2 for HW UART
 // use 3 for SW I2C and 4 for SW UART
-#define KEYPAD_PORT 3
+#define KEYPAD_PORT KEYPAD_PORT_HW_I2C
 #endif
 
 #define KEYPAD_MPG_MODE_ENABLED
@@ -40,7 +45,8 @@ volatile bool keypad_has_control;
 // #endif
 
 // I2C
-#if (KEYPAD_PORT & 1)
+#if (KEYPAD_PORT == KEYPAD_PORT_HW_I2C) || (KEYPAD_PORT == KEYPAD_PORT_SW_I2C)
+#include "../softi2c.h"
 // interruptable pins
 
 // halt pin is optional
@@ -51,9 +57,9 @@ volatile bool keypad_has_control;
 #define KEYPAD_DOWN DIN7
 #define KEYPAD_DOWN_MASK DIN7_MASK
 #endif
-static softi2c_port_t *keypad_port;
+
 // use emulated I2C
-#if (KEYPAD_PORT & 2)
+#if (KEYPAD_PORT == KEYPAD_PORT_SW_I2C)
 #ifndef KEYPAD_SCL
 #define KEYPAD_SCL DIN16
 #endif
@@ -65,10 +71,64 @@ static softi2c_port_t *keypad_port;
 #else
 SOFTI2C(keypad_i2c, 400000, KEYPAD_SCL, KEYPAD_SDA);
 #endif
-#elif !defined(MCU_HAS_I2C)
-#error "The board does not support HW I2C"
+// #elif !defined(MCU_HAS_I2C)
+// #error "The board does not support HW I2C"
+// #endif
+#endif
 #endif
 
+// UART
+#if (KEYPAD_PORT == KEYPAD_PORT_SW_UART)
+#include "../softuart.h"
+// interruptable pins
+#ifndef KEYPAD_RX
+#define KEYPAD_RX DIN7
+#define KEYPAD_RX_MASK DIN7_MASK
+#endif
+#ifndef KEYPAD_TX
+#define KEYPAD_TX DOUT20
+#endif
+#if !ASSERT_PIN(KEYPAD_RX) || !ASSERT_PIN(KEYPAD_TX)
+#error "The pins are not defined for this board"
+#else
+SOFTUART(keypad_uart, 115200, KEYPAD_TX, KEYPAD_RX);
+#endif
+#endif
+
+#if (KEYPAD_PORT == KEYPAD_PORT_SW_I2C)
+#define keypad_getc(ptr) softi2c_receive(&keypad_i2c, 0x49, ptr, 1, 1)
+#elif (KEYPAD_PORT == KEYPAD_PORT_SW_UART)
+#define keypad_getc(ptr)                                  \
+	{                                                     \
+		*(ptr) = (uint8_t)softuart_getc(&keypad_uart, 1); \
+	}
+#elif (KEYPAD_PORT == KEYPAD_PORT_HW_I2C)
+#ifndef MCU_HAS_I2C
+#error "This board does not have hardware I2C or is not defined."
+#endif
+#define keypad_getc(ptr) mcu_i2c_receive(0x49, ptr, 1, 1)
+#elif (KEYPAD_PORT == KEYPAD_PORT_HW_UART)
+#ifndef MCU_HAS_UART
+#error "This board does not have hardware UART or is not defined."
+#endif
+#ifndef DETACH_UART_FROM_MAIN_PROTOCOL
+#error "To use UART for keypad you need to detach it from the main protocol."
+#endif
+#define keypad_getc(ptr)                   \
+	{                                      \
+		*(ptr) = (uint8_t)mcu_uart_getc(); \
+	}
+#elif (KEYPAD_PORT == KEYPAD_PORT_HW_UART2)
+#ifndef MCU_HAS_UART2
+#error "This board does not have hardware UART2 or is not defined."
+#endif
+#ifndef DETACH_UART2_FROM_MAIN_PROTOCOL
+#error "To use UART2 for keypad you need to detach it from the main protocol."
+#endif
+#define keypad_getc(ptr)                    \
+	{                                       \
+		*(ptr) = (uint8_t)mcu_uart2_getc(); \
+	}
 #endif
 
 #if (UCNC_MODULE_VERSION < 10801 || UCNC_MODULE_VERSION > 99999)
@@ -122,14 +182,17 @@ DECL_EXTENDED_SETTING(KEYPAD_SETTING_ID, &keypad_settings, float, 6, protocol_se
 #endif
 
 #ifdef ENABLE_MAIN_LOOP_MODULES
-bool grblhal_keypad_process(void *args)
+bool keypad_process(void *args)
 {
 #ifdef KEYPAD_MPG_MODE_ENABLED
-	if (!keypad_has_control)
+	bool has_control = keypad_has_control;
+#else
+	bool has_control = serial_stream_readonly(NULL, NULL, NULL);
+#endif
+	if (!has_control)
 	{
 		return EVENT_CONTINUE;
 	}
-#endif
 
 	static uint8_t jogmode = 1;
 	uint8_t mode = jogmode;
@@ -288,16 +351,65 @@ bool grblhal_keypad_process(void *args)
 		mc_incremental_jog(target, &block);
 	}
 
+#ifndef KEYPAD_MPG_MODE_ENABLED
+	// free the stream
+	if (has_control)
+	{
+		serial_stream_change(NULL);
+	}
+#endif
+
 	// you must return EVENT_CONTINUE to enable other tasks to run or return EVENT_HANDLED to terminate the event handling within this callback
 	return EVENT_CONTINUE;
 }
 
-CREATE_EVENT_LISTENER(cnc_dotasks, grblhal_keypad_process);
+CREATE_EVENT_LISTENER(cnc_dotasks, keypad_process);
 
 #endif
 
-#if defined(ENABLE_IO_MODULES) && (KEYPAD_PORT & 1)
-MCU_CALLBACK bool grblhal_keypad_pressed(void *args)
+FORCEINLINE static void keypad_char_received(uint8_t c)
+{
+#ifdef KEYPAD_MPG_MODE_ENABLED
+	if (c == 0x8B)
+	{
+		if (keypad_has_control)
+		{
+			keypad_has_control = false;
+			// free the stream
+			serial_stream_change(NULL);
+		}
+		else
+		{
+			// tries to grab the stream to itself
+			keypad_has_control = serial_stream_readonly(NULL, NULL, NULL);
+		}
+	}
+	bool has_control = keypad_has_control;
+#else
+	bool has_control = serial_stream_readonly(NULL, NULL, NULL);
+#endif
+	if (has_control)
+	{
+		// if not handled enqueues the char for processing
+		if (mcu_com_rx_cb(c))
+		{
+			// enqueue key for process
+			keypad_value = c;
+		}
+#ifndef KEYPAD_MPG_MODE_ENABLED
+		else if (has_control)
+		{
+			// release control if was catched
+			// free the stream
+			serial_stream_change(NULL);
+		}
+#endif
+	}
+}
+
+#if defined(ENABLE_IO_MODULES)
+#if ((KEYPAD_PORT == KEYPAD_PORT_HW_I2C) || (KEYPAD_PORT == KEYPAD_PORT_SW_I2C))
+MCU_CALLBACK bool keypad_pressed(void *args)
 {
 
 	uint8_t *keys = (uint8_t *)args;
@@ -314,58 +426,54 @@ MCU_CALLBACK bool grblhal_keypad_pressed(void *args)
 		{
 			// get the char and passes the char to the realtime char handler
 			uint8_t c = 0;
-			softi2c_receive(keypad_port, 0x49, &c, 1, 1);
-			// if not handled enqueues the char for processing
-			if (mcu_com_rx_cb(c))
-			{
-				// it's not a knowned extended command
-				switch (c)
-				{
-#ifdef KEYPAD_MPG_MODE_ENABLED
-				case 0x8B: // 0x8B	Toggle MPG full control
-					if (keypad_has_control)
-					{
-						keypad_has_control = false;
-						// free the stream
-						serial_stream_change(NULL);
-					}
-					else
-					{
-						// tries to grab the stream to itself
-						keypad_has_control = serial_stream_readonly(NULL, NULL, NULL);
-					}
-					break;
-#endif
-				default:
-					break;
-				}
-				// enqueue key for process
-				keypad_value = c;
-			}
+			keypad_getc(&c);
+			keypad_char_received(c);
 		}
 	}
 	return EVENT_CONTINUE;
 }
 
-CREATE_EVENT_LISTENER(input_change, grblhal_keypad_pressed);
+CREATE_EVENT_LISTENER(input_change, keypad_pressed);
+#elif (KEYPAD_PORT == KEYPAD_PORT_SW_UART)
+MCU_CALLBACK bool keypad_rx_ready(void *args)
+{
+
+	uint8_t *keys = (uint8_t *)args;
+	// keys = {inputs, diff};
+	if (keys[1] & KEYPAD_RX_MASK)
+	{
+		// start bit
+		if ((keys[0] & KEYPAD_RX_MASK) == 0)
+		{
+			// get the char and passes the char to the realtime char handler
+			uint8_t c = 0;
+			keypad_getc(&c);
+			keypad_char_received(c);
+		}
+	}
+	return EVENT_CONTINUE;
+}
+
+CREATE_EVENT_LISTENER(input_change, keypad_rx_ready);
+#endif
+#endif
+
+#if (KEYPAD_PORT == KEYPAD_PORT_HW_UART)
+MCU_RX_CALLBACK void mcu_uart_rx_cb(uint8_t c)
+{
+	keypad_char_received(c);
+}
+#endif
+
+#if (KEYPAD_PORT == KEYPAD_PORT_HW_UART2)
+MCU_RX_CALLBACK void mcu_uart2_rx_cb(uint8_t c)
+{
+	keypad_char_received(c);
+}
 #endif
 
 DECL_MODULE(grblhal_keypad)
 {
-#if (KEYPAD_PORT & 1)
-#if (KEYPAD_PORT & 2)
-	keypad_port = &keypad_i2c;
-#else
-	keypad_port = NULL;
-#endif
-#else
-#if (KEYPAD_PORT & 2)
-	keypad_port = &keypad_uart;
-#else
-	keypad_port = NULL;
-#endif
-#endif
-
 #ifdef ENABLE_SETTINGS_MODULES
 	EXTENDED_SETTING_INIT(KEYPAD_SETTING_ID, keypad_settings);
 #else
@@ -378,15 +486,19 @@ DECL_MODULE(grblhal_keypad)
 #endif
 
 #ifdef ENABLE_MAIN_LOOP_MODULES
-	ADD_EVENT_LISTENER(cnc_dotasks, grblhal_keypad_process);
+	ADD_EVENT_LISTENER(cnc_dotasks, keypad_process);
 #else
 	// just a warning in case you disabled the MAIN_LOOP option on build
 #warning "Main loop extensions are not enabled. Your module will not work."
 #endif
 
-#if defined(ENABLE_IO_MODULES) && (KEYPAD_PORT & 1)
-	ADD_EVENT_LISTENER(input_change, grblhal_keypad_pressed);
-#else
+#if defined(ENABLE_IO_MODULES)
+#if ((KEYPAD_PORT == KEYPAD_PORT_HW_I2C) || (KEYPAD_PORT == KEYPAD_PORT_SW_I2C))
+	ADD_EVENT_LISTENER(input_change, keypad_pressed);
+#elif (KEYPAD_PORT == KEYPAD_PORT_SW_UART)
+	ADD_EVENT_LISTENER(input_change, keypad_rx_ready);
+#endif
+#elif ((KEYPAD_PORT == KEYPAD_PORT_HW_I2C) || (KEYPAD_PORT == KEYPAD_PORT_SW_I2C) || (KEYPAD_PORT == KEYPAD_PORT_SW_UART))
 #warning "IO extensions are not enabled. Your module will not work."
 #endif
 }

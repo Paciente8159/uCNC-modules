@@ -4,6 +4,6 @@ This module adds GrblHAL keypad to µCNC.
 
 ## Changelog
 
-### 2024-01-18
+### 2024-01-23
 
-- initial implementation (#40)
+- initial implementation
