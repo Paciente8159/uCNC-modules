@@ -24,6 +24,9 @@ extern "C"
 {
 #endif
 
+#define TMC_UART 1
+#define TMC_SPI 2
+
 #ifdef STEPPER0_HAS_TMC
 #ifndef STEPPER0_DRIVER_TYPE
 #define STEPPER0_DRIVER_TYPE 2208
@@ -52,7 +55,7 @@ extern "C"
 #endif
 #ifndef STEPPER0_SPI_CS
 #define STEPPER0_SPI_CS DOUT220
-#endif 
+#endif
 #endif
 // basic parameters
 #ifndef STEPPER0_CURRENT_MA
@@ -111,7 +114,7 @@ extern "C"
 #endif
 #ifndef STEPPER1_SPI_CS
 #define STEPPER1_SPI_CS DOUT221
-#endif 
+#endif
 #endif
 // basic parameters
 #ifndef STEPPER1_CURRENT_MA
@@ -170,7 +173,7 @@ extern "C"
 #endif
 #ifndef STEPPER2_SPI_CS
 #define STEPPER2_SPI_CS DOUT222
-#endif 
+#endif
 #endif
 // basic parameters
 #ifndef STEPPER2_CURRENT_MA
@@ -229,7 +232,7 @@ extern "C"
 #endif
 #ifndef STEPPER3_SPI_CS
 #define STEPPER3_SPI_CS DOUT223
-#endif 
+#endif
 #endif
 // basic parameters
 #ifndef STEPPER3_CURRENT_MA
@@ -288,7 +291,7 @@ extern "C"
 #endif
 #ifndef STEPPER4_SPI_CS
 #define STEPPER4_SPI_CS DOUT224
-#endif 
+#endif
 #endif
 // basic parameters
 #ifndef STEPPER4_CURRENT_MA
@@ -347,7 +350,7 @@ extern "C"
 #endif
 #ifndef STEPPER5_SPI_CS
 #define STEPPER5_SPI_CS DOUT225
-#endif 
+#endif
 #endif
 // basic parameters
 #ifndef STEPPER5_CURRENT_MA
@@ -406,7 +409,7 @@ extern "C"
 #endif
 #ifndef STEPPER6_SPI_CS
 #define STEPPER6_SPI_CS DOUT226
-#endif 
+#endif
 #endif
 // basic parameters
 #ifndef STEPPER6_CURRENT_MA
@@ -465,7 +468,7 @@ extern "C"
 #endif
 #ifndef STEPPER7_SPI_CS
 #define STEPPER7_SPI_CS DOUT227
-#endif 
+#endif
 #endif
 // basic parameters
 #ifndef STEPPER7_CURRENT_MA
