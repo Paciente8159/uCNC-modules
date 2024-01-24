@@ -25,6 +25,7 @@ extern "C"
 #endif
 
 #include <stdint.h>
+#include <stdbool.h>
 
 #define TMC_READ_ERROR 0xFFFFFFFFUL
 #define TMC_WRITE_ERROR 0xFFFFFFFFUL
@@ -39,9 +40,22 @@ extern "C"
 #define COOLCONF 0x6D
 #define DRV_STATUS 0x6F
 #define PWMCONF 0x70
+#define TPOWERDOWN 0x11
 
 	typedef void (*tmc_rw)(uint8_t *, uint8_t, uint8_t);
 	typedef void (*tmc_startup)(void);
+
+	typedef struct
+	{
+		float rms_current;
+		float rsense;
+		float ihold_mul;
+		uint8_t ihold_delay;
+		int16_t mstep;
+		bool step_interpolation;
+		uint32_t stealthchop_threshold;
+		int32_t stallguard_threshold;
+	} tmc_driver_setting_t;
 
 	typedef struct
 	{
@@ -66,7 +80,7 @@ extern "C"
 		tmc_driver_reg_t reg;
 	} tmc_driver_t;
 
-	void tmc_init(tmc_driver_t *driver);
+	void tmc_init(tmc_driver_t *driver, tmc_driver_setting_t *settings);
 	float tmc_get_current(tmc_driver_t *driver, float rsense);
 	void tmc_set_current(tmc_driver_t *driver, float current, float rsense, float ihold_mul, uint8_t ihold_delay);
 	int32_t tmc_get_microstep(tmc_driver_t *driver);

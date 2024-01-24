@@ -17,6 +17,7 @@
 */
 
 #include "tmc.h"
+#include "tmc_bitfields.h"
 
 uint8_t tmc_crc8(uint8_t *data, uint8_t len)
 {
@@ -48,29 +49,6 @@ uint32_t tmc_read_register(tmc_driver_t *driver, uint8_t address)
 	if (!(driver->rw))
 	{
 		return TMC_READ_ERROR;
-	}
-
-	switch (address)
-	{
-	case IHOLD_IRUN:
-		return driver->reg.ihold_irun;
-	case TPWMTHRS:
-		return driver->reg.tpwmthrs;
-	case TCOOLTHRS:
-		return driver->reg.tcoolthrs;
-	case SGTHRS:
-	case COOLCONF:
-		switch (driver->type)
-		{
-		case 2209:
-		case 2226:
-			return (address == SGTHRS) ? driver->reg.sgthrs_coolconf : TMC_READ_ERROR;
-		case 2130:
-			return (address == COOLCONF) ? driver->reg.sgthrs_coolconf : TMC_READ_ERROR;
-		default:
-			return TMC_READ_ERROR;
-		}
-		break;
 	}
 
 	uint8_t data[8];
@@ -117,6 +95,33 @@ uint32_t tmc_read_register(tmc_driver_t *driver, uint8_t address)
 		data[4] = 0;
 		driver->rw(data, 5, 5);
 		result = ((uint32_t)data[1] << 24) | ((uint32_t)data[2] << 16) | (data[3] << 8) | data[4];
+	}
+
+	switch (address)
+	{
+	case IHOLD_IRUN:
+		driver->reg.ihold_irun = result;
+		break;
+	case TPWMTHRS:
+		driver->reg.tpwmthrs = result;
+		break;
+	case TCOOLTHRS:
+		driver->reg.tcoolthrs = result;
+		break;
+	case SGTHRS:
+	case COOLCONF:
+		switch (driver->type)
+		{
+		case 2209:
+		case 2226:
+			driver->reg.sgthrs_coolconf = (address == SGTHRS) ? result : TMC_READ_ERROR;
+			break;
+		case 2130:
+			driver->reg.sgthrs_coolconf = (address == COOLCONF) ? result : TMC_READ_ERROR;
+		default:
+			return TMC_READ_ERROR;
+		}
+		break;
 	}
 
 	return result;
@@ -205,7 +210,7 @@ uint32_t tmc_write_register(tmc_driver_t *driver, uint8_t address, uint32_t val)
 		data[3] = (val >> 24) & 0xFF;
 		data[4] = (val >> 16) & 0xFF;
 		data[5] = (val >> 8) & 0xFF;
-		data[6] = (val)&0xFF;
+		data[6] = (val) & 0xFF;
 		data[7] = tmc_crc8(data, 7);
 		driver->rw(data, 8, 0);
 		break;
@@ -251,16 +256,49 @@ uint32_t tmc_write_register(tmc_driver_t *driver, uint8_t address, uint32_t val)
 	return TMC_WRITE_ERROR;
 }
 
-void tmc_init(tmc_driver_t *driver)
+// specific initializations
+// based on Marlin
+static void tmc220x_init(tmc_driver_t *driver)
 {
-	uint32_t gconf = tmc_read_register(driver, GCONF) & ~0x07UL;
-	gconf |= (0x05UL);
+	GCONF_t gconf = {0};
+	gconf.sr = tmc_read_register(driver, GCONF);
 
-	if (driver->init)
+	gconf.pdn_disable = 1;		// Use UART
+	gconf.mstep_reg_select = 1; // Select microsteps with UART
+	gconf.i_scale_analog = 0;	// disable I_scale_analog
+
+	if (driver->reg.tpwmthrs == 0)
 	{
-		driver->init();
+		gconf.en_spreadcycle = 1; // set spreadcycle
 	}
+	else
+	{
+		gconf.en_spreadcycle = 0; // set cyclechop
+	}
+	tmc_write_register(driver, GCONF, gconf.sr);
 
+	CHOPCONF_t chopconf = {0};
+	chopconf.sr = tmc_read_register(driver, CHOPCONF);
+	chopconf.tbl = 1; // tbl = 0b01 blank_time = 24
+	/**
+	 * {toff, hend, hstrt}
+	 * #define CHOPPER_DEFAULT_12V  { 3, -1, 1 }
+	 * #define CHOPPER_DEFAULT_19V  { 4,  1, 1 }
+	 * #define CHOPPER_DEFAULT_24V  { 4,  2, 1 }
+	 * #define CHOPPER_DEFAULT_36V  { 5,  2, 4 }
+	 * #define CHOPPER_PRUSAMK3_24V { 3, -2, 6 }
+	 * #define CHOPPER_MARLIN_119   { 5,  2, 3 }
+	 * #define CHOPPER_09STEP_24V   { 3, -1, 5 }
+	 * **/
+	// using 24V by default
+	chopconf.toff = 4;		 // toff
+	chopconf.hend = (2 + 3); // hend
+	chopconf.hstrt = (1 - 1);
+	tmc_write_register(driver, CHOPCONF, gconf.sr);
+}
+
+void tmc_init(tmc_driver_t *driver, tmc_driver_setting_t *settings)
+{
 	switch (driver->type)
 	{
 	case 2202:
@@ -268,31 +306,50 @@ void tmc_init(tmc_driver_t *driver)
 	case 2225:
 	case 2209:
 	case 2226:
-		// pdn_disable
-		gconf |= (0x40UL);
+		tmc220x_init(driver);
+		break;
 	}
 
-	tmc_write_register(driver, GCONF, gconf);
+	if (driver->init)
+	{
+		driver->init();
+	}
+
+	tmc_set_current(driver, settings->rms_current, settings->rsense, settings->ihold_mul, settings->ihold_delay);
+	tmc_set_microstep(driver, settings->mstep);
+	tmc_write_register(driver, TPOWERDOWN, 128);
+	tmc_set_stealthchop(driver, settings->stealthchop_threshold);
+	tmc_set_stepinterpol(driver, settings->step_interpolation);
+	switch (driver->type)
+	{
+	case 2209:
+	case 2130:
+		tmc_set_stallguard(driver, settings->stallguard_threshold);
+		break;
+	}
 }
 
 float tmc_get_current(tmc_driver_t *driver, float rsense)
 {
-	uint32_t chopconf = tmc_read_register(driver, CHOPCONF);
-	if (chopconf == TMC_READ_ERROR)
+	CHOPCONF_t chopconf = {0};
+	chopconf.sr = tmc_read_register(driver, CHOPCONF);
+	if (chopconf.sr == TMC_READ_ERROR)
 	{
 		return -1;
 	}
+
 	uint8_t irun = (uint8_t)((driver->reg.ihold_irun >> 8) & 0x1F);
-	return (float)(irun + 1) / 32.0 * ((chopconf & (1UL << 17)) ? 0.180 : 0.325) / (rsense + 0.02) / 1.41421 * 1000;
+	return (float)(irun + 1) / 32.0 * ((chopconf.vsense) ? 0.180 : 0.325) / (rsense + 0.02) / 1.41421 * 1000;
 }
 
 void tmc_set_current(tmc_driver_t *driver, float current, float rsense, float ihold_mul, uint8_t ihold_delay)
 {
 	uint8_t currentsense = 32.0 * 1.41421 * current / 1000.0 * (rsense + 0.02) / 0.325 - 1;
 	// If Current Scale is too low, turn on high sensitivity R_sense and calculate again
-	uint32_t chopconf = tmc_read_register(driver, CHOPCONF);
+	CHOPCONF_t chopconf = {0};
+	chopconf.sr = tmc_read_register(driver, CHOPCONF);
 
-	if (chopconf == TMC_READ_ERROR)
+	if (chopconf.sr == TMC_READ_ERROR)
 	{
 		return;
 	}
@@ -300,7 +357,7 @@ void tmc_set_current(tmc_driver_t *driver, float current, float rsense, float ih
 	if (currentsense < 16)
 	{
 		// enable vsense
-		chopconf |= (((uint32_t)1) << 17);
+		chopconf.vsense = 1;
 		currentsense = 32.0 * 1.41421 * current / 1000.0 * (rsense + 0.02) / 0.180 - 1;
 	}
 	else
@@ -308,10 +365,10 @@ void tmc_set_current(tmc_driver_t *driver, float current, float rsense, float ih
 		// If CS >= 16, turn off high_sense_r if it's currently ON
 		// disable vsense
 		//  enable vsense
-		chopconf &= ~(((uint32_t)1) << 17);
+		chopconf.vsense = 0;
 	}
 
-	tmc_write_register(driver, CHOPCONF, chopconf);
+	tmc_write_register(driver, CHOPCONF, chopconf.sr);
 
 	// rms current
 	uint32_t ihold_irun = ((uint32_t)(currentsense & 0x1F)) << 8;
@@ -324,16 +381,15 @@ void tmc_set_current(tmc_driver_t *driver, float current, float rsense, float ih
 
 int32_t tmc_get_microstep(tmc_driver_t *driver)
 {
-	uint32_t chopconf = tmc_read_register(driver, CHOPCONF);
+	CHOPCONF_t chopconf = {0};
+	chopconf.sr = tmc_read_register(driver, CHOPCONF);
 
-	if (chopconf == TMC_READ_ERROR)
+	if (chopconf.sr == TMC_READ_ERROR)
 	{
 		return -1;
 	}
 
-	uint8_t ms = (uint8_t)((chopconf >> 24) & 0x0F);
-
-	switch (ms)
+	switch ((uint8_t)chopconf.mres)
 	{
 	case 0:
 		return 256;
@@ -359,20 +415,20 @@ int32_t tmc_get_microstep(tmc_driver_t *driver)
 
 void tmc_set_microstep(tmc_driver_t *driver, int16_t ms)
 {
-	uint32_t gconf = tmc_read_register(driver, GCONF);
-	uint32_t chopconf = tmc_read_register(driver, CHOPCONF);
+	GCONF_t gconf = {0};
+	gconf.sr = tmc_read_register(driver, GCONF);
+	CHOPCONF_t chopconf = {0};
+	chopconf.sr = tmc_read_register(driver, CHOPCONF);
 
-	if (gconf == TMC_READ_ERROR)
+	if (gconf.sr == TMC_READ_ERROR)
 	{
 		return;
 	}
 
-	if (chopconf == TMC_READ_ERROR)
+	if (chopconf.sr == TMC_READ_ERROR)
 	{
 		return;
 	}
-
-	chopconf &= ~(0xFUL << 24);
 
 	switch (ms)
 	{
@@ -408,8 +464,8 @@ void tmc_set_microstep(tmc_driver_t *driver, int16_t ms)
 		{
 			if (driver->type != 2130)
 			{
-				gconf &= ~(0x80UL);
-				tmc_write_register(driver, GCONF, gconf);
+				gconf.mstep_reg_select = 0;
+				tmc_write_register(driver, GCONF, gconf.sr);
 			}
 			return;
 		}
@@ -418,44 +474,45 @@ void tmc_set_microstep(tmc_driver_t *driver, int16_t ms)
 
 	if (driver->type != 2130)
 	{
-		gconf |= (0x80UL);
-		gconf &= 0xFFUL;
-		tmc_write_register(driver, GCONF, gconf);
+		gconf.mstep_reg_select = 1;
+		tmc_write_register(driver, GCONF, gconf.sr);
 	}
 
-	chopconf |= (((uint32_t)ms) << 24);
-	tmc_write_register(driver, CHOPCONF, chopconf);
+	chopconf.mres = ms;
+	tmc_write_register(driver, CHOPCONF, chopconf.sr);
 }
 
 uint8_t tmc_get_stepinterpol(tmc_driver_t *driver)
 {
-	uint32_t chopconf = tmc_read_register(driver, CHOPCONF);
-	if (chopconf == TMC_READ_ERROR)
+	CHOPCONF_t chopconf = {0};
+	chopconf.sr = tmc_read_register(driver, CHOPCONF);
+	if (chopconf.sr == TMC_READ_ERROR)
 	{
 		return 0;
 	}
-	return (chopconf & (((uint32_t)1) << 28)) ? 1 : 0;
+	return (chopconf.intpol != 0) ? 1 : 0;
 }
 
 void tmc_set_stepinterpol(tmc_driver_t *driver, uint8_t enable)
 {
-	uint32_t chopconf = tmc_read_register(driver, CHOPCONF);
+	CHOPCONF_t chopconf = {0};
+	chopconf.sr = tmc_read_register(driver, CHOPCONF);
 
-	if (chopconf == TMC_READ_ERROR)
+	if (chopconf.sr == TMC_READ_ERROR)
 	{
 		return;
 	}
 
 	if (enable)
 	{
-		chopconf |= (((uint32_t)1) << 28);
+		chopconf.intpol = 1;
 	}
 	else
 	{
-		chopconf &= ~(((uint32_t)1) << 28);
+		chopconf.intpol = 0;
 	}
 
-	tmc_write_register(driver, CHOPCONF, chopconf);
+	tmc_write_register(driver, CHOPCONF, chopconf.sr);
 }
 
 int32_t tmc_get_stealthchop(tmc_driver_t *driver)
@@ -465,24 +522,44 @@ int32_t tmc_get_stealthchop(tmc_driver_t *driver)
 
 void tmc_set_stealthchop(tmc_driver_t *driver, int32_t value)
 {
-	uint32_t gconf = tmc_read_register(driver, GCONF);
+	GCONF_t gconf = {0};
+	gconf.sr = tmc_read_register(driver, GCONF);
+	PWMCONF_t pwmconf = {0};
 
-	if (gconf == TMC_READ_ERROR)
+	gconf.sr = tmc_read_register(driver, GCONF);
+
+	if (gconf.sr == TMC_READ_ERROR)
 	{
 		return;
 	}
 
-	if (!value)
+	switch (driver->type)
 	{
-		gconf |= ((uint32_t)0x04);
-	}
-	else
-	{
-		gconf &= ~((uint32_t)0x04);
+	case 2202:
+	case 2208:
+	case 2225:
+	case 2209:
+	case 2226:
+		gconf.en_spreadcycle = (!value) ? 1 : 0;
+		pwmconf.pwm_lim = 12;
+		pwmconf.pwm_reg = 8;
+		pwmconf.pwm_autograd = 1;
+		pwmconf.pwm_autoscale = 1;
+		pwmconf.pwm_freq = 1;
+		pwmconf.pwm_grad = 14;
+		pwmconf.pwm_ofs = 36;
+		break;
+	case 2130:
+		pwmconf.pwm_freq = 1; // f_pwm = 2/683 f_clk
+		pwmconf.pwm_autoscale = 1;
+		pwmconf.pwm_grad = 5;
+		pwmconf.tmc2130.pwm_ampl = 180;
+		gconf.tmc2130.en_pwm_mode = (!value) ? 0 : 1;
+		break;
 	}
 
-	gconf &= 0xFF;
-	tmc_write_register(driver, GCONF, gconf);
+	tmc_write_register(driver, GCONF, gconf.sr);
+	tmc_write_register(driver, PWMCONF, pwmconf.sr);
 	tmc_write_register(driver, TPWMTHRS, value);
 }
 
@@ -493,13 +570,15 @@ uint32_t tmc_get_status(tmc_driver_t *driver)
 
 int32_t tmc_get_stallguard(tmc_driver_t *driver)
 {
+	COOLCONF_t coolconf = {0};
 	switch (driver->type)
 	{
 	case 2209:
 	case 2226:
-		return (driver->reg.sgthrs_coolconf & 0xFF);
+		return tmc_read_register(driver, SGTHRS);
 	case 2130:
-		return (driver->reg.sgthrs_coolconf & (1UL << 22)) ? -((driver->reg.sgthrs_coolconf >> 16) & 0x7F) : ((driver->reg.sgthrs_coolconf >> 16) & 0x7F);
+		coolconf.sr = tmc_read_register(driver, COOLCONF);
+		return coolconf.tmc2130.sgt;
 	}
 
 	// return an invalid value
@@ -508,7 +587,8 @@ int32_t tmc_get_stallguard(tmc_driver_t *driver)
 
 void tmc_set_stallguard(tmc_driver_t *driver, int32_t value)
 {
-	uint32_t regval = driver->reg.sgthrs_coolconf;
+	COOLCONF_t coolconf = {0};
+
 	switch (driver->type)
 	{
 	case 2209:
@@ -516,10 +596,13 @@ void tmc_set_stallguard(tmc_driver_t *driver, int32_t value)
 		tmc_write_register(driver, SGTHRS, (uint32_t)value);
 		break;
 	case 2130:
-		value &= 0x7F;
-		regval &= ~(0xFFUL << 16);
-		regval |= (((uint32_t)value) << 16);
-		tmc_write_register(driver, COOLCONF, regval);
+		coolconf.sr = tmc_read_register(driver, COOLCONF);
+		if (coolconf.sr == TMC_READ_ERROR)
+		{
+			return;
+		}
+		coolconf.tmc2130.sgt = value;
+		tmc_write_register(driver, COOLCONF, coolconf.tmc2130.sgt);
 		break;
 	}
 }
