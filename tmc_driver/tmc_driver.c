@@ -123,7 +123,7 @@ tmc_driver_setting_t tmc7_settings;
 
 #define TMC_STEPPER_PORT(PORT) &tmc##PORT
 
-void tmcdriver_update(tmc_driver_t *driver, tmc_driver_setting_t *driver_settings)
+void tmc_driver_update(tmc_driver_t *driver, tmc_driver_setting_t *driver_settings)
 {
 	tmc_set_current(driver, driver_settings->rms_current, driver_settings->rsense, driver_settings->ihold_mul, driver_settings->ihold_delay);
 	tmc_set_microstep(driver, driver_settings->mstep);
@@ -138,7 +138,35 @@ void tmcdriver_update(tmc_driver_t *driver, tmc_driver_setting_t *driver_setting
 	}
 }
 
-void tmcdriver_config(void)
+void tmc_driver_update_all(void)
+{
+#ifdef STEPPER0_HAS_TMC
+	tmc_driver_update(&tmc0_driver, &tmc0_settings);
+#endif
+#ifdef STEPPER1_HAS_TMC
+	tmc_driver_update(&tmc1_driver, &tmc1_settings);
+#endif
+#ifdef STEPPER2_HAS_TMC
+	tmc_driver_update(&tmc2_driver, &tmc2_settings);
+#endif
+#ifdef STEPPER3_HAS_TMC
+	tmc_driver_update(&tmc3_driver, &tmc3_settings);
+#endif
+#ifdef STEPPER4_HAS_TMC
+	tmc_driver_update(&tmc4_driver, &tmc4_settings);
+#endif
+#ifdef STEPPER5_HAS_TMC
+	tmc_driver_update(&tmc5_driver, &tmc5_settings);
+#endif
+#ifdef STEPPER6_HAS_TMC
+	tmc_driver_update(&tmc6_driver, &tmc6_settings);
+#endif
+#ifdef STEPPER7_HAS_TMC
+	tmc_driver_update(&tmc7_driver, &tmc7_settings);
+#endif
+}
+
+bool tmc_driver_config(void *args)
 {
 #ifdef STEPPER0_HAS_TMC
 	tmc_init(&tmc0_driver, &tmc0_settings);
@@ -164,16 +192,11 @@ void tmcdriver_config(void)
 #ifdef STEPPER7_HAS_TMC
 	tmc_init(&tmc7_driver, &tmc7_settings);
 #endif
-}
-
-bool tmcdriver_config_handler(void *args)
-{
-	tmcdriver_config();
 	return EVENT_CONTINUE;
 }
 
 #ifdef ENABLE_MAIN_LOOP_MODULES
-CREATE_EVENT_LISTENER(cnc_reset, tmcdriver_config_handler);
+CREATE_EVENT_LISTENER(cnc_reset, tmc_driver_config);
 #endif
 
 /*custom gcode commands*/
@@ -410,7 +433,7 @@ bool m350_exec(void *args)
 #endif
 		}
 
-		tmcdriver_config();
+		tmc_driver_update_all();
 
 		*(ptr->error) = STATUS_OK;
 		return EVENT_HANDLED;
@@ -569,7 +592,7 @@ bool m906_exec(void *args)
 #endif
 		}
 
-		tmcdriver_config();
+		tmc_driver_update_all();
 		*(ptr->error) = STATUS_OK;
 		return EVENT_HANDLED;
 	}
@@ -727,7 +750,7 @@ bool m913_exec(void *args)
 #endif
 		}
 
-		tmcdriver_config();
+		tmc_driver_update_all();
 		*(ptr->error) = STATUS_OK;
 		return EVENT_HANDLED;
 	}
@@ -885,7 +908,7 @@ bool m914_exec(void *args)
 #endif
 		}
 
-		tmcdriver_config();
+		tmc_driver_update_all();
 		*(ptr->error) = STATUS_OK;
 		return EVENT_HANDLED;
 	}
@@ -1243,7 +1266,7 @@ DECL_MODULE(tmc_driver)
 #endif
 
 #ifdef ENABLE_MAIN_LOOP_MODULES
-	ADD_EVENT_LISTENER(cnc_reset, tmcdriver_config_handler);
+	ADD_EVENT_LISTENER(cnc_reset, tmc_driver_config);
 #else
 #error "Main loop extensions are not enabled. TMC configurations will not work."
 #endif

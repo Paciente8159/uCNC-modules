@@ -51,6 +51,30 @@ uint32_t tmc_read_register(tmc_driver_t *driver, uint8_t address)
 		return TMC_READ_ERROR;
 	}
 
+	// write only registers
+	switch (address)
+	{
+	case IHOLD_IRUN:
+		return driver->reg.ihold_irun;
+	case TPWMTHRS:
+		return driver->reg.tpwmthrs;
+	case TCOOLTHRS:
+		return driver->reg.tcoolthrs;
+	case SGTHRS:
+	case COOLCONF:
+		switch (driver->type)
+		{
+		case 2209:
+		case 2226:
+			return (address == SGTHRS) ? driver->reg.sgthrs_coolconf : TMC_READ_ERROR;
+		case 2130:
+			return (address == COOLCONF) ? driver->reg.sgthrs_coolconf : TMC_READ_ERROR;
+		default:
+			return TMC_READ_ERROR;
+		}
+		break;
+	}
+
 	uint8_t data[8];
 	uint8_t crc = 0;
 	uint32_t result = TMC_READ_ERROR;
@@ -95,33 +119,6 @@ uint32_t tmc_read_register(tmc_driver_t *driver, uint8_t address)
 		data[4] = 0;
 		driver->rw(data, 5, 5);
 		result = ((uint32_t)data[1] << 24) | ((uint32_t)data[2] << 16) | (data[3] << 8) | data[4];
-	}
-
-	switch (address)
-	{
-	case IHOLD_IRUN:
-		driver->reg.ihold_irun = result;
-		break;
-	case TPWMTHRS:
-		driver->reg.tpwmthrs = result;
-		break;
-	case TCOOLTHRS:
-		driver->reg.tcoolthrs = result;
-		break;
-	case SGTHRS:
-	case COOLCONF:
-		switch (driver->type)
-		{
-		case 2209:
-		case 2226:
-			driver->reg.sgthrs_coolconf = (address == SGTHRS) ? result : TMC_READ_ERROR;
-			break;
-		case 2130:
-			driver->reg.sgthrs_coolconf = (address == COOLCONF) ? result : TMC_READ_ERROR;
-		default:
-			return TMC_READ_ERROR;
-		}
-		break;
 	}
 
 	return result;

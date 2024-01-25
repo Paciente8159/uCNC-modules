@@ -76,7 +76,7 @@ extern "C"
 		tmc_startup init;
 		// Callback for RW
 		tmc_rw rw;
-		// internal driver registers
+		// internal driver write only registers
 		tmc_driver_reg_t reg;
 	} tmc_driver_t;
 
