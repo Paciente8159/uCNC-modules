@@ -24,6 +24,10 @@
 #include <stdint.h>
 #include <float.h>
 
+#if (UCNC_MODULE_VERSION < 10807 || UCNC_MODULE_VERSION > 99999)
+#error "This module is not compatible with the current version of µCNC"
+#endif
+
 #ifdef ENABLE_TMC_DRIVER_MODULE
 
 #define TMC_UARTBAUD 38400
@@ -166,7 +170,7 @@ void tmc_driver_update_all(void)
 #endif
 }
 
-bool tmc_driver_config(void *args)
+bool tmc_driver_config_all(void *args)
 {
 #ifdef STEPPER0_HAS_TMC
 	tmc_init(&tmc0_driver, &tmc0_settings);
@@ -196,7 +200,7 @@ bool tmc_driver_config(void *args)
 }
 
 #ifdef ENABLE_MAIN_LOOP_MODULES
-CREATE_EVENT_LISTENER(cnc_reset, tmc_driver_config);
+CREATE_EVENT_LISTENER(cnc_reset, tmc_driver_config_all);
 #endif
 
 /*custom gcode commands*/
@@ -330,56 +334,56 @@ bool m350_exec(void *args)
 #ifdef STEPPER0_HAS_TMC
 			val = tmc_get_microstep(&tmc0_driver);
 #endif
-			serial_print_flt(val);
+			serial_print_int(val);
 			serial_putc(',');
 			val = 0;
 			serial_putc('Y');
 #ifdef STEPPER1_HAS_TMC
 			val = tmc_get_microstep(&tmc1_driver);
 #endif
-			serial_print_flt(val);
+			serial_print_int(val);
 			serial_putc(',');
 			val = 0;
 			serial_putc('Z');
 #ifdef STEPPER2_HAS_TMC
 			val = tmc_get_microstep(&tmc2_driver);
 #endif
-			serial_print_flt(val);
+			serial_print_int(val);
 			serial_putc(',');
 			val = 0;
 			serial_putc('A');
 #ifdef STEPPER3_HAS_TMC
 			val = tmc_get_microstep(&tmc3_driver);
 #endif
-			serial_print_flt(val);
+			serial_print_int(val);
 			serial_putc(',');
 			val = 0;
 			serial_putc('B');
 #ifdef STEPPER4_HAS_TMC
 			val = tmc_get_microstep(&tmc4_driver);
 #endif
-			serial_print_flt(val);
+			serial_print_int(val);
 			serial_putc(',');
 			val = 0;
 			serial_putc('C');
 #ifdef STEPPER5_HAS_TMC
 			val = tmc_get_microstep(&tmc5_driver);
 #endif
-			serial_print_flt(val);
+			serial_print_int(val);
 			serial_putc(',');
 			val = 0;
 			serial_putc('I');
 #ifdef STEPPER6_HAS_TMC
 			val = tmc_get_microstep(&tmc6_driver);
 #endif
-			serial_print_flt(val);
+			serial_print_int(val);
 			serial_putc(',');
 			val = 0;
 			serial_putc('J');
 #ifdef STEPPER7_HAS_TMC
 			val = tmc_get_microstep(&tmc7_driver);
 #endif
-			serial_print_flt(val);
+			serial_print_int(val);
 			serial_putc(']');
 			protocol_send_string(MSG_EOL);
 		}
@@ -1266,7 +1270,7 @@ DECL_MODULE(tmc_driver)
 #endif
 
 #ifdef ENABLE_MAIN_LOOP_MODULES
-	ADD_EVENT_LISTENER(cnc_reset, tmc_driver_config);
+	ADD_EVENT_LISTENER(cnc_reset, tmc_driver_config_all);
 #else
 #error "Main loop extensions are not enabled. TMC configurations will not work."
 #endif

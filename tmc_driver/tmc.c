@@ -16,8 +16,16 @@
 	See the	GNU General Public License for more details.
 */
 
+#include "../../cnc.h"
 #include "tmc.h"
 #include "tmc_bitfields.h"
+
+#ifndef TMC_MAX_WRITE_RETRIES
+#define TMC_MAX_WRITE_RETRIES 3
+#endif
+
+// uncomment this to allow write to any register
+// #define TMC_UNSAFE_MODE
 
 uint8_t tmc_crc8(uint8_t *data, uint8_t len)
 {
@@ -183,79 +191,85 @@ uint32_t tmc_write_register(tmc_driver_t *driver, uint8_t address, uint32_t val)
 	case GCONF:
 	case CHOPCONF:
 	case PWMCONF:
+	case TPOWERDOWN:
 		break;
 	default:
 		return TMC_WRITE_ERROR;
 #endif
 	}
 
-	uint8_t cnt = driver->reg.ifcnt + 1;
+	int8_t retries = TMC_MAX_WRITE_RETRIES;
 
-	uint8_t data[8];
-	switch (driver->type)
+	do
 	{
-	case 2202:
-	case 2208:
-	case 2225:
-		driver->slave = 0;
-	case 2209:
-	case 2226:
-		/* code */
-		data[0] = 0x05;
-		data[1] = driver->slave;
-		data[2] = address | 0x80;
-		data[3] = (val >> 24) & 0xFF;
-		data[4] = (val >> 16) & 0xFF;
-		data[5] = (val >> 8) & 0xFF;
-		data[6] = (val) & 0xFF;
-		data[7] = tmc_crc8(data, 7);
-		driver->rw(data, 8, 0);
-		break;
-	case 2130:
-		data[0] = address | 0x80;
-		data[4] = (uint8_t)(val & 0xFF);
-		val >>= 8;
-		data[3] = (uint8_t)(val & 0xFF);
-		val >>= 8;
-		data[2] = (uint8_t)(val & 0xFF);
-		val >>= 8;
-		data[1] = (uint8_t)(val & 0xFF);
-		driver->rw(data, 5, 5);
-		break;
-	default:
-		return TMC_WRITE_ERROR;
-	}
+		uint8_t cnt = driver->reg.ifcnt + 1;
 
-	// checks if write was executed
-	if (tmc_read_register(driver, IFCNT) == cnt)
-	{
-		driver->reg.ifcnt = cnt;
-		switch (address)
+		uint8_t data[8];
+		switch (driver->type)
 		{
-		case IHOLD_IRUN:
-			driver->reg.ihold_irun = val;
+		case 2202:
+		case 2208:
+		case 2225:
+			driver->slave = 0;
+		case 2209:
+		case 2226:
+			/* code */
+			data[0] = 0x05;
+			data[1] = driver->slave;
+			data[2] = address | 0x80;
+			data[3] = (val >> 24) & 0xFF;
+			data[4] = (val >> 16) & 0xFF;
+			data[5] = (val >> 8) & 0xFF;
+			data[6] = (val) & 0xFF;
+			data[7] = tmc_crc8(data, 7);
+			driver->rw(data, 8, 0);
 			break;
-		case TPWMTHRS:
-			driver->reg.tpwmthrs = val;
+		case 2130:
+			data[0] = address | 0x80;
+			data[4] = (uint8_t)(val & 0xFF);
+			val >>= 8;
+			data[3] = (uint8_t)(val & 0xFF);
+			val >>= 8;
+			data[2] = (uint8_t)(val & 0xFF);
+			val >>= 8;
+			data[1] = (uint8_t)(val & 0xFF);
+			driver->rw(data, 5, 5);
 			break;
-		case TCOOLTHRS:
-			driver->reg.tcoolthrs = val;
-			break;
-		case SGTHRS:
-		case COOLCONF:
-			driver->reg.sgthrs_coolconf = val;
-			break;
+		default:
+			return TMC_WRITE_ERROR;
 		}
 
-		return val;
-	}
+		// checks if write was executed
+		if (tmc_read_register(driver, IFCNT) == cnt)
+		{
+			driver->reg.ifcnt = cnt;
+			switch (address)
+			{
+			case IHOLD_IRUN:
+				driver->reg.ihold_irun = val;
+				break;
+			case TPWMTHRS:
+				driver->reg.tpwmthrs = val;
+				break;
+			case TCOOLTHRS:
+				driver->reg.tcoolthrs = val;
+				break;
+			case SGTHRS:
+			case COOLCONF:
+				driver->reg.sgthrs_coolconf = val;
+				break;
+			}
+
+			return val;
+		}
+	} while (--retries > 0);
 
 	return TMC_WRITE_ERROR;
 }
 
 // specific initializations
 // based on Marlin
-static void tmc220x_init(tmc_driver_t *driver)
+static void tmc22xx_init(tmc_driver_t *driver)
 {
 	GCONF_t gconf = {0};
 	gconf.sr = tmc_read_register(driver, GCONF);
@@ -303,13 +317,8 @@ void tmc_init(tmc_driver_t *driver, tmc_driver_setting_t *settings)
 	case 2225:
 	case 2209:
 	case 2226:
-		tmc220x_init(driver);
+		tmc22xx_init(driver);
 		break;
-	}
-
-	if (driver->init)
-	{
-		driver->init();
 	}
 
 	tmc_set_current(driver, settings->rms_current, settings->rsense, settings->ihold_mul, settings->ihold_delay);
@@ -323,6 +332,11 @@ void tmc_init(tmc_driver_t *driver, tmc_driver_setting_t *settings)
 	case 2130:
 		tmc_set_stallguard(driver, settings->stallguard_threshold);
 		break;
+	}
+
+	if (driver->init)
+	{
+		driver->init();
 	}
 }
 
