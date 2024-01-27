@@ -26,6 +26,7 @@ extern "C"
 
 #define TMC_UART 1
 #define TMC_SPI 2
+#define TMC_ONEWIRE 3
 
 #ifdef STEPPER0_HAS_TMC
 #ifndef STEPPER0_DRIVER_TYPE
