@@ -26,21 +26,22 @@ extern "C"
 
 #include <stdint.h>
 #include <stdbool.h>
+#include "tmc_bitfields.h"
 
 #define TMC_READ_ERROR 0xFFFFFFFFUL
 #define TMC_WRITE_ERROR 0xFFFFFFFFUL
-#define GCONF 0x00
-#define IFCNT 0x02
-#define IHOLD_IRUN 0x10
-#define TPWMTHRS 0X13
-#define TCOOLTHRS 0x14
-#define SGTHRS 0x40
-#define SG_RESULT 0x41
-#define CHOPCONF 0x6C
-#define COOLCONF 0x6D
-#define DRV_STATUS 0x6F
-#define PWMCONF 0x70
-#define TPOWERDOWN 0x11
+#define GCONF 0x00		// RW
+#define IFCNT 0x02		// R
+#define IHOLD_IRUN 0x10 // W
+#define TPWMTHRS 0X13	// W
+#define TCOOLTHRS 0x14	// W
+#define SGTHRS 0x40		// W
+#define SG_RESULT 0x41	// R
+#define CHOPCONF 0x6C	// RW
+#define COOLCONF 0x6D	// W
+#define DRV_STATUS 0x6F // R
+#define PWMCONF 0x70	// RW
+#define TPOWERDOWN 0x11 // W
 
 	typedef void (*tmc_rw)(uint8_t *, uint8_t, uint8_t);
 	typedef void (*tmc_startup)(void);
@@ -60,10 +61,13 @@ extern "C"
 	typedef struct
 	{
 		uint8_t ifcnt;
-		uint32_t ihold_irun;
+		IHOLD_IRUN_t ihold_irun;
 		uint32_t tpwmthrs;
 		uint32_t tcoolthrs;
-		uint32_t sgthrs_coolconf;
+		SGTHRS_t sgthrs;
+		COOLCONF_t coolconf;
+		uint8_t tpowerdown;
+
 	} tmc_driver_reg_t;
 
 	typedef struct
@@ -80,17 +84,19 @@ extern "C"
 		tmc_driver_reg_t reg;
 	} tmc_driver_t;
 
+	typedef void (*tmc_set_param_callback)(tmc_driver_t *, tmc_driver_setting_t *);
+
 	void tmc_init(tmc_driver_t *driver, tmc_driver_setting_t *settings);
-	float tmc_get_current(tmc_driver_t *driver, float rsense);
-	void tmc_set_current(tmc_driver_t *driver, float current, float rsense, float ihold_mul, uint8_t ihold_delay);
+	float tmc_get_current(tmc_driver_t *driver, tmc_driver_setting_t *settings);
+	void tmc_set_current(tmc_driver_t *driver, tmc_driver_setting_t *settings);
 	int32_t tmc_get_microstep(tmc_driver_t *driver);
-	void tmc_set_microstep(tmc_driver_t *driver, int16_t ms);
+	void tmc_set_microstep(tmc_driver_t *driver, tmc_driver_setting_t *settings);
 	uint8_t tmc_get_stepinterpol(tmc_driver_t *driver);
-	void tmc_set_stepinterpol(tmc_driver_t *driver, uint8_t enable);
+	void tmc_set_stepinterpol(tmc_driver_t *driver, tmc_driver_setting_t *settings);
 	int32_t tmc_get_stealthchop(tmc_driver_t *driver);
-	void tmc_set_stealthchop(tmc_driver_t *driver, int32_t value);
+	void tmc_set_stealthchop(tmc_driver_t *driver, tmc_driver_setting_t *settings);
 	int32_t tmc_get_stallguard(tmc_driver_t *driver);
-	void tmc_set_stallguard(tmc_driver_t *driver, int32_t value);
+	void tmc_set_stallguard(tmc_driver_t *driver, tmc_driver_setting_t *settings);
 	uint32_t tmc_get_status(tmc_driver_t *driver);
 	uint32_t tmc_read_register(tmc_driver_t *driver, uint8_t address);
 	uint32_t tmc_write_register(tmc_driver_t *driver, uint8_t address, uint32_t val);
