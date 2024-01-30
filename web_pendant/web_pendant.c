@@ -81,8 +81,20 @@ bool web_pendant_ws_receive(void *args)
 	{
 		if (e->event == WS_EVENT_TEXT)
 		{
-			uint8_t w;
-			BUFFER_WRITE(web_pendant_rx, e->data, e->length, w);
+			for (size_t i = 0; i < e->length; i++)
+			{
+				uint8_t c = e->data[i];
+				if (mcu_com_rx_cb(c))
+				{
+					if (BUFFER_FULL(web_pendant_rx))
+					{
+						c = OVF;
+					}
+
+					*(BUFFER_NEXT_FREE(web_pendant_rx)) = c;
+					BUFFER_STORE(web_pendant_rx);
+				}
+			}
 		}
 	}
 	return EVENT_CONTINUE;
@@ -108,29 +120,6 @@ void web_pendant_clear(void)
 {
 	BUFFER_CLEAR(web_pendant_rx);
 }
-
-// void web_pendant_putc(uint8_t c)
-// {
-// 	while (BUFFER_FULL(web_pendant_tx))
-// 	{
-// 		mcu_uart_flush();
-// 	}
-// 	BUFFER_ENQUEUE(web_pendant_tx, &c);
-// }
-
-// void web_pendant_flush(void)
-// {
-// 	while (!BUFFER_EMPTY(web_pendant_tx))
-// 	{
-// 		uint8_t tmp[128 + 1];
-// 		memset(tmp, 0, sizeof(tmp));
-// 		uint8_t r;
-// 		uint8_t max = BUFFER_READ_AVAILABLE(web_pendant_tx);
-
-// 		BUFFER_READ(web_pendant_tx, tmp, max, r);
-// 		websocket_send(ws_web_pendant_client.id, tmp, max, WS_SEND_TXT);
-// 	}
-// }
 
 bool web_pendant_status_update(void *args)
 {
@@ -255,7 +244,7 @@ bool web_pendant_status_update(void *args)
 	sprintf(part, ",\"f\":%0.0f,\"s\":%d}\0", feed, spindle);
 	strcat(response, part);
 
-	websocket_send(ws_web_pendant_client.id, (uint8_t*)response, strlen(response), WS_SEND_TXT);
+	websocket_send(ws_web_pendant_client.id, (uint8_t *)response, strlen(response), WS_SEND_TXT);
 
 	return EVENT_CONTINUE;
 }
