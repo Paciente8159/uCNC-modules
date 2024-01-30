@@ -18,64 +18,28 @@
 
 #include "../../cnc.h"
 #include "../../modules/endpoint.h"
+#include "../../modules/websocket.h"
 #include <stdint.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
 
-#if defined(MCU_HAS_WIFI) && defined(MCU_HAS_ENDPOINTS)
+#if defined(MCU_HAS_WIFI) && defined(MCU_HAS_ENDPOINTS) && defined(MCU_HAS_WEBSOCKETS)
+
+#ifndef WEB_PENDANT_REFRESH_MS
+#define WEB_PENDANT_REFRESH_MS 200
+#endif
 
 #if (UCNC_MODULE_VERSION < 10801 || UCNC_MODULE_VERSION > 99999)
 #error "This module is not compatible with the current version of µCNC"
 #endif
 
-#ifdef DECL_SERIAL_STREAM
-DECL_BUFFER(uint8_t, web_pendant_stream_buffer, RX_BUFFER_SIZE);
-static uint8_t web_pendant_getc(void)
-{
-	uint8_t c = 0;
-	BUFFER_DEQUEUE(web_pendant_stream_buffer, &c);
-	return c;
-}
-
-uint8_t web_pendant_available(void)
-{
-	return BUFFER_READ_AVAILABLE(web_pendant_stream_buffer);
-}
-
-void web_pendant_clear(void)
-{
-	BUFFER_CLEAR(web_pendant_stream_buffer);
-}
-
-DECL_SERIAL_STREAM(web_pendant_stream, web_pendant_getc, web_pendant_available, web_pendant_clear, NULL, NULL);
-
-uint8_t web_pendant_send_cmd(const char *__s)
-{
-	// if machine is running (not jogging) rejects the command
-	if (cnc_get_exec_state(EXEC_RUN | EXEC_JOG) == EXEC_RUN)
-	{
-		return STATUS_SYSTEM_GC_LOCK;
-	}
-
-	uint8_t len = strlen(__s);
-	uint8_t w;
-
-	if (BUFFER_WRITE_AVAILABLE(web_pendant_stream_buffer) < len)
-	{
-		return STATUS_STREAM_FAILED;
-	}
-
-	BUFFER_WRITE(web_pendant_stream_buffer, __s, len, w);
-
-	return STATUS_OK;
-}
-
-#endif
+DECL_BUFFER(uint8_t, web_pendant_rx, 128);
+// DECL_BUFFER(uint8_t, web_pendant_tx, 128);
+static websocket_client_t ws_web_pendant_client;
 
 void web_pendant_request(void)
 {
-
 	// if does not have args return the page
 	if (!endpoint_request_hasargs())
 	{
@@ -85,45 +49,100 @@ void web_pendant_request(void)
 			endpoint_send(404, "text/plain", "FileNotFound");
 		}
 	}
-	else
-	{
-		char cmd[RX_BUFFER_CAPACITY];
-		memset(cmd, 0, RX_BUFFER_CAPACITY);
-		if (endpoint_request_arg("rtcmd", cmd, RX_BUFFER_CAPACITY))
-		{
-			switch (strlen(cmd))
-			{
-			case 1:
-				mcu_com_rx_cb((uint8_t)cmd[0]);
-				break;
-			default:
-				mcu_com_rx_cb((uint8_t)cmd[1]);
-				break;
-			}
-			endpoint_send(200, "text/plain", "ok");
-
-			return;
-		}
-
-		if (endpoint_request_arg("cmd", cmd, RX_BUFFER_CAPACITY))
-		{
-			if (web_pendant_send_cmd(cmd) != STATUS_OK)
-			{
-				memset(cmd, 0, RX_BUFFER_CAPACITY);
-				sprintf(cmd, "{\"res\":\"error\", \"code\": %d}", STATUS_STREAM_FAILED);
-				endpoint_send(429, "application/json", cmd);
-			}
-			endpoint_send(200, "application/json", "{\"res\":\"ok\"}");
-
-			return;
-		}
-
-		endpoint_send(400, "application/json", "{}");
-	}
 }
 
-void web_pendant_status_request(void)
+bool web_pendant_ws_connected(void *args)
 {
+	websocket_event_t *e = args;
+	ws_web_pendant_client.id = e->id;
+	ws_web_pendant_client.ip = e->ip;
+
+	return EVENT_CONTINUE;
+}
+CREATE_EVENT_LISTENER(websocket_client_connected, web_pendant_ws_connected);
+
+bool web_pendant_ws_disconnected(void *args)
+{
+	websocket_event_t *e = args;
+	if (ws_web_pendant_client.id == e->id)
+	{
+		ws_web_pendant_client.ip = 0;
+		ws_web_pendant_client.id = 0;
+	}
+
+	return EVENT_CONTINUE;
+}
+CREATE_EVENT_LISTENER(websocket_client_disconnected, web_pendant_ws_disconnected);
+
+bool web_pendant_ws_receive(void *args)
+{
+	websocket_event_t *e = args;
+	if (ws_web_pendant_client.ip)
+	{
+		if (e->event == WS_EVENT_TEXT)
+		{
+			uint8_t w;
+			BUFFER_WRITE(web_pendant_rx, e->data, e->length, w);
+		}
+	}
+	return EVENT_CONTINUE;
+}
+CREATE_EVENT_LISTENER(websocket_client_receive, web_pendant_ws_receive);
+
+/**
+ * Creates the serial stream handler functions
+ * **/
+uint8_t web_pendant_getc(void)
+{
+	uint8_t c = 0;
+	BUFFER_DEQUEUE(web_pendant_rx, &c);
+	return c;
+}
+
+uint8_t web_pendant_available(void)
+{
+	return BUFFER_READ_AVAILABLE(web_pendant_rx);
+}
+
+void web_pendant_clear(void)
+{
+	BUFFER_CLEAR(web_pendant_rx);
+}
+
+// void web_pendant_putc(uint8_t c)
+// {
+// 	while (BUFFER_FULL(web_pendant_tx))
+// 	{
+// 		mcu_uart_flush();
+// 	}
+// 	BUFFER_ENQUEUE(web_pendant_tx, &c);
+// }
+
+// void web_pendant_flush(void)
+// {
+// 	while (!BUFFER_EMPTY(web_pendant_tx))
+// 	{
+// 		uint8_t tmp[128 + 1];
+// 		memset(tmp, 0, sizeof(tmp));
+// 		uint8_t r;
+// 		uint8_t max = BUFFER_READ_AVAILABLE(web_pendant_tx);
+
+// 		BUFFER_READ(web_pendant_tx, tmp, max, r);
+// 		websocket_send(ws_web_pendant_client.id, tmp, max, WS_SEND_TXT);
+// 	}
+// }
+
+bool web_pendant_status_update(void *args)
+{
+	static uint32_t next_update = 0;
+
+	if (next_update > mcu_millis())
+	{
+		return EVENT_CONTINUE;
+	}
+
+	next_update = mcu_millis() + WEB_PENDANT_REFRESH_MS;
+
 	float axis[AXIS_COUNT];
 	int32_t steppos[AXIS_TO_STEPPERS];
 	itp_get_rt_position(steppos);
@@ -233,17 +252,29 @@ void web_pendant_status_request(void)
 	strcat(response, part);
 #endif
 
-	sprintf(part, ",\"f\":%0.0f,\"s\":%d}", feed, spindle);
+	sprintf(part, ",\"f\":%0.0f,\"s\":%d}\0", feed, spindle);
 	strcat(response, part);
 
-	endpoint_send(200, "application/json", response);
+	websocket_send(ws_web_pendant_client.id, (uint8_t*)response, strlen(response), WS_SEND_TXT);
+
+	return EVENT_CONTINUE;
 }
+CREATE_EVENT_LISTENER(cnc_dotasks, web_pendant_status_update);
+
+DECL_SERIAL_STREAM(web_pendant_stream, web_pendant_getc, web_pendant_available, web_pendant_clear, NULL, NULL);
 
 DECL_MODULE(web_pendant)
 {
+	// serial_stream_register(&web_pendant_stream);
+	endpoint_add("/", 0, &web_pendant_request, NULL);
+
+	ADD_EVENT_LISTENER(websocket_client_connected, web_pendant_ws_connected);
+	ADD_EVENT_LISTENER(websocket_client_disconnected, web_pendant_ws_disconnected);
+	ADD_EVENT_LISTENER(websocket_client_receive, web_pendant_ws_receive);
+
 	serial_stream_register(&web_pendant_stream);
-	endpoint_add("/", 255, &web_pendant_request, NULL);
-	endpoint_add("/status", 255, &web_pendant_status_request, NULL);
+
+	ADD_EVENT_LISTENER(cnc_dotasks, web_pendant_status_update);
 }
 
 #endif
