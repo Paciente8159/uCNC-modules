@@ -26,55 +26,13 @@
 
 #if defined(MCU_HAS_WIFI) && defined(MCU_HAS_ENDPOINTS) && defined(MCU_HAS_WEBSOCKETS)
 
-#if (UCNC_MODULE_VERSION < 10807 || UCNC_MODULE_VERSION > 99999)
+#if (UCNC_MODULE_VERSION < 10801 || UCNC_MODULE_VERSION > 99999)
 #error "This module is not compatible with the current version of µCNC"
 #endif
 
 DECL_BUFFER(uint8_t, wsocket_rx, 128);
 DECL_BUFFER(uint8_t, wsocket_tx, 128);
-// #ifdef DECL_SERIAL_STREAM
-// DECL_BUFFER(uint8_t, web_pendant_stream_buffer, RX_BUFFER_SIZE);
-// static uint8_t webui_getc(void)
-// {
-// 	uint8_t c = 0;
-// 	BUFFER_DEQUEUE(web_pendant_stream_buffer, &c);
-// 	return c;
-// }
-
-// uint8_t web_pendant_available(void)
-// {
-// 	return BUFFER_READ_AVAILABLE(web_pendant_stream_buffer);
-// }
-
-// void web_pendant_clear(void)
-// {
-// 	BUFFER_CLEAR(web_pendant_stream_buffer);
-// }
-
-// DECL_SERIAL_STREAM(web_pendant_stream, web_pendant_getc, web_pendant_available, web_pendant_clear, NULL, NULL);
-
-// uint8_t web_pendant_send_cmd(const char *__s)
-// {
-// 	// if machine is running (not jogging) rejects the command
-// 	if (cnc_get_exec_state(EXEC_RUN | EXEC_JOG) == EXEC_RUN)
-// 	{
-// 		return STATUS_SYSTEM_GC_LOCK;
-// 	}
-
-// 	uint8_t len = strlen(__s);
-// 	uint8_t w;
-
-// 	if (BUFFER_WRITE_AVAILABLE(web_pendant_stream_buffer) < len)
-// 	{
-// 		return STATUS_STREAM_FAILED;
-// 	}
-
-// 	BUFFER_WRITE(web_pendant_stream_buffer, __s, len, w);
-
-// 	return STATUS_OK;
-// }
-
-// #endif
+static websocket_client_t ws_client;
 
 void webui_request(void)
 {
@@ -95,7 +53,7 @@ void webui_request(void)
 		{
 			if (strcmp("[ESP800]", cmd) == 0)
 			{
-				endpoint_send(200, "application/json", "FW version:0.9.200 # FW target:grbl # FW HW:Direct SD # primary sd:/ # secondary sd: # authentication: no # webcommunication: Sync: 23");
+				endpoint_send(200, "application/json", "FW version:0.9.200 # FW target:grbl # FW HW:Direct SD # primary sd:/ # secondary sd: # authentication: no # webcommunication: Sync: 8080");
 				return;
 			}
 
@@ -111,24 +69,85 @@ void webui_request(void)
 bool ws_connected(void *args)
 {
 	websocket_event_t *e = args;
+	ws_client.id = e->id;
+	ws_client.ip = e->ip;
+
+	return EVENT_CONTINUE;
 }
 CREATE_EVENT_LISTENER(websocket_client_connected, ws_connected);
 
 bool ws_disconnected(void *args)
 {
 	websocket_event_t *e = args;
+	if (ws_client.id == e->id)
+	{
+		ws_client.ip = 0;
+		ws_client.id = 0;
+	}
+
+	return EVENT_CONTINUE;
 }
 CREATE_EVENT_LISTENER(websocket_client_disconnected, ws_disconnected);
 
-bool ws_data(void *args)
+bool ws_receive(void *args)
 {
 	websocket_event_t *e = args;
-	if(e->event == WS_EVENT_TEXT){
-		uint8_t w;
-		BUFFER_WRITE(wsocket_rx, e->data, e->length, w);
+	if (ws_client.ip)
+	{
+		if (e->event == WS_EVENT_TEXT)
+		{
+			uint8_t w;
+			BUFFER_WRITE(wsocket_rx, e->data, e->length, w);
+		}
+	}
+	return EVENT_CONTINUE;
+}
+CREATE_EVENT_LISTENER(websocket_client_receive, ws_receive);
+
+/**
+ * Creates the serial stream handler functions
+ * **/
+uint8_t webui_getc(void)
+{
+	uint8_t c = 0;
+	BUFFER_DEQUEUE(wsocket_rx, &c);
+	return c;
+}
+
+uint8_t webui_available(void)
+{
+	return BUFFER_READ_AVAILABLE(wsocket_rx);
+}
+
+void webui_clear(void)
+{
+	BUFFER_CLEAR(wsocket_rx);
+}
+
+void webui_putc(uint8_t c)
+{
+	while (BUFFER_FULL(wsocket_tx))
+	{
+		mcu_uart_flush();
+	}
+	BUFFER_ENQUEUE(wsocket_tx, &c);
+}
+
+void webui_flush(void)
+{
+	while (!BUFFER_EMPTY(wsocket_tx))
+	{
+		uint8_t tmp[128 + 1];
+		memset(tmp, 0, sizeof(tmp));
+		uint8_t r;
+		uint8_t max = BUFFER_READ_AVAILABLE(wsocket_tx);
+
+		BUFFER_READ(wsocket_tx, tmp, max, r);
+		websocket_client_send(ws_client.id, tmp, max, WS_SEND_TXT);
 	}
 }
-CREATE_EVENT_LISTENER(websocket_client_client_data, ws_data);
+
+DECL_SERIAL_STREAM(webui_stream, webui_getc, webui_available, webui_clear, webui_putc, webui_flush);
 
 DECL_MODULE(webui)
 {
@@ -138,7 +157,9 @@ DECL_MODULE(webui)
 
 	ADD_EVENT_LISTENER(websocket_client_connected, ws_connected);
 	ADD_EVENT_LISTENER(websocket_client_disconnected, ws_disconnected);
-	ADD_EVENT_LISTENER(websocket_client_client_data, ws_data);
+	ADD_EVENT_LISTENER(websocket_client_receive, ws_receive);
+
+	serial_stream_register(&webui_stream);
 }
 
 #endif
