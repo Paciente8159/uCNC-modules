@@ -35,6 +35,7 @@
 #endif
 
 DECL_BUFFER(uint8_t, web_pendant_rx, 128);
+DECL_BUFFER(uint8_t, web_pendant_tx, 128);
 // DECL_BUFFER(uint8_t, web_pendant_tx, 128);
 static websocket_client_t ws_web_pendant_client;
 
@@ -121,136 +122,159 @@ void web_pendant_clear(void)
 	BUFFER_CLEAR(web_pendant_rx);
 }
 
-bool web_pendant_status_update(void *args)
+void web_pendant_putc(uint8_t c)
 {
-	static uint32_t next_update = 0;
-
-	if (next_update > mcu_millis())
+	while (BUFFER_FULL(web_pendant_tx))
 	{
-		return EVENT_CONTINUE;
+		web_pendant_flush();
 	}
-
-	next_update = mcu_millis() + WEB_PENDANT_REFRESH_MS;
-
-	float axis[AXIS_COUNT];
-	int32_t steppos[AXIS_TO_STEPPERS];
-	itp_get_rt_position(steppos);
-	kinematics_steps_to_coordinates(steppos, axis);
-	float feed = itp_get_rt_feed(); // convert from mm/s to mm/m
-#if TOOL_COUNT > 0
-	uint16_t spindle = tool_get_speed();
-#else
-	uint16_t spindle = 0;
-#endif
-
-	char response[256];
-	char part[32];
-
-	sprintf(response, "{\"ax\":%d", AXIS_COUNT);
-
-	// CHECK STATE
-	if (cnc_has_alarm())
-	{
-		sprintf(part, ",\"st\":\"Alarm\"");
-	}
-	else if (mc_get_checkmode())
-	{
-		sprintf(part, ",\"st\":\"Check\"");
-	}
-	else
-	{
-		uint8_t state = cnc_get_exec_state(0xFF);
-		uint8_t filter = 0x80;
-		while (!(state & filter) && filter)
-		{
-			filter >>= 1;
-		}
-
-		state &= filter;
-
-		switch (state)
-		{
-#if ASSERT_PIN(SAFETY_DOOR)
-		case EXEC_DOOR:
-			sprintf(part, ",\"st\":\"Door\"");
-			break;
-#endif
-		case EXEC_UNHOMED:
-		case EXEC_LIMITS:
-			if (!cnc_get_exec_state(EXEC_HOMING))
-			{
-				sprintf(part, ",\"st\":\"Alarm\"");
-			}
-			else
-			{
-				sprintf(part, ",\"st\":\"Home\"");
-			}
-			break;
-		case EXEC_HOLD:
-			sprintf(part, ",\"st\":\"Hold\"");
-			break;
-		case EXEC_HOMING:
-			sprintf(part, ",\"st\":\"Home\"");
-			break;
-		case EXEC_JOG:
-			sprintf(part, ",\"st\":\"Jog\"");
-			break;
-		case EXEC_RUN:
-			sprintf(part, ",\"st\":\"Run\"");
-			break;
-		default:
-			sprintf(part, ",\"st\":\"Idle\"");
-			break;
-		}
-	}
-
-	strcat(response, part);
-
-	// GET POS
-
-#if (AXIS_COUNT >= 1)
-	sprintf(part, ",\"x\":%0.3f", axis[0]);
-	strcat(response, part);
-#endif
-#if (AXIS_COUNT == 2)
-#if defined(USE_Y_AS_Z_ALIAS))
-	sprintf(part, ",\"z\":%0.3f", axis[1]);
-#else
-	sprintf(part, ",\"y\":%0.3f", axis[1]);
-#endif
-	strcat(response, part);
-#endif
-#if (AXIS_COUNT >= 2)
-	sprintf(part, ",\"y\":%0.3f", axis[1]);
-	strcat(response, part);
-#endif
-#if (AXIS_COUNT >= 3)
-	sprintf(part, ",\"z\":%0.3f", axis[2]);
-	strcat(response, part);
-#endif
-#if (AXIS_COUNT >= 4)
-	sprintf(part, ",\"a\":%0.3f", axis[3]);
-	strcat(response, part);
-#endif
-#if (AXIS_COUNT >= 5)
-	sprintf(part, ",\"b\":%0.3f", axis[4]);
-	strcat(response, part);
-#endif
-#if (AXIS_COUNT == 6)
-	sprintf(part, ",\"c\":%0.3f", axis[5]);
-	strcat(response, part);
-#endif
-
-	sprintf(part, ",\"f\":%0.0f,\"s\":%d}\0", feed, spindle);
-	strcat(response, part);
-
-	websocket_send(ws_web_pendant_client.id, (uint8_t *)response, strlen(response), WS_SEND_TXT);
-
-	return EVENT_CONTINUE;
+	BUFFER_ENQUEUE(web_pendant_tx, &c);
 }
-CREATE_EVENT_LISTENER(cnc_dotasks, web_pendant_status_update);
 
-DECL_SERIAL_STREAM(web_pendant_stream, web_pendant_getc, web_pendant_available, web_pendant_clear, NULL, NULL);
+void web_pendant_flush(void)
+{
+	while (!BUFFER_EMPTY(web_pendant_tx))
+	{
+		uint8_t tmp[128 + 1];
+		memset(tmp, 0, sizeof(tmp));
+		uint8_t r = 0;
+
+		BUFFER_READ(web_pendant_tx, tmp, 128, r);
+		websocket_send(ws_web_pendant_client.id, (uint8_t *)tmp, strlen(tmp), WS_SEND_TXT);
+	}
+}
+
+// bool web_pendant_status_update(void *args)
+// {
+// 	static uint32_t next_update = 0;
+
+// 	if (next_update > mcu_millis())
+// 	{
+// 		return EVENT_CONTINUE;
+// 	}
+
+// 	// force a report status send
+// 	next_update = mcu_millis() + WEB_PENDANT_REFRESH_MS;
+
+// 	float axis[AXIS_COUNT];
+// 	int32_t steppos[AXIS_TO_STEPPERS];
+// 	itp_get_rt_position(steppos);
+// 	kinematics_steps_to_coordinates(steppos, axis);
+// 	float feed = itp_get_rt_feed(); // convert from mm/s to mm/m
+// #if TOOL_COUNT > 0
+// 	uint16_t spindle = tool_get_speed();
+// #else
+// 	uint16_t spindle = 0;
+// #endif
+
+// 	char response[256];
+// 	char part[32];
+
+// 	sprintf(response, "{\"ax\":%d", AXIS_COUNT);
+
+// 	// CHECK STATE
+// 	if (cnc_has_alarm())
+// 	{
+// 		sprintf(part, ",\"st\":\"Alarm\"");
+// 	}
+// 	else if (mc_get_checkmode())
+// 	{
+// 		sprintf(part, ",\"st\":\"Check\"");
+// 	}
+// 	else
+// 	{
+// 		uint8_t state = cnc_get_exec_state(0xFF);
+// 		uint8_t filter = 0x80;
+// 		while (!(state & filter) && filter)
+// 		{
+// 			filter >>= 1;
+// 		}
+
+// 		state &= filter;
+
+// 		switch (state)
+// 		{
+// #if ASSERT_PIN(SAFETY_DOOR)
+// 		case EXEC_DOOR:
+// 			sprintf(part, ",\"st\":\"Door\"");
+// 			break;
+// #endif
+// 		case EXEC_UNHOMED:
+// 		case EXEC_LIMITS:
+// 			if (!cnc_get_exec_state(EXEC_HOMING))
+// 			{
+// 				sprintf(part, ",\"st\":\"Alarm\"");
+// 			}
+// 			else
+// 			{
+// 				sprintf(part, ",\"st\":\"Home\"");
+// 			}
+// 			break;
+// 		case EXEC_HOLD:
+// 			sprintf(part, ",\"st\":\"Hold\"");
+// 			break;
+// 		case EXEC_HOMING:
+// 			sprintf(part, ",\"st\":\"Home\"");
+// 			break;
+// 		case EXEC_JOG:
+// 			sprintf(part, ",\"st\":\"Jog\"");
+// 			break;
+// 		case EXEC_RUN:
+// 			sprintf(part, ",\"st\":\"Run\"");
+// 			break;
+// 		default:
+// 			sprintf(part, ",\"st\":\"Idle\"");
+// 			break;
+// 		}
+// 	}
+
+// 	strcat(response, part);
+
+// 	// GET POS
+
+// #if (AXIS_COUNT >= 1)
+// 	sprintf(part, ",\"x\":%0.3f", axis[0]);
+// 	strcat(response, part);
+// #endif
+// #if (AXIS_COUNT == 2)
+// #if defined(USE_Y_AS_Z_ALIAS))
+// 	sprintf(part, ",\"z\":%0.3f", axis[1]);
+// #else
+// 	sprintf(part, ",\"y\":%0.3f", axis[1]);
+// #endif
+// 	strcat(response, part);
+// #endif
+// #if (AXIS_COUNT >= 2)
+// 	sprintf(part, ",\"y\":%0.3f", axis[1]);
+// 	strcat(response, part);
+// #endif
+// #if (AXIS_COUNT >= 3)
+// 	sprintf(part, ",\"z\":%0.3f", axis[2]);
+// 	strcat(response, part);
+// #endif
+// #if (AXIS_COUNT >= 4)
+// 	sprintf(part, ",\"a\":%0.3f", axis[3]);
+// 	strcat(response, part);
+// #endif
+// #if (AXIS_COUNT >= 5)
+// 	sprintf(part, ",\"b\":%0.3f", axis[4]);
+// 	strcat(response, part);
+// #endif
+// #if (AXIS_COUNT == 6)
+// 	sprintf(part, ",\"c\":%0.3f", axis[5]);
+// 	strcat(response, part);
+// #endif
+
+// 	sprintf(part, ",\"f\":%0.0f,\"s\":%d}\0", feed, spindle);
+// 	strcat(response, part);
+
+// 	websocket_send(ws_web_pendant_client.id, (uint8_t *)response, strlen(response), WS_SEND_TXT);
+
+// 	return EVENT_CONTINUE;
+// }
+// CREATE_EVENT_LISTENER(cnc_dotasks, web_pendant_status_update);
+
+DECL_SERIAL_STREAM(web_pendant_stream, web_pendant_getc, web_pendant_available, web_pendant_clear, web_pendant_putc, web_pendant_flush);
 
 DECL_MODULE(web_pendant)
 {
@@ -263,7 +287,7 @@ DECL_MODULE(web_pendant)
 
 	serial_stream_register(&web_pendant_stream);
 
-	ADD_EVENT_LISTENER(cnc_dotasks, web_pendant_status_update);
+	// ADD_EVENT_LISTENER(cnc_dotasks, web_pendant_status_update);
 }
 
 #endif
