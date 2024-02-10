@@ -35,7 +35,8 @@
 #define KEYPAD_PORT KEYPAD_PORT_HW_I2C
 #endif
 
-#define KEYPAD_MPG_MODE_ENABLED
+// enable this to get MPG mode
+// #define KEYPAD_MPG_MODE_ENABLED
 #ifdef KEYPAD_MPG_MODE_ENABLED
 volatile bool keypad_has_control;
 #endif
@@ -182,24 +183,43 @@ DECL_EXTENDED_SETTING(KEYPAD_SETTING_ID, &keypad_settings, float, 6, protocol_se
 #endif
 
 #ifdef ENABLE_MAIN_LOOP_MODULES
+void __attribute__((weak)) keypad_extended_code(uint8_t &c){};
+
 bool keypad_process(void *args)
 {
+	static uint8_t jogmode = 1;
+
+	// just do whatever you need here
+	uint8_t c = 0;
+	__ATOMIC__ { c = keypad_value; }
+
 #ifdef KEYPAD_MPG_MODE_ENABLED
+	if (c == 0x8B)
+	{
+		if (keypad_has_control)
+		{
+			keypad_has_control = false;
+			// free the stream
+			serial_stream_change(NULL);
+		}
+		else
+		{
+			// tries to grab the stream to itself
+			keypad_has_control = serial_stream_readonly(NULL, NULL, NULL);
+		}
+		return EVENT_CONTINUE;
+	}
 	bool has_control = keypad_has_control;
 #else
 	bool has_control = serial_stream_readonly(NULL, NULL, NULL);
 #endif
+
 	if (!has_control)
 	{
 		return EVENT_CONTINUE;
 	}
 
-	static uint8_t jogmode = 1;
 	uint8_t mode = jogmode;
-
-	// just do whatever you need here
-	uint8_t c = 0;
-	__ATOMIC__ { c = keypad_value; }
 	uint8_t rt = 0;
 	uint8_t axis_mask = 0;
 	uint8_t axis_dir = 0;
@@ -207,8 +227,6 @@ bool keypad_process(void *args)
 
 	switch (c)
 	{
-	case 0:
-		break;
 	case '0':
 	case '1':
 	case '2':
@@ -280,30 +298,33 @@ bool keypad_process(void *args)
 		feed = keypad_settings[mode];
 		break;
 	case 'I':
-		rt = RT_CMD_FEED_100;
+		rt = CMD_CODE_FEED_100;
 		break;
 	case 'i':
-		rt = RT_CMD_FEED_INC_COARSE;
+		rt = CMD_CODE_FEED_INC_COARSE;
 		break;
 	case 'j':
-		rt = RT_CMD_FEED_DEC_COARSE;
+		rt = CMD_CODE_FEED_DEC_COARSE;
 		break;
 	case 'K':
-		rt = RT_CMD_SPINDLE_100;
+		rt = CMD_CODE_SPINDLE_100;
 		break;
 	case 'k':
-		rt = RT_CMD_SPINDLE_INC_COARSE;
+		rt = CMD_CODE_SPINDLE_INC_COARSE;
 		break;
 	case 'z':
-		rt = RT_CMD_SPINDLE_DEC_COARSE;
+		rt = CMD_CODE_SPINDLE_DEC_COARSE;
 		break;
 	case 'C':
-		rt = RT_CMD_COOL_FLD_TOGGLE;
+		rt = CMD_CODE_COOL_FLD_TOGGLE;
 		break;
 	case 'M':
-		rt = RT_CMD_COOL_MST_TOGGLE;
+		rt = CMD_CODE_COOL_MST_TOGGLE;
 		break;
 	default:
+		// extended codes hook
+		keypad_extended_code(&c);
+		rt = c;
 		break;
 	}
 
@@ -367,46 +388,6 @@ CREATE_EVENT_LISTENER(cnc_dotasks, keypad_process);
 
 #endif
 
-FORCEINLINE static void keypad_char_received(uint8_t c)
-{
-#ifdef KEYPAD_MPG_MODE_ENABLED
-	if (c == 0x8B)
-	{
-		if (keypad_has_control)
-		{
-			keypad_has_control = false;
-			// free the stream
-			serial_stream_change(NULL);
-		}
-		else
-		{
-			// tries to grab the stream to itself
-			keypad_has_control = serial_stream_readonly(NULL, NULL, NULL);
-		}
-	}
-	bool has_control = keypad_has_control;
-#else
-	bool has_control = serial_stream_readonly(NULL, NULL, NULL);
-#endif
-	if (has_control)
-	{
-		// if not handled enqueues the char for processing
-		if (mcu_com_rx_cb(c))
-		{
-			// enqueue key for process
-			keypad_value = c;
-		}
-#ifndef KEYPAD_MPG_MODE_ENABLED
-		else if (has_control)
-		{
-			// release control if was catched
-			// free the stream
-			serial_stream_change(NULL);
-		}
-#endif
-	}
-}
-
 #if defined(ENABLE_IO_MODULES)
 #if ((KEYPAD_PORT == KEYPAD_PORT_HW_I2C) || (KEYPAD_PORT == KEYPAD_PORT_SW_I2C))
 MCU_CALLBACK bool keypad_pressed(void *args)
@@ -427,7 +408,7 @@ MCU_CALLBACK bool keypad_pressed(void *args)
 			// get the char and passes the char to the realtime char handler
 			uint8_t c = 0;
 			keypad_getc(&c);
-			keypad_char_received(c);
+			keypad_value = c;
 		}
 	}
 	return EVENT_CONTINUE;
@@ -448,7 +429,7 @@ MCU_CALLBACK bool keypad_rx_ready(void *args)
 			// get the char and passes the char to the realtime char handler
 			uint8_t c = 0;
 			keypad_getc(&c);
-			keypad_char_received(c);
+			keypad_value = c;
 		}
 	}
 	return EVENT_CONTINUE;
@@ -461,14 +442,14 @@ CREATE_EVENT_LISTENER(input_change, keypad_rx_ready);
 #if (KEYPAD_PORT == KEYPAD_PORT_HW_UART)
 MCU_RX_CALLBACK void mcu_uart_rx_cb(uint8_t c)
 {
-	keypad_char_received(c);
+	keypad_value = c;
 }
 #endif
 
 #if (KEYPAD_PORT == KEYPAD_PORT_HW_UART2)
 MCU_RX_CALLBACK void mcu_uart2_rx_cb(uint8_t c)
 {
-	keypad_char_received(c);
+	keypad_value = c;
 }
 #endif
 
@@ -476,14 +457,32 @@ DECL_MODULE(grblhal_keypad)
 {
 #ifdef ENABLE_SETTINGS_MODULES
 	EXTENDED_SETTING_INIT(KEYPAD_SETTING_ID, keypad_settings);
-#else
-	keypad_settings[0] = 500;
-	keypad_settings[1] = 100;
-	keypad_settings[2] = 500;
-	keypad_settings[3] = 10;
-	keypad_settings[4] = 1;
-	keypad_settings[5] = 10;
 #endif
+	// set defaults if zero
+	if (!keypad_settings[0])
+	{
+		keypad_settings[0] = 500;
+	}
+	if (!keypad_settings[1])
+	{
+		keypad_settings[1] = 100;
+	}
+	if (!keypad_settings[2])
+	{
+		keypad_settings[2] = 500;
+	}
+	if (!keypad_settings[3])
+	{
+		keypad_settings[3] = 10;
+	}
+	if (!keypad_settings[4])
+	{
+		keypad_settings[4] = 1;
+	}
+	if (!keypad_settings[5])
+	{
+		keypad_settings[5] = 10;
+	}
 
 #ifdef ENABLE_MAIN_LOOP_MODULES
 	ADD_EVENT_LISTENER(cnc_dotasks, keypad_process);
