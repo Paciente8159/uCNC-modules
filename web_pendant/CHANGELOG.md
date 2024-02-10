@@ -5,6 +5,10 @@ This is available for MCU's that support WiFi.
 
 ## Changelog
 
+### 2024-02-10
+
+- replaced ajax call by websockets
+
 ### 2023-10-26
 
 - initial implementation (#40)
