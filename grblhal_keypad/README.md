@@ -68,3 +68,12 @@ LOAD_MODULE(grblhal_keypad);
 ```
 
 4. The last step is to enable `ENABLE_IO_MODULES` and `ENABLE_MAIN_LOOP_MODULES` inside `cnc_config.h`
+
+5. Custom codes for extra buttons can be added by implementing the function
+
+```
+void keypad_extended_code(uint8_t *c)
+```
+
+where c is a pointer to the keycode pressed.
+
