@@ -183,7 +183,7 @@ DECL_EXTENDED_SETTING(KEYPAD_SETTING_ID, &keypad_settings, float, 6, protocol_se
 #endif
 
 #ifdef ENABLE_MAIN_LOOP_MODULES
-void __attribute__((weak)) keypad_extended_code(uint8_t &c){};
+void __attribute__((weak)) keypad_extended_code(uint8_t *c){}
 
 bool keypad_process(void *args)
 {
