@@ -58,6 +58,11 @@ Example using SW UART
 #define KEYPAD_TX DOUT20
 ```
 
+You can also enable MPG mode by adding
+```
+#define KEYPAD_MPG_MODE_ENABLED
+```
+
 ```
 LOAD_MODULE(grblhal_keypad);
 ```

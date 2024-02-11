@@ -453,8 +453,30 @@ MCU_RX_CALLBACK void mcu_uart2_rx_cb(uint8_t c)
 }
 #endif
 
+#ifdef KEYPAD_MPG_MODE_ENABLED
+bool grblhal_keypad_send_status(void *args)
+{
+	protocol_send_string(__romstr__("MPG:"));
+	
+	if (keypad_has_control)
+	{
+		serial_putc('1');
+	}
+	else{
+		serial_putc('0');
+	}
+
+	return EVENT_CONTINUE;
+}
+CREATE_EVENT_LISTENER(protocol_send_status, grblhal_keypad_send_status);
+#endif
+
 DECL_MODULE(grblhal_keypad)
 {
+#ifdef KEYPAD_MPG_MODE_ENABLED
+	ADD_EVENT_LISTENER(protocol_send_status, grblhal_keypad_send_status);
+#endif
+
 #ifdef ENABLE_SETTINGS_MODULES
 	EXTENDED_SETTING_INIT(KEYPAD_SETTING_ID, keypad_settings);
 #endif
