@@ -60,19 +60,25 @@
 SOFTI2C(lcdi2c, 100000, LCD_I2C_SCL, LCD_I2C_SDA);
 #endif
 
+#if (defined(I2C_LCD_USE_HW_I2C) && defined(MCU_HAS_I2C))
+#define LCD_I2C_PORT NULL
+#else
+#define LCD_I2C_PORT &lcdi2c
+#endif
+
 void i2clcd_rw(uint8_t rlow, uint8_t data)
 {
 	uint8_t val = (((data << 4) | rlow) & ~0x04);
 	uint8_t val2 = (val | 0x04);
 
-#if (defined(I2C_LCD_USE_HW_I2C) && defined(MCU_HAS_I2C))
-	softi2c_send(NULL, 0x27, &val, 1, false);
-	softi2c_send(NULL, 0x27, &val2, 1, false);
-	softi2c_send(NULL, 0x27, &val, 1, true);
+#if (UCNC_MODULE_VERSION < 10808)
+	softi2c_send(LCD_I2C_PORT, 0x27, &val, 1, false);
+	softi2c_send(LCD_I2C_PORT, 0x27, &val2, 1, false);
+	softi2c_send(LCD_I2C_PORT, 0x27, &val, 1, true);
 #else
-	softi2c_send(&lcdi2c, 0x27, &val, 1, false);
-	softi2c_send(&lcdi2c, 0x27, &val2, 1, false);
-	softi2c_send(&lcdi2c, 0x27, &val, 1, true);
+	softi2c_send(LCD_I2C_PORT, 0x27, &val, 1, false, 20);
+	softi2c_send(LCD_I2C_PORT, 0x27, &val2, 1, false, 20);
+	softi2c_send(LCD_I2C_PORT, 0x27, &val, 1, true, 20);
 #endif
 }
 
@@ -349,6 +355,7 @@ CREATE_EVENT_LISTENER(cnc_alarm, lcd_update);
 
 DECL_MODULE(i2c_lcd)
 {
+	softi2c_config(LCD_I2C_PORT, 100000);
 	lcd_init(LCD);
 	lcd_backlight(LCD, true);
 

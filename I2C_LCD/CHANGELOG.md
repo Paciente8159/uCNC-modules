@@ -5,6 +5,10 @@ It requires any 2 µCNC generic digital input pins of the board. It uses softwar
 
 ## Changelog
 
+### 2024-02-13
+
+- updated for v010808
+
 ### 2023-12-08
 
 - clear remaining screen via space filling

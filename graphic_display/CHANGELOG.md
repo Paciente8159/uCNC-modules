@@ -4,6 +4,10 @@ This module adds graphic display support for µCNC.
 
 ## Changelog
 
+### 2024-02-13
+
+- updated for v010808
+
 ### 2023-10-21
 - popup with fixed width
 

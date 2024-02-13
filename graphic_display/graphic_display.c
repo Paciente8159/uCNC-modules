@@ -176,7 +176,11 @@ uint8_t u8x8_byte_ucnc_hw_i2c(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int, void *
 		i2c_buffer_offset = 0;
 		break;
 	case U8X8_MSG_BYTE_END_TRANSFER:
+#if (UCNC_MODULE_VERSION < 10808)
 		softi2c_send(graphic_port, u8x8_GetI2CAddress(u8x8) >> 1, i2c_buffer, i2c_buffer_offset, true);
+#else
+		softi2c_send(graphic_port, u8x8_GetI2CAddress(u8x8) >> 1, i2c_buffer, i2c_buffer_offset, true, 20);
+#endif
 		i2c_buffer_offset = 0;
 		break;
 	default:
@@ -415,7 +419,6 @@ bool graphic_display_alarm(void *args)
 
 	return EVENT_CONTINUE;
 }
-
 
 bool graphic_display_rotary_encoder_control_sample(void *args)
 {
