@@ -76,9 +76,9 @@ void i2clcd_rw(uint8_t rlow, uint8_t data)
 	softi2c_send(LCD_I2C_PORT, 0x27, &val2, 1, false);
 	softi2c_send(LCD_I2C_PORT, 0x27, &val, 1, true);
 #else
-	softi2c_send(LCD_I2C_PORT, 0x27, &val, 1, false, 1);
-	softi2c_send(LCD_I2C_PORT, 0x27, &val2, 1, false, 1);
-	softi2c_send(LCD_I2C_PORT, 0x27, &val, 1, true, 1);
+	softi2c_send(LCD_I2C_PORT, 0x27, &val, 1, false, 20);
+	softi2c_send(LCD_I2C_PORT, 0x27, &val2, 1, false, 20);
+	softi2c_send(LCD_I2C_PORT, 0x27, &val, 1, true, 20);
 #endif
 }
 
@@ -355,6 +355,7 @@ CREATE_EVENT_LISTENER(cnc_alarm, lcd_update);
 
 DECL_MODULE(i2c_lcd)
 {
+	softi2c_config(LCD_I2C_PORT, 100000);
 	lcd_init(LCD);
 	lcd_backlight(LCD, true);
 
