@@ -44,6 +44,8 @@ extern "C"
 #ifndef STEPPER0_UART_RX
 #define STEPPER0_UART_RX DIN20
 #endif
+// uncomment to enable UART CS (for example using 74HC4066)
+// #define STEPPER0_UART_CS DOUT12
 #elif (STEPPER0_TMC_INTERFACE == TMC_SPI)
 #ifndef STEPPER0_SPI_SDO
 #define STEPPER0_SPI_SDO DOUT29
@@ -55,8 +57,8 @@ extern "C"
 #define STEPPER0_SPI_CLK DOUT30
 #endif
 #ifndef STEPPER0_SPI_CS
-#define STEPPER0_SPI_CS DOUT220
-#endif
+#define STEPPER0_SPI_CS DOUT12
+#endif 
 #endif
 // basic parameters
 #ifndef STEPPER0_CURRENT_MA
@@ -72,7 +74,7 @@ extern "C"
 #define STEPPER0_HOLD_MULT 0.7f
 #endif
 #ifndef STEPPER0_STEALTHCHOP_THERSHOLD
-#define STEPPER0_STEALTHCHOP_THERSHOLD 9999
+#define STEPPER0_STEALTHCHOP_THERSHOLD 0
 #endif
 #ifndef STEPPER0_ENABLE_INTERPLATION
 #define STEPPER0_ENABLE_INTERPLATION true
@@ -86,7 +88,6 @@ extern "C"
 #define STEPPER0_UART_ADDRESS 0
 #endif
 #endif
-
 #ifdef STEPPER1_HAS_TMC
 #ifndef STEPPER1_DRIVER_TYPE
 #define STEPPER1_DRIVER_TYPE 2208
@@ -103,6 +104,8 @@ extern "C"
 #ifndef STEPPER1_UART_RX
 #define STEPPER1_UART_RX DIN21
 #endif
+// uncomment to enable UART CS (for example using 74HC4066)
+// #define STEPPER1_UART_CS DOUT13
 #elif (STEPPER1_TMC_INTERFACE == TMC_SPI)
 #ifndef STEPPER1_SPI_SDO
 #define STEPPER1_SPI_SDO DOUT29
@@ -114,8 +117,8 @@ extern "C"
 #define STEPPER1_SPI_CLK DOUT30
 #endif
 #ifndef STEPPER1_SPI_CS
-#define STEPPER1_SPI_CS DOUT221
-#endif
+#define STEPPER1_SPI_CS DOUT13
+#endif 
 #endif
 // basic parameters
 #ifndef STEPPER1_CURRENT_MA
@@ -145,7 +148,6 @@ extern "C"
 #define STEPPER1_UART_ADDRESS 0
 #endif
 #endif
-
 #ifdef STEPPER2_HAS_TMC
 #ifndef STEPPER2_DRIVER_TYPE
 #define STEPPER2_DRIVER_TYPE 2208
@@ -162,6 +164,8 @@ extern "C"
 #ifndef STEPPER2_UART_RX
 #define STEPPER2_UART_RX DIN22
 #endif
+// uncomment to enable UART CS (for example using 74HC4066)
+// #define STEPPER2_UART_CS DOUT14
 #elif (STEPPER2_TMC_INTERFACE == TMC_SPI)
 #ifndef STEPPER2_SPI_SDO
 #define STEPPER2_SPI_SDO DOUT29
@@ -173,8 +177,8 @@ extern "C"
 #define STEPPER2_SPI_CLK DOUT30
 #endif
 #ifndef STEPPER2_SPI_CS
-#define STEPPER2_SPI_CS DOUT222
-#endif
+#define STEPPER2_SPI_CS DOUT14
+#endif 
 #endif
 // basic parameters
 #ifndef STEPPER2_CURRENT_MA
@@ -204,7 +208,6 @@ extern "C"
 #define STEPPER2_UART_ADDRESS 0
 #endif
 #endif
-
 #ifdef STEPPER3_HAS_TMC
 #ifndef STEPPER3_DRIVER_TYPE
 #define STEPPER3_DRIVER_TYPE 2208
@@ -221,6 +224,8 @@ extern "C"
 #ifndef STEPPER3_UART_RX
 #define STEPPER3_UART_RX DIN23
 #endif
+// uncomment to enable UART CS (for example using 74HC4066)
+// #define STEPPER3_UART_CS DOUT15
 #elif (STEPPER3_TMC_INTERFACE == TMC_SPI)
 #ifndef STEPPER3_SPI_SDO
 #define STEPPER3_SPI_SDO DOUT29
@@ -232,8 +237,8 @@ extern "C"
 #define STEPPER3_SPI_CLK DOUT30
 #endif
 #ifndef STEPPER3_SPI_CS
-#define STEPPER3_SPI_CS DOUT223
-#endif
+#define STEPPER3_SPI_CS DOUT15
+#endif 
 #endif
 // basic parameters
 #ifndef STEPPER3_CURRENT_MA
@@ -263,7 +268,6 @@ extern "C"
 #define STEPPER3_UART_ADDRESS 0
 #endif
 #endif
-
 #ifdef STEPPER4_HAS_TMC
 #ifndef STEPPER4_DRIVER_TYPE
 #define STEPPER4_DRIVER_TYPE 2208
@@ -280,6 +284,8 @@ extern "C"
 #ifndef STEPPER4_UART_RX
 #define STEPPER4_UART_RX DIN24
 #endif
+// uncomment to enable UART CS (for example using 74HC4066)
+// #define STEPPER4_UART_CS DOUT16
 #elif (STEPPER4_TMC_INTERFACE == TMC_SPI)
 #ifndef STEPPER4_SPI_SDO
 #define STEPPER4_SPI_SDO DOUT29
@@ -291,8 +297,8 @@ extern "C"
 #define STEPPER4_SPI_CLK DOUT30
 #endif
 #ifndef STEPPER4_SPI_CS
-#define STEPPER4_SPI_CS DOUT224
-#endif
+#define STEPPER4_SPI_CS DOUT16
+#endif 
 #endif
 // basic parameters
 #ifndef STEPPER4_CURRENT_MA
@@ -322,7 +328,6 @@ extern "C"
 #define STEPPER4_UART_ADDRESS 0
 #endif
 #endif
-
 #ifdef STEPPER5_HAS_TMC
 #ifndef STEPPER5_DRIVER_TYPE
 #define STEPPER5_DRIVER_TYPE 2208
@@ -339,6 +344,8 @@ extern "C"
 #ifndef STEPPER5_UART_RX
 #define STEPPER5_UART_RX DIN25
 #endif
+// uncomment to enable UART CS (for example using 74HC4066)
+// #define STEPPER5_UART_CS DOUT17
 #elif (STEPPER5_TMC_INTERFACE == TMC_SPI)
 #ifndef STEPPER5_SPI_SDO
 #define STEPPER5_SPI_SDO DOUT29
@@ -350,8 +357,8 @@ extern "C"
 #define STEPPER5_SPI_CLK DOUT30
 #endif
 #ifndef STEPPER5_SPI_CS
-#define STEPPER5_SPI_CS DOUT225
-#endif
+#define STEPPER5_SPI_CS DOUT17
+#endif 
 #endif
 // basic parameters
 #ifndef STEPPER5_CURRENT_MA
@@ -381,7 +388,6 @@ extern "C"
 #define STEPPER5_UART_ADDRESS 0
 #endif
 #endif
-
 #ifdef STEPPER6_HAS_TMC
 #ifndef STEPPER6_DRIVER_TYPE
 #define STEPPER6_DRIVER_TYPE 2208
@@ -398,6 +404,8 @@ extern "C"
 #ifndef STEPPER6_UART_RX
 #define STEPPER6_UART_RX DIN26
 #endif
+// uncomment to enable UART CS (for example using 74HC4066)
+// #define STEPPER6_UART_CS DOUT18
 #elif (STEPPER6_TMC_INTERFACE == TMC_SPI)
 #ifndef STEPPER6_SPI_SDO
 #define STEPPER6_SPI_SDO DOUT29
@@ -409,8 +417,8 @@ extern "C"
 #define STEPPER6_SPI_CLK DOUT30
 #endif
 #ifndef STEPPER6_SPI_CS
-#define STEPPER6_SPI_CS DOUT226
-#endif
+#define STEPPER6_SPI_CS DOUT18
+#endif 
 #endif
 // basic parameters
 #ifndef STEPPER6_CURRENT_MA
@@ -440,7 +448,6 @@ extern "C"
 #define STEPPER6_UART_ADDRESS 0
 #endif
 #endif
-
 #ifdef STEPPER7_HAS_TMC
 #ifndef STEPPER7_DRIVER_TYPE
 #define STEPPER7_DRIVER_TYPE 2208
@@ -457,6 +464,8 @@ extern "C"
 #ifndef STEPPER7_UART_RX
 #define STEPPER7_UART_RX DIN27
 #endif
+// uncomment to enable UART CS (for example using 74HC4066)
+// #define STEPPER7_UART_CS DOUT19
 #elif (STEPPER7_TMC_INTERFACE == TMC_SPI)
 #ifndef STEPPER7_SPI_SDO
 #define STEPPER7_SPI_SDO DOUT29
@@ -468,8 +477,8 @@ extern "C"
 #define STEPPER7_SPI_CLK DOUT30
 #endif
 #ifndef STEPPER7_SPI_CS
-#define STEPPER7_SPI_CS DOUT227
-#endif
+#define STEPPER7_SPI_CS DOUT19
+#endif 
 #endif
 // basic parameters
 #ifndef STEPPER7_CURRENT_MA
@@ -511,6 +520,13 @@ extern "C"
 #undef STEPPER0_HAS_TMC
 #error "Stepper 0 undefined UART pins"
 #endif
+#if ASSERT_PIN(STEPPER0_UART_CS)
+#define stepper0_select() io_set_output(STEPPER0_UART_CS)
+#define stepper0_deselect() io_clear_output(STEPPER0_UART_CS)
+#else
+#define stepper0_select()
+#define stepper0_deselect()
+#endif
 #elif (STEPPER0_TMC_INTERFACE == TMC_SPI)
 #if (!ASSERT_PIN(STEPPER0_SPI_SDO) || !ASSERT_PIN(STEPPER0_SPI_SDI) || !ASSERT_PIN(STEPPER0_SPI_CLK) || !ASSERT_PIN(STEPPER0_SPI_CS))
 #undef STEPPER0_HAS_TMC
@@ -524,6 +540,13 @@ extern "C"
 #if (!ASSERT_PIN(STEPPER1_UART_TX) || !ASSERT_PIN(STEPPER1_UART_RX))
 #undef STEPPER1_HAS_TMC
 #error "Stepper 1 undefined UART pins"
+#endif
+#if ASSERT_PIN(STEPPER1_UART_CS)
+#define stepper1_select() io_set_output(STEPPER1_UART_CS)
+#define stepper1_deselect() io_clear_output(STEPPER1_UART_CS)
+#else
+#define stepper1_select()
+#define stepper1_deselect()
 #endif
 #elif (STEPPER1_TMC_INTERFACE == TMC_SPI)
 #if (!ASSERT_PIN(STEPPER1_SPI_SDO) || !ASSERT_PIN(STEPPER1_SPI_SDI) || !ASSERT_PIN(STEPPER1_SPI_CLK) || !ASSERT_PIN(STEPPER1_SPI_CS))
@@ -539,6 +562,13 @@ extern "C"
 #undef STEPPER2_HAS_TMC
 #error "Stepper 2 undefined UART pins"
 #endif
+#if ASSERT_PIN(STEPPER2_UART_CS)
+#define stepper2_select() io_set_output(STEPPER2_UART_CS)
+#define stepper2_deselect() io_clear_output(STEPPER2_UART_CS)
+#else
+#define stepper2_select()
+#define stepper2_deselect()
+#endif
 #elif (STEPPER2_TMC_INTERFACE == TMC_SPI)
 #if (!ASSERT_PIN(STEPPER2_SPI_SDO) || !ASSERT_PIN(STEPPER2_SPI_SDI) || !ASSERT_PIN(STEPPER2_SPI_CLK) || !ASSERT_PIN(STEPPER2_SPI_CS))
 #undef STEPPER2_HAS_TMC
@@ -552,6 +582,13 @@ extern "C"
 #if (!ASSERT_PIN(STEPPER3_UART_TX) || !ASSERT_PIN(STEPPER3_UART_RX))
 #undef STEPPER3_HAS_TMC
 #error "Stepper 3 undefined UART pins"
+#endif
+#if ASSERT_PIN(STEPPER3_UART_CS)
+#define stepper3_select() io_set_output(STEPPER3_UART_CS)
+#define stepper3_deselect() io_clear_output(STEPPER3_UART_CS)
+#else
+#define stepper3_select()
+#define stepper3_deselect()
 #endif
 #elif (STEPPER3_TMC_INTERFACE == TMC_SPI)
 #if (!ASSERT_PIN(STEPPER3_SPI_SDO) || !ASSERT_PIN(STEPPER3_SPI_SDI) || !ASSERT_PIN(STEPPER3_SPI_CLK) || !ASSERT_PIN(STEPPER3_SPI_CS))
@@ -567,6 +604,13 @@ extern "C"
 #undef STEPPER4_HAS_TMC
 #error "Stepper 4 undefined UART pins"
 #endif
+#if ASSERT_PIN(STEPPER4_UART_CS)
+#define stepper4_select() io_set_output(STEPPER4_UART_CS)
+#define stepper4_deselect() io_clear_output(STEPPER4_UART_CS)
+#else
+#define stepper4_select()
+#define stepper4_deselect()
+#endif
 #elif (STEPPER4_TMC_INTERFACE == TMC_SPI)
 #if (!ASSERT_PIN(STEPPER4_SPI_SDO) || !ASSERT_PIN(STEPPER4_SPI_SDI) || !ASSERT_PIN(STEPPER4_SPI_CLK) || !ASSERT_PIN(STEPPER4_SPI_CS))
 #undef STEPPER4_HAS_TMC
@@ -580,6 +624,13 @@ extern "C"
 #if (!ASSERT_PIN(STEPPER5_UART_TX) || !ASSERT_PIN(STEPPER5_UART_RX))
 #undef STEPPER5_HAS_TMC
 #error "Stepper 5 undefined UART pins"
+#endif
+#if ASSERT_PIN(STEPPER5_UART_CS)
+#define stepper5_select() io_set_output(STEPPER5_UART_CS)
+#define stepper5_deselect() io_clear_output(STEPPER5_UART_CS)
+#else
+#define stepper5_select()
+#define stepper5_deselect()
 #endif
 #elif (STEPPER5_TMC_INTERFACE == TMC_SPI)
 #if (!ASSERT_PIN(STEPPER5_SPI_SDO) || !ASSERT_PIN(STEPPER5_SPI_SDI) || !ASSERT_PIN(STEPPER5_SPI_CLK) || !ASSERT_PIN(STEPPER5_SPI_CS))
@@ -595,6 +646,13 @@ extern "C"
 #undef STEPPER6_HAS_TMC
 #error "Stepper 6 undefined UART pins"
 #endif
+#if ASSERT_PIN(STEPPER6_UART_CS)
+#define stepper6_select() io_set_output(STEPPER6_UART_CS)
+#define stepper6_deselect() io_clear_output(STEPPER6_UART_CS)
+#else
+#define stepper6_select()
+#define stepper6_deselect()
+#endif
 #elif (STEPPER6_TMC_INTERFACE == TMC_SPI)
 #if (!ASSERT_PIN(STEPPER6_SPI_SDO) || !ASSERT_PIN(STEPPER6_SPI_SDI) || !ASSERT_PIN(STEPPER6_SPI_CLK) || !ASSERT_PIN(STEPPER6_SPI_CS))
 #undef STEPPER6_HAS_TMC
@@ -609,6 +667,13 @@ extern "C"
 #undef STEPPER7_HAS_TMC
 #error "Stepper 7 undefined UART pins"
 #endif
+#if ASSERT_PIN(STEPPER7_UART_CS)
+#define stepper7_select() io_set_output(STEPPER7_UART_CS)
+#define stepper7_deselect() io_clear_output(STEPPER7_UART_CS)
+#else
+#define stepper7_select()
+#define stepper7_deselect()
+#endif
 #elif (STEPPER7_TMC_INTERFACE == TMC_SPI)
 #if (!ASSERT_PIN(STEPPER7_SPI_SDO) || !ASSERT_PIN(STEPPER7_SPI_SDI) || !ASSERT_PIN(STEPPER7_SPI_CLK) || !ASSERT_PIN(STEPPER7_SPI_CS))
 #undef STEPPER7_HAS_TMC
@@ -616,6 +681,7 @@ extern "C"
 #endif
 #endif
 #endif
+
 
 #ifdef __cplusplus
 }
