@@ -49,6 +49,7 @@
 #define TMC1_STEPPER_RW(CHANNEL)                                                 \
 	static void tmc##CHANNEL##_rw(uint8_t *data, uint8_t wlen, uint8_t rlen)     \
 	{                                                                            \
+		stepper##CHANNEL##_select();                                             \
 		__ATOMIC__                                                               \
 		{                                                                        \
 			io_config_output(STEPPER##CHANNEL##_UART_TX);                        \
@@ -64,6 +65,7 @@
 			}                                                                    \
 			io_config_output(STEPPER##CHANNEL##_UART_TX);                        \
 		}                                                                        \
+		stepper##CHANNEL##_deselect();                                           \
 		cnc_delay_ms(TMC_UART_TIMEOUT);                                          \
 	}
 // SPI
@@ -86,6 +88,7 @@
 #define TMC3_STEPPER_RW(CHANNEL)                                                 \
 	static void tmc##CHANNEL##_rw(uint8_t *data, uint8_t wlen, uint8_t rlen)     \
 	{                                                                            \
+		stepper##CHANNEL##_select();                                             \
 		__ATOMIC__                                                               \
 		{                                                                        \
 			io_config_input(STEPPER##CHANNEL##_UART_RX);                         \
@@ -99,6 +102,7 @@
 				data[i] = softuart_getc(&tmc##CHANNEL##_uart, TMC_UART_TIMEOUT); \
 			}                                                                    \
 		}                                                                        \
+		stepper##CHANNEL##_deselect();                                           \
 		cnc_delay_ms(TMC_UART_TIMEOUT);                                          \
 	}
 #define _TMC_STEPPER_RW(TYPE, CHANNEL) TMC##TYPE##_STEPPER_RW(CHANNEL)
