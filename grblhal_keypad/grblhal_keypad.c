@@ -183,7 +183,7 @@ DECL_EXTENDED_SETTING(KEYPAD_SETTING_ID, &keypad_settings, float, 6, protocol_se
 #endif
 
 #ifdef ENABLE_MAIN_LOOP_MODULES
-void __attribute__((weak)) keypad_extended_code(uint8_t *c){}
+void __attribute__((weak)) keypad_extended_code(uint8_t *c) {}
 
 bool keypad_process(void *args)
 {
@@ -331,6 +331,11 @@ bool keypad_process(void *args)
 	if (rt)
 	{
 		cnc_call_rt_command(rt);
+		// key still the same, then remove sticky key
+		if (c == keypad_value)
+		{
+			keypad_value = 0;
+		}
 	}
 	else if (feed != 0)
 	{
@@ -370,6 +375,14 @@ bool keypad_process(void *args)
 		motion_data_t block = {0};
 		block.feed = feed;
 		mc_incremental_jog(target, &block);
+	}
+	else
+	{
+		// key still the same, then remove sticky key
+		if (c == keypad_value)
+		{
+			keypad_value = 0;
+		}
 	}
 
 #ifndef KEYPAD_MPG_MODE_ENABLED
@@ -457,12 +470,13 @@ MCU_RX_CALLBACK void mcu_uart2_rx_cb(uint8_t c)
 bool grblhal_keypad_send_status(void *args)
 {
 	protocol_send_string(__romstr__("MPG:"));
-	
+
 	if (keypad_has_control)
 	{
 		serial_putc('1');
 	}
-	else{
+	else
+	{
 		serial_putc('0');
 	}
 
