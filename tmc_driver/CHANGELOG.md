@@ -7,6 +7,11 @@ They can be interfaced either via UART or SPI (all software emulated)
 
 ### 2024-02-16
 
+- configurable UART baudrate for each driver (#49)
+- fixed timeout calculations (#49)
+
+### 2024-02-16
+
 - added UART chip select optional pin (#47)
 
 ### 2024-01-27

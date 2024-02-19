@@ -30,7 +30,6 @@
 
 #ifdef ENABLE_TMC_DRIVER_MODULE
 
-#define TMC_UARTBAUD 38400
 #define TMC_UART_TIMEOUT(X) (MAX(1, ceilf(64000.0f / (float)X)) + 1)
 
 // driver communications declarations
