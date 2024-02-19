@@ -46,6 +46,9 @@ extern "C"
 #endif
 // uncomment to enable UART CS (for example using 74HC4066)
 // #define STEPPER0_UART_CS DOUT12
+#ifndef STEPPER0_UART_BAURDRATE
+#define STEPPER0_UART_BAURDRATE 38400
+#endif
 #elif (STEPPER0_TMC_INTERFACE == TMC_SPI)
 #ifndef STEPPER0_SPI_SDO
 #define STEPPER0_SPI_SDO DOUT29
@@ -106,6 +109,9 @@ extern "C"
 #endif
 // uncomment to enable UART CS (for example using 74HC4066)
 // #define STEPPER1_UART_CS DOUT13
+#ifndef STEPPER1_UART_BAURDRATE
+#define STEPPER1_UART_BAURDRATE 38400
+#endif
 #elif (STEPPER1_TMC_INTERFACE == TMC_SPI)
 #ifndef STEPPER1_SPI_SDO
 #define STEPPER1_SPI_SDO DOUT29
@@ -166,6 +172,9 @@ extern "C"
 #endif
 // uncomment to enable UART CS (for example using 74HC4066)
 // #define STEPPER2_UART_CS DOUT14
+#ifndef STEPPER2_UART_BAURDRATE
+#define STEPPER2_UART_BAURDRATE 38400
+#endif
 #elif (STEPPER2_TMC_INTERFACE == TMC_SPI)
 #ifndef STEPPER2_SPI_SDO
 #define STEPPER2_SPI_SDO DOUT29
@@ -226,6 +235,9 @@ extern "C"
 #endif
 // uncomment to enable UART CS (for example using 74HC4066)
 // #define STEPPER3_UART_CS DOUT15
+#ifndef STEPPER3_UART_BAURDRATE
+#define STEPPER3_UART_BAURDRATE 38400
+#endif
 #elif (STEPPER3_TMC_INTERFACE == TMC_SPI)
 #ifndef STEPPER3_SPI_SDO
 #define STEPPER3_SPI_SDO DOUT29
@@ -286,6 +298,9 @@ extern "C"
 #endif
 // uncomment to enable UART CS (for example using 74HC4066)
 // #define STEPPER4_UART_CS DOUT16
+#ifndef STEPPER4_UART_BAURDRATE
+#define STEPPER4_UART_BAURDRATE 38400
+#endif
 #elif (STEPPER4_TMC_INTERFACE == TMC_SPI)
 #ifndef STEPPER4_SPI_SDO
 #define STEPPER4_SPI_SDO DOUT29
@@ -346,6 +361,9 @@ extern "C"
 #endif
 // uncomment to enable UART CS (for example using 74HC4066)
 // #define STEPPER5_UART_CS DOUT17
+#ifndef STEPPER5_UART_BAURDRATE
+#define STEPPER5_UART_BAURDRATE 38400
+#endif
 #elif (STEPPER5_TMC_INTERFACE == TMC_SPI)
 #ifndef STEPPER5_SPI_SDO
 #define STEPPER5_SPI_SDO DOUT29
@@ -406,6 +424,9 @@ extern "C"
 #endif
 // uncomment to enable UART CS (for example using 74HC4066)
 // #define STEPPER6_UART_CS DOUT18
+#ifndef STEPPER6_UART_BAURDRATE
+#define STEPPER6_UART_BAURDRATE 38400
+#endif
 #elif (STEPPER6_TMC_INTERFACE == TMC_SPI)
 #ifndef STEPPER6_SPI_SDO
 #define STEPPER6_SPI_SDO DOUT29
@@ -466,6 +487,9 @@ extern "C"
 #endif
 // uncomment to enable UART CS (for example using 74HC4066)
 // #define STEPPER7_UART_CS DOUT19
+#ifndef STEPPER7_UART_BAURDRATE
+#define STEPPER7_UART_BAURDRATE 38400
+#endif
 #elif (STEPPER7_TMC_INTERFACE == TMC_SPI)
 #ifndef STEPPER7_SPI_SDO
 #define STEPPER7_SPI_SDO DOUT29
