@@ -41,9 +41,9 @@
 volatile bool keypad_has_control;
 #endif
 
-// #ifndef KEYPAD_BUFFER_SIZE
-// #define KEYPAD_BUFFER_SIZE 16
-// #endif
+#ifndef KEYPAD_MAX_MACROS
+#define KEYPAD_MAX_MACROS 0
+#endif
 
 // I2C
 #if (KEYPAD_PORT == KEYPAD_PORT_HW_I2C) || (KEYPAD_PORT == KEYPAD_PORT_SW_I2C)
@@ -134,6 +134,42 @@ SOFTUART(keypad_uart, 115200, KEYPAD_TX, KEYPAD_RX);
 
 #if (UCNC_MODULE_VERSION < 10801 || UCNC_MODULE_VERSION > 99999)
 #error "This module is not compatible with the current version of µCNC"
+#endif
+
+#if (KEYPAD_MAX_MACROS > 0)
+void keypad_send_macro_setting_line(setting_offset_t setting, const char *value)
+{
+	serial_putc('$');
+	serial_print_int(setting);
+	serial_putc('=');
+	serial_print_str(value);
+	protocol_send_newline();
+}
+static uint16_t keypad_macro_address;
+static uint8_t keypad_macro_getc(void)
+{
+	uint8_t c = mcu_eeprom_getc(keypad_macro_address++);
+	serial_putc((c != '|') ? c : '\n');
+	if (c == EOL)
+	{
+		// release the stream
+		serial_stream_change(NULL);
+	}
+	return c;
+}
+
+void serial_stream_keypad_macro(uint16_t address)
+{
+	keypad_macro_address = address;
+	serial_stream_readonly(&keypad_macro_getc, NULL, NULL);
+}
+
+#define KEYPAD_MACRO1_ID 490
+static char keypad_macro1[128];
+DECL_EXTENDED_SETTING(KEYPAD_MACRO1_ID, &keypad_macro1, char, 128, keypad_send_macro_setting_line);
+#define KEYPAD_MACRO1_KEY_ID 500
+static uint8_t keypad_macro1_key;
+DECL_EXTENDED_SETTING(KEYPAD_MACRO1_KEY_ID, &keypad_macro1_key, uint8_t, 1, protocol_send_gcode_setting_line_int);
 #endif
 
 static volatile uint8_t keypad_value;
@@ -322,6 +358,14 @@ bool keypad_process(void *args)
 		rt = CMD_CODE_COOL_MST_TOGGLE;
 		break;
 	default:
+#if (KEYPAD_MAX_MACROS > 0)
+		if (keypad_macro1_key == c)
+		{
+			// run macro (self releases)
+			serial_stream_keypad_macro(set490_settings_address);
+			break;
+		}
+#endif
 		// extended codes hook
 		keypad_extended_code(&c);
 		rt = c;
@@ -493,6 +537,9 @@ DECL_MODULE(grblhal_keypad)
 
 #ifdef ENABLE_SETTINGS_MODULES
 	EXTENDED_SETTING_INIT(KEYPAD_SETTING_ID, keypad_settings);
+#if (KEYPAD_MAX_MACROS > 0)
+	EXTENDED_SETTING_INIT(KEYPAD_MACRO1_ID, keypad_macro1);
+#endif
 #endif
 	// set defaults if zero
 	if (!keypad_settings[0])
