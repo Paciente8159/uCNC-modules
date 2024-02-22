@@ -137,18 +137,10 @@ SOFTUART(keypad_uart, 115200, KEYPAD_TX, KEYPAD_RX);
 #endif
 
 #if (KEYPAD_MAX_MACROS > 0)
-void keypad_send_macro_setting_line(setting_offset_t setting, const char *value)
-{
-	serial_putc('$');
-	serial_print_int(setting);
-	serial_putc('=');
-	serial_print_str(value);
-	protocol_send_newline();
-}
-static uint16_t keypad_macro_address;
+static char *exec_macro;
 static uint8_t keypad_macro_getc(void)
 {
-	uint8_t c = mcu_eeprom_getc(keypad_macro_address++);
+	uint8_t c = *exec_macro++;
 	serial_putc((c != '|') ? c : '\n');
 	if (c == EOL)
 	{
@@ -158,15 +150,17 @@ static uint8_t keypad_macro_getc(void)
 	return c;
 }
 
-void serial_stream_keypad_macro(uint16_t address)
+void serial_stream_keypad_macro(char *macro)
 {
-	keypad_macro_address = address;
+	exec_macro = macro;
 	serial_stream_readonly(&keypad_macro_getc, NULL, NULL);
+	// start command processing
+	cnc_parse_cmd();
 }
 
 #define KEYPAD_MACRO1_ID 490
 static char keypad_macro1[128];
-DECL_EXTENDED_SETTING(KEYPAD_MACRO1_ID, &keypad_macro1, char, 128, keypad_send_macro_setting_line);
+DECL_EXTENDED_STRING_SETTING(KEYPAD_MACRO1_ID, keypad_macro1, 128);
 #define KEYPAD_MACRO1_KEY_ID 500
 static uint8_t keypad_macro1_key;
 DECL_EXTENDED_SETTING(KEYPAD_MACRO1_KEY_ID, &keypad_macro1_key, uint8_t, 1, protocol_send_gcode_setting_line_int);
@@ -210,7 +204,7 @@ static float keypad_settings[6];
 //  count - var array length (iff single var set to 1)
 //  print_cb - protocol setting print callback
 
-DECL_EXTENDED_SETTING(KEYPAD_SETTING_ID, &keypad_settings, float, 6, protocol_send_gcode_setting_line_flt);
+DECL_EXTENDED_SETTING(KEYPAD_SETTING_ID, keypad_settings, float, 6, protocol_send_gcode_setting_line_flt);
 
 // then just call the initializator from any point in the code
 // the initialization will run only once
@@ -261,8 +255,36 @@ bool keypad_process(void *args)
 	uint8_t axis_dir = 0;
 	float feed = 0;
 
+	// set defaults if zero
+	if (!keypad_settings[0])
+	{
+		keypad_settings[0] = 500;
+	}
+	if (!keypad_settings[1])
+	{
+		keypad_settings[1] = 100;
+	}
+	if (!keypad_settings[2])
+	{
+		keypad_settings[2] = 500;
+	}
+	if (!keypad_settings[3])
+	{
+		keypad_settings[3] = 10;
+	}
+	if (!keypad_settings[4])
+	{
+		keypad_settings[4] = 1;
+	}
+	if (!keypad_settings[5])
+	{
+		keypad_settings[5] = 10;
+	}
+
 	switch (c)
 	{
+	case 0:
+		break;
 	case '0':
 	case '1':
 	case '2':
@@ -362,7 +384,7 @@ bool keypad_process(void *args)
 		if (keypad_macro1_key == c)
 		{
 			// run macro (self releases)
-			serial_stream_keypad_macro(set490_settings_address);
+			serial_stream_keypad_macro(keypad_macro1);
 			break;
 		}
 #endif
@@ -442,7 +464,6 @@ bool keypad_process(void *args)
 }
 
 CREATE_EVENT_LISTENER(cnc_dotasks, keypad_process);
-
 #endif
 
 #if defined(ENABLE_IO_MODULES)
@@ -539,33 +560,9 @@ DECL_MODULE(grblhal_keypad)
 	EXTENDED_SETTING_INIT(KEYPAD_SETTING_ID, keypad_settings);
 #if (KEYPAD_MAX_MACROS > 0)
 	EXTENDED_SETTING_INIT(KEYPAD_MACRO1_ID, keypad_macro1);
+	EXTENDED_SETTING_INIT(KEYPAD_MACRO1_KEY_ID, keypad_macro1_key);
 #endif
 #endif
-	// set defaults if zero
-	if (!keypad_settings[0])
-	{
-		keypad_settings[0] = 500;
-	}
-	if (!keypad_settings[1])
-	{
-		keypad_settings[1] = 100;
-	}
-	if (!keypad_settings[2])
-	{
-		keypad_settings[2] = 500;
-	}
-	if (!keypad_settings[3])
-	{
-		keypad_settings[3] = 10;
-	}
-	if (!keypad_settings[4])
-	{
-		keypad_settings[4] = 1;
-	}
-	if (!keypad_settings[5])
-	{
-		keypad_settings[5] = 10;
-	}
 
 #ifdef ENABLE_MAIN_LOOP_MODULES
 	ADD_EVENT_LISTENER(cnc_dotasks, keypad_process);
