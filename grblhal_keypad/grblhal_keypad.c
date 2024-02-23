@@ -521,7 +521,14 @@ MCU_CALLBACK bool keypad_rx_ready(void *args)
 			// get the char and passes the char to the realtime char handler
 			uint8_t c = 0;
 			keypad_getc(&c);
-			keypad_value = c;
+			if (c == CMD_CODE_RESET)
+			{
+				cnc_call_rt_command(CMD_CODE_RESET);
+			}
+			else
+			{
+				keypad_value = c;
+			}
 		}
 	}
 	return EVENT_CONTINUE;
