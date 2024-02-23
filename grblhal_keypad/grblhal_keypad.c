@@ -141,10 +141,14 @@ static char *exec_macro;
 static uint8_t keypad_macro_getc(void)
 {
 	uint8_t c = *exec_macro++;
-	serial_putc((c != '|') ? c : '\n');
+	if (c == '|')
+	{
+		c = '\n';
+	}
 	if (c == EOL)
 	{
 		// release the stream
+		exec_macro--;
 		serial_stream_change(NULL);
 	}
 	return c;
@@ -155,7 +159,10 @@ void serial_stream_keypad_macro(char *macro)
 	exec_macro = macro;
 	serial_stream_readonly(&keypad_macro_getc, NULL, NULL);
 	// start command processing
-	cnc_parse_cmd();
+	while (*exec_macro)
+	{
+		cnc_parse_cmd();
+	}
 }
 
 #define KEYPAD_MACRO1_ID 490
