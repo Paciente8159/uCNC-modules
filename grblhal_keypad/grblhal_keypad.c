@@ -45,6 +45,10 @@ volatile bool keypad_has_control;
 #define KEYPAD_MAX_MACROS 0
 #endif
 
+#ifndef KEYPAD_MACRO_MAX_LEN
+#define KEYPAD_MACRO_MAX_LEN RX_BUFFER_CAPACITY
+#endif
+
 // I2C
 #if (KEYPAD_PORT == KEYPAD_PORT_HW_I2C) || (KEYPAD_PORT == KEYPAD_PORT_SW_I2C)
 #include "../softi2c.h"
@@ -138,6 +142,7 @@ SOFTUART(keypad_uart, 115200, KEYPAD_TX, KEYPAD_RX);
 
 #if (KEYPAD_MAX_MACROS > 0)
 static char *exec_macro;
+static char keypad_macro[KEYPAD_MACRO_MAX_LEN];
 static uint8_t keypad_macro_getc(void)
 {
 	uint8_t c = *exec_macro++;
@@ -156,7 +161,7 @@ static uint8_t keypad_macro_getc(void)
 
 void serial_stream_keypad_macro(char *macro)
 {
-	exec_macro = macro;
+	exec_macro = keypad_macro;
 	serial_stream_readonly(&keypad_macro_getc, NULL, NULL);
 	// start command processing
 	while (*exec_macro)
@@ -164,13 +169,63 @@ void serial_stream_keypad_macro(char *macro)
 		cnc_parse_cmd();
 	}
 }
+#endif
 
+#if (KEYPAD_MAX_MACROS >= 1)
 #define KEYPAD_MACRO1_ID 490
-static char keypad_macro1[128];
-DECL_EXTENDED_STRING_SETTING(KEYPAD_MACRO1_ID, keypad_macro1, 128);
+DECL_EXTENDED_STRING_SETTING(KEYPAD_MACRO1_ID, keypad_macro, KEYPAD_MACRO_MAX_LEN);
 #define KEYPAD_MACRO1_KEY_ID 500
 static uint8_t keypad_macro1_key;
 DECL_EXTENDED_SETTING(KEYPAD_MACRO1_KEY_ID, &keypad_macro1_key, uint8_t, 1, protocol_send_gcode_setting_line_int);
+#endif
+#if (KEYPAD_MAX_MACROS >= 2)
+#define KEYPAD_MACRO2_ID 491
+DECL_EXTENDED_STRING_SETTING(KEYPAD_MACRO2_ID, keypad_macro, KEYPAD_MACRO_MAX_LEN);
+#define KEYPAD_MACRO2_KEY_ID 501
+static uint8_t keypad_macro2_key;
+DECL_EXTENDED_SETTING(KEYPAD_MACRO2_KEY_ID, &keypad_macro2_key, uint8_t, 1, protocol_send_gcode_setting_line_int);
+#endif
+#if (KEYPAD_MAX_MACROS >= 3)
+#define KEYPAD_MACRO3_ID 492
+DECL_EXTENDED_STRING_SETTING(KEYPAD_MACRO3_ID, keypad_macro, KEYPAD_MACRO_MAX_LEN);
+#define KEYPAD_MACRO3_KEY_ID 502
+static uint8_t keypad_macro3_key;
+DECL_EXTENDED_SETTING(KEYPAD_MACRO3_KEY_ID, &keypad_macro3_key, uint8_t, 1, protocol_send_gcode_setting_line_int);
+#endif
+#if (KEYPAD_MAX_MACROS >= 4)
+#define KEYPAD_MACRO4_ID 493
+DECL_EXTENDED_STRING_SETTING(KEYPAD_MACRO4_ID, keypad_macro, KEYPAD_MACRO_MAX_LEN);
+#define KEYPAD_MACRO4_KEY_ID 503
+static uint8_t keypad_macro4_key;
+DECL_EXTENDED_SETTING(KEYPAD_MACRO4_KEY_ID, &keypad_macro4_key, uint8_t, 1, protocol_send_gcode_setting_line_int);
+#endif
+#if (KEYPAD_MAX_MACROS >= 5)
+#define KEYPAD_MACRO5_ID 494
+DECL_EXTENDED_STRING_SETTING(KEYPAD_MACRO5_ID, keypad_macro, KEYPAD_MACRO_MAX_LEN);
+#define KEYPAD_MACRO5_KEY_ID 504
+static uint8_t keypad_macro5_key;
+DECL_EXTENDED_SETTING(KEYPAD_MACRO5_KEY_ID, &keypad_macro5_key, uint8_t, 1, protocol_send_gcode_setting_line_int);
+#endif
+#if (KEYPAD_MAX_MACROS >= 6)
+#define KEYPAD_MACRO6_ID 495
+DECL_EXTENDED_STRING_SETTING(KEYPAD_MACRO6_ID, keypad_macro, KEYPAD_MACRO_MAX_LEN);
+#define KEYPAD_MACRO6_KEY_ID 505
+static uint8_t keypad_macro6_key;
+DECL_EXTENDED_SETTING(KEYPAD_MACRO6_KEY_ID, &keypad_macro6_key, uint8_t, 1, protocol_send_gcode_setting_line_int);
+#endif
+#if (KEYPAD_MAX_MACROS >= 7)
+#define KEYPAD_MACRO7_ID 496
+DECL_EXTENDED_STRING_SETTING(KEYPAD_MACRO7_ID, keypad_macro, KEYPAD_MACRO_MAX_LEN);
+#define KEYPAD_MACRO7_KEY_ID 506
+static uint8_t keypad_macro7_key;
+DECL_EXTENDED_SETTING(KEYPAD_MACRO7_KEY_ID, &keypad_macro7_key, uint8_t, 1, protocol_send_gcode_setting_line_int);
+#endif
+#if (KEYPAD_MAX_MACROS >= 8)
+#define KEYPAD_MACRO8_ID 497
+DECL_EXTENDED_STRING_SETTING(KEYPAD_MACRO8_ID, keypad_macro, KEYPAD_MACRO_MAX_LEN);
+#define KEYPAD_MACRO8_KEY_ID 507
+static uint8_t keypad_macro8_key;
+DECL_EXTENDED_SETTING(KEYPAD_MACRO8_KEY_ID, &keypad_macro8_key, uint8_t, 1, protocol_send_gcode_setting_line_int);
 #endif
 
 static volatile uint8_t keypad_value;
@@ -387,14 +442,79 @@ bool keypad_process(void *args)
 		rt = CMD_CODE_COOL_MST_TOGGLE;
 		break;
 	default:
-#if (KEYPAD_MAX_MACROS > 0)
+#if (KEYPAD_MAX_MACROS >= 1)
 		if (keypad_macro1_key == c)
 		{
-			// run macro (self releases)
-			serial_stream_keypad_macro(keypad_macro1);
+			// load and run macro (self releases)
+			settings_load(EXTENDED_SETTING_ADDRESS(KEYPAD_MACRO1_ID), (uint8_t *)keypad_macro, KEYPAD_MACRO_MAX_LEN);
+			serial_stream_keypad_macro(keypad_macro);
 			break;
 		}
 #endif
+#if (KEYPAD_MAX_MACROS >= 2)
+		if (keypad_macro2_key == c)
+		{
+			// load and run macro (self releases)
+			settings_load(EXTENDED_SETTING_ADDRESS(KEYPAD_MACRO2_ID), (uint8_t *)keypad_macro, KEYPAD_MACRO_MAX_LEN);
+			serial_stream_keypad_macro(keypad_macro);
+			break;
+		}
+#endif
+#if (KEYPAD_MAX_MACROS >= 3)
+		if (keypad_macro3_key == c)
+		{
+			// load and run macro (self releases)
+			settings_load(EXTENDED_SETTING_ADDRESS(KEYPAD_MACRO3_ID), (uint8_t *)keypad_macro, KEYPAD_MACRO_MAX_LEN);
+			serial_stream_keypad_macro(keypad_macro);
+			break;
+		}
+#endif
+#if (KEYPAD_MAX_MACROS >= 4)
+		if (keypad_macro4_key == c)
+		{
+			// load and run macro (self releases)
+			settings_load(EXTENDED_SETTING_ADDRESS(KEYPAD_MACRO4_ID), (uint8_t *)keypad_macro, KEYPAD_MACRO_MAX_LEN);
+			serial_stream_keypad_macro(keypad_macro);
+			break;
+		}
+#endif
+#if (KEYPAD_MAX_MACROS >= 5)
+		if (keypad_macro5_key == c)
+		{
+			// load and run macro (self releases)
+			settings_load(EXTENDED_SETTING_ADDRESS(KEYPAD_MACRO5_ID), (uint8_t *)keypad_macro, KEYPAD_MACRO_MAX_LEN);
+			serial_stream_keypad_macro(keypad_macro);
+			break;
+		}
+#endif
+#if (KEYPAD_MAX_MACROS >= 6)
+		if (keypad_macro6_key == c)
+		{
+			// load and run macro (self releases)
+			settings_load(EXTENDED_SETTING_ADDRESS(KEYPAD_MACRO6_ID), (uint8_t *)keypad_macro, KEYPAD_MACRO_MAX_LEN);
+			serial_stream_keypad_macro(keypad_macro);
+			break;
+		}
+#endif
+#if (KEYPAD_MAX_MACROS >= 7)
+		if (keypad_macro7_key == c)
+		{
+			// load and run macro (self releases)
+			settings_load(EXTENDED_SETTING_ADDRESS(KEYPAD_MACRO7_ID), (uint8_t *)keypad_macro, KEYPAD_MACRO_MAX_LEN);
+			serial_stream_keypad_macro(keypad_macro);
+			break;
+		}
+#endif
+#if (KEYPAD_MAX_MACROS >= 8)
+		if (keypad_macro8_key == c)
+		{
+			// load and run macro (self releases)
+			settings_load(EXTENDED_SETTING_ADDRESS(KEYPAD_MACRO8_ID), (uint8_t *)keypad_macro, KEYPAD_MACRO_MAX_LEN);
+			serial_stream_keypad_macro(keypad_macro);
+			break;
+		}
+#endif
+
 		// extended codes hook
 		keypad_extended_code(&c);
 		rt = c;
@@ -579,10 +699,39 @@ DECL_MODULE(grblhal_keypad)
 
 #ifdef ENABLE_SETTINGS_MODULES
 	EXTENDED_SETTING_INIT(KEYPAD_SETTING_ID, keypad_settings);
-#if (KEYPAD_MAX_MACROS > 0)
-	EXTENDED_SETTING_INIT(KEYPAD_MACRO1_ID, keypad_macro1);
+#if (KEYPAD_MAX_MACROS >= 1)
+	EXTENDED_SETTING_INIT(KEYPAD_MACRO1_ID, keypad_macro);
 	EXTENDED_SETTING_INIT(KEYPAD_MACRO1_KEY_ID, keypad_macro1_key);
 #endif
+#if (KEYPAD_MAX_MACROS >= 2)
+	EXTENDED_SETTING_INIT(KEYPAD_MACRO2_ID, keypad_macro);
+	EXTENDED_SETTING_INIT(KEYPAD_MACRO2_KEY_ID, keypad_macro2_key);
+#endif
+#if (KEYPAD_MAX_MACROS >= 3)
+	EXTENDED_SETTING_INIT(KEYPAD_MACRO3_ID, keypad_macro);
+	EXTENDED_SETTING_INIT(KEYPAD_MACRO3_KEY_ID, keypad_macro3_key);
+#endif
+#if (KEYPAD_MAX_MACROS >= 4)
+	EXTENDED_SETTING_INIT(KEYPAD_MACRO4_ID, keypad_macro);
+	EXTENDED_SETTING_INIT(KEYPAD_MACRO4_KEY_ID, keypad_macro4_key);
+#endif
+#if (KEYPAD_MAX_MACROS >= 5)
+	EXTENDED_SETTING_INIT(KEYPAD_MACRO5_ID, keypad_macro);
+	EXTENDED_SETTING_INIT(KEYPAD_MACRO5_KEY_ID, keypad_macro5_key);
+#endif
+#if (KEYPAD_MAX_MACROS >= 6)
+	EXTENDED_SETTING_INIT(KEYPAD_MACRO6_ID, keypad_macro);
+	EXTENDED_SETTING_INIT(KEYPAD_MACRO6_KEY_ID, keypad_macro6_key);
+#endif
+#if (KEYPAD_MAX_MACROS >= 7)
+	EXTENDED_SETTING_INIT(KEYPAD_MACRO7_ID, keypad_macro);
+	EXTENDED_SETTING_INIT(KEYPAD_MACRO7_KEY_ID, keypad_macro7_key);
+#endif
+#if (KEYPAD_MAX_MACROS >= 8)
+	EXTENDED_SETTING_INIT(KEYPAD_MACRO8_ID, keypad_macro);
+	EXTENDED_SETTING_INIT(KEYPAD_MACRO8_KEY_ID, keypad_macro8_key);
+#endif
+
 #endif
 
 #ifdef ENABLE_MAIN_LOOP_MODULES
