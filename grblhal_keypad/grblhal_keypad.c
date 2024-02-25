@@ -71,10 +71,13 @@ volatile bool keypad_has_control;
 #ifndef KEYPAD_SDA
 #define KEYPAD_SDA DIN17
 #endif
+#ifndef KEYPAD_I2C_FREQ
+#define KEYPAD_I2C_FREQ 400000UL
+#endif
 #if !ASSERT_PIN(KEYPAD_SCL) || !ASSERT_PIN(KEYPAD_SDA)
 #error "The pins are not defined for this board"
 #else
-SOFTI2C(keypad_i2c, 400000, KEYPAD_SCL, KEYPAD_SDA);
+SOFTI2C(keypad_i2c, KEYPAD_I2C_FREQ, KEYPAD_SCL, KEYPAD_SDA);
 #endif
 // #elif !defined(MCU_HAS_I2C)
 // #error "The board does not support HW I2C"
