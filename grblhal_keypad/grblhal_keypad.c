@@ -232,6 +232,7 @@ DECL_EXTENDED_SETTING(KEYPAD_MACRO8_KEY_ID, &keypad_macro8_key, uint8_t, 1, prot
 #endif
 
 static volatile uint8_t keypad_value;
+static volatile uint8_t keypad_released;
 
 /**
  *
@@ -527,11 +528,6 @@ bool keypad_process(void *args)
 	if (rt)
 	{
 		cnc_call_rt_command(rt);
-		// key still the same, then remove sticky key
-		if (c == keypad_value)
-		{
-			keypad_value = 0;
-		}
 	}
 	else if (feed != 0)
 	{
@@ -572,13 +568,16 @@ bool keypad_process(void *args)
 		block.feed = feed;
 		mc_incremental_jog(target, &block);
 	}
-	else
+
+	if (!feed || keypad_released)
 	{
+		cnc_call_rt_command(CMD_CODE_JOG_CANCEL);
 		// key still the same, then remove sticky key
 		if (c == keypad_value)
 		{
 			keypad_value = 0;
 		}
+		keypad_released = 0;
 	}
 
 #ifndef KEYPAD_MPG_MODE_ENABLED
@@ -609,7 +608,7 @@ MCU_CALLBACK bool keypad_pressed(void *args)
 		{
 			// button released
 			cnc_call_rt_command(CMD_CODE_JOG_CANCEL);
-			keypad_value = 0;
+			keypad_released = 1;
 		}
 		else
 		{
@@ -664,14 +663,28 @@ CREATE_EVENT_LISTENER(input_change, keypad_rx_ready);
 #if (KEYPAD_PORT == KEYPAD_PORT_HW_UART)
 MCU_RX_CALLBACK void mcu_uart_rx_cb(uint8_t c)
 {
-	keypad_value = c;
+	if (c == CMD_CODE_RESET)
+	{
+		cnc_call_rt_command(CMD_CODE_RESET);
+	}
+	else
+	{
+		keypad_value = c;
+	}
 }
 #endif
 
 #if (KEYPAD_PORT == KEYPAD_PORT_HW_UART2)
 MCU_RX_CALLBACK void mcu_uart2_rx_cb(uint8_t c)
 {
-	keypad_value = c;
+	if (c == CMD_CODE_RESET)
+	{
+		cnc_call_rt_command(CMD_CODE_RESET);
+	}
+	else
+	{
+		keypad_value = c;
+	}
 }
 #endif
 
