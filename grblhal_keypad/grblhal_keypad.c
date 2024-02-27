@@ -63,7 +63,9 @@ volatile bool keypad_has_control;
 #define KEYPAD_DOWN_MASK DIN7_MASK
 #endif
 
-#ifndef KEYPAD_I2C_TIMEOUT 10
+#ifndef KEYPAD_I2C_TIMEOUT
+#define KEYPAD_I2C_TIMEOUT 10
+#endif
 
 // use emulated I2C
 #if (KEYPAD_PORT == KEYPAD_PORT_SW_I2C)
