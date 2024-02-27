@@ -49,6 +49,10 @@ volatile bool keypad_has_control;
 #define KEYPAD_MACRO_MAX_LEN RX_BUFFER_CAPACITY
 #endif
 
+#ifndef KEYPAD_TIMEOUT
+#define KEYPAD_TIMEOUT 10
+#endif
+
 // I2C
 #if (KEYPAD_PORT == KEYPAD_PORT_HW_I2C) || (KEYPAD_PORT == KEYPAD_PORT_SW_I2C)
 #include "../softi2c.h"
@@ -61,10 +65,6 @@ volatile bool keypad_has_control;
 #ifndef KEYPAD_DOWN
 #define KEYPAD_DOWN DIN7
 #define KEYPAD_DOWN_MASK DIN7_MASK
-#endif
-
-#ifndef KEYPAD_I2C_TIMEOUT
-#define KEYPAD_I2C_TIMEOUT 10
 #endif
 
 // use emulated I2C
@@ -108,17 +108,17 @@ SOFTUART(keypad_uart, 115200, KEYPAD_TX, KEYPAD_RX);
 #endif
 
 #if (KEYPAD_PORT == KEYPAD_PORT_SW_I2C)
-#define keypad_getc(ptr) softi2c_receive(&keypad_i2c, 0x49, ptr, 1, KEYPAD_I2C_TIMEOUT)
+#define keypad_getc(ptr) softi2c_receive(&keypad_i2c, 0x49, ptr, 1, KEYPAD_TIMEOUT)
 #elif (KEYPAD_PORT == KEYPAD_PORT_SW_UART)
-#define keypad_getc(ptr)                                  \
-	{                                                     \
-		*(ptr) = (uint8_t)softuart_getc(&keypad_uart, 1); \
+#define keypad_getc(ptr)                                               \
+	{                                                                  \
+		*(ptr) = (uint8_t)softuart_getc(&keypad_uart, KEYPAD_TIMEOUT); \
 	}
 #elif (KEYPAD_PORT == KEYPAD_PORT_HW_I2C)
 #ifndef MCU_HAS_I2C
 #error "This board does not have hardware I2C or is not defined."
 #endif
-#define keypad_getc(ptr) mcu_i2c_receive(0x49, ptr, 1, KEYPAD_I2C_TIMEOUT)
+#define keypad_getc(ptr) mcu_i2c_receive(0x49, ptr, 1, KEYPAD_TIMEOUT)
 #elif (KEYPAD_PORT == KEYPAD_PORT_HW_UART)
 #ifndef MCU_HAS_UART
 #error "This board does not have hardware UART or is not defined."
@@ -573,14 +573,11 @@ bool keypad_process(void *args)
 		mc_incremental_jog(target, &block);
 	}
 
+	// not a jog command or the key was released
 	if (!feed || keypad_released)
 	{
 		cnc_call_rt_command(CMD_CODE_JOG_CANCEL);
-		// key still the same, then remove sticky key
-		if (c == keypad_value)
-		{
-			keypad_value = 0;
-		}
+		keypad_value = 0;
 		keypad_released = 0;
 	}
 
@@ -623,7 +620,7 @@ MCU_CALLBACK bool keypad_pressed(void *args)
 			{
 				cnc_call_rt_command(CMD_CODE_RESET);
 			}
-			else
+			else if (!keypad_value)
 			{
 				keypad_value = c;
 			}
@@ -651,7 +648,12 @@ MCU_CALLBACK bool keypad_rx_ready(void *args)
 			{
 				cnc_call_rt_command(CMD_CODE_RESET);
 			}
-			else
+			if (c == CMD_CODE_JOG_CANCEL)
+			{
+				cnc_call_rt_command(CMD_CODE_JOG_CANCEL);
+				keypad_released = 1;
+			}
+			else if (!keypad_value)
 			{
 				keypad_value = c;
 			}
@@ -671,7 +673,12 @@ MCU_RX_CALLBACK void mcu_uart_rx_cb(uint8_t c)
 	{
 		cnc_call_rt_command(CMD_CODE_RESET);
 	}
-	else
+	if (c == CMD_CODE_JOG_CANCEL)
+	{
+		cnc_call_rt_command(CMD_CODE_JOG_CANCEL);
+		keypad_released = 1;
+	}
+	else if (!keypad_value)
 	{
 		keypad_value = c;
 	}
@@ -685,7 +692,12 @@ MCU_RX_CALLBACK void mcu_uart2_rx_cb(uint8_t c)
 	{
 		cnc_call_rt_command(CMD_CODE_RESET);
 	}
-	else
+	if (c == CMD_CODE_JOG_CANCEL)
+	{
+		cnc_call_rt_command(CMD_CODE_JOG_CANCEL);
+		keypad_released = 1;
+	}
+	else if (!keypad_value)
 	{
 		keypad_value = c;
 	}
