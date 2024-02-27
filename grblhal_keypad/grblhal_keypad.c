@@ -63,6 +63,8 @@ volatile bool keypad_has_control;
 #define KEYPAD_DOWN_MASK DIN7_MASK
 #endif
 
+#ifndef KEYPAD_I2C_TIMEOUT 10
+
 // use emulated I2C
 #if (KEYPAD_PORT == KEYPAD_PORT_SW_I2C)
 #ifndef KEYPAD_SCL
@@ -72,7 +74,7 @@ volatile bool keypad_has_control;
 #define KEYPAD_SDA DIN17
 #endif
 #ifndef KEYPAD_I2C_FREQ
-#define KEYPAD_I2C_FREQ 400000UL
+#define KEYPAD_I2C_FREQ 100000UL
 #endif
 #if !ASSERT_PIN(KEYPAD_SCL) || !ASSERT_PIN(KEYPAD_SDA)
 #error "The pins are not defined for this board"
@@ -104,7 +106,7 @@ SOFTUART(keypad_uart, 115200, KEYPAD_TX, KEYPAD_RX);
 #endif
 
 #if (KEYPAD_PORT == KEYPAD_PORT_SW_I2C)
-#define keypad_getc(ptr) softi2c_receive(&keypad_i2c, 0x49, ptr, 1, 1)
+#define keypad_getc(ptr) softi2c_receive(&keypad_i2c, 0x49, ptr, 1, KEYPAD_I2C_TIMEOUT)
 #elif (KEYPAD_PORT == KEYPAD_PORT_SW_UART)
 #define keypad_getc(ptr)                                  \
 	{                                                     \
@@ -114,7 +116,7 @@ SOFTUART(keypad_uart, 115200, KEYPAD_TX, KEYPAD_RX);
 #ifndef MCU_HAS_I2C
 #error "This board does not have hardware I2C or is not defined."
 #endif
-#define keypad_getc(ptr) mcu_i2c_receive(0x49, ptr, 1, 1)
+#define keypad_getc(ptr) mcu_i2c_receive(0x49, ptr, 1, KEYPAD_I2C_TIMEOUT)
 #elif (KEYPAD_PORT == KEYPAD_PORT_HW_UART)
 #ifndef MCU_HAS_UART
 #error "This board does not have hardware UART or is not defined."
