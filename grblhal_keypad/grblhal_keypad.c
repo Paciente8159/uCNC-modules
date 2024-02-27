@@ -577,8 +577,11 @@ bool keypad_process(void *args)
 	if (!feed || keypad_released)
 	{
 		cnc_call_rt_command(CMD_CODE_JOG_CANCEL);
-		keypad_value = 0;
-		keypad_released = 0;
+		__ATOMIC__
+		{
+			keypad_released = 0;
+			keypad_value = 0;
+		}
 	}
 
 #ifndef KEYPAD_MPG_MODE_ENABLED
