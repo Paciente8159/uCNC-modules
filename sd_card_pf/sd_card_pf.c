@@ -377,6 +377,8 @@ void sd_card_dir_list(void)
 			else
 			{ /* It is a file. */
 				protocol_send_string(__romstr__(SD_STR_FILE_FORMATER));
+				serial_print_int(fno.fsize);
+				serial_putc('\t');
 			}
 
 			i = strlen(fno.fname);
@@ -384,6 +386,7 @@ void sd_card_dir_list(void)
 			{
 				serial_putc(fno.fname[j]);
 			}
+
 			protocol_send_string(MSG_EOL);
 		}
 
@@ -1043,6 +1046,76 @@ bool system_menu_sd_card_action(uint8_t action)
 	return false;
 }
 
+#ifdef MCU_HAS_ENDPOINTS
+void sd_card_browser(void)
+{
+	if (sd_card_mounted != SD_MOUNTED)
+	{
+		endpoint_send(410, "application/json", "{'result':'unmounted'}");
+		return;
+	}
+
+	if (!file_runs)
+	{
+		endpoint_send(429, "application/json", "{'result':'running'}");
+		return;
+	}
+
+	// if does not have args return the page
+	if (!endpoint_request_hasargs())
+	{
+		char path[FS_MAX_PATH_LEN + 5];
+		memset(path, 0, FS_MAX_PATH_LEN + 5);
+		endpoint_request_uri(path, FS_MAX_PATH_LEN + 5);
+		if (path[0] == '/' && path[1] == 's' && path[2] == 'd' && path[3] == '/')
+		{
+			// navigate to the dir
+			sd_chfile(&path[3], 0);
+
+			FRESULT res;
+			UINT i;
+			FILINFO fno;
+			DIR dp;
+
+			// current dir
+			if (sd_opendir(&dp, cwd) == FR_OK)
+			{
+				// start chunck transmition
+				endpoint_send(200, "application/json", NULL);
+				endpoint_send(200, "application/json", "{'result':'ok', {'path':'");
+				endpoint_send(200, "application/json", &path[3]);
+				endpoint_send(200, "application/json", "','data':[");
+				for (;;)
+				{
+					memset(path, 0, FS_MAX_PATH_LEN + 5);
+					res = sd_readdir(&dp, &fno); /* Read a directory item */
+					if (res != FR_OK || fno.fname[0] == 0)
+					{
+						break; /* Break on error or end of dir */
+					}
+					if (fno.fattrib & AM_DIR)
+					{ /* It is a directory */
+						sprintf("{'type':'dir','name':'%s','attr':%d},", fno.fname, fno.fattrib);
+					}
+					else
+					{ /* It is a file. */
+						sprintf("{'type':'file','name':'%s','date':%lu,'size':%lu,'attr':%d},", fno.fname, fno.fdate, fno.fsize, fno.fattrib);
+					}
+				}
+				endpoint_send(200, "application/json", "]}}");
+				// close the stream
+				endpoint_send(200, "application/json", "");
+				sd_closedir(&dp);
+			}
+			else
+			{
+				endpoint_send(404, "application/json", "{'result':'notfound'}");
+			}
+		}
+	}
+}
+#endif
+
 DECL_MODULE(sd_card_pf)
 {
 	file_runs = 0;
@@ -1074,5 +1147,9 @@ DECL_MODULE(sd_card_pf)
 	ADD_EVENT_LISTENER(settings_erase, sd_settings_erase);
 #else
 #warning "Settings extension not enabled. SD card stored settings will not work."
+#endif
+
+#ifdef MCU_HAS_ENDPOINTS
+	endpoint_add("/sd/*", 0, &sd_card_browser, NULL);
 #endif
 }
