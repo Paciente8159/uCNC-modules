@@ -1095,12 +1095,13 @@ void sd_card_browser(void)
 					}
 					if (fno.fattrib & AM_DIR)
 					{ /* It is a directory */
-						sprintf("{'type':'dir','name':'%s','attr':%d},", fno.fname, fno.fattrib);
+						sprintf(path, "{'type':'dir','name':'%s','attr':%d},", fno.fname, fno.fattrib);
 					}
 					else
 					{ /* It is a file. */
-						sprintf("{'type':'file','name':'%s','date':%lu,'size':%lu,'attr':%d},", fno.fname, fno.fdate, fno.fsize, fno.fattrib);
+						sprintf(path, "{'type':'file','name':'%s','attr':%d,'size':%lu,'date':%lu},", fno.fname, fno.fattrib, fno.fsize, fno.fdate);
 					}
+					endpoint_send(200, "application/json", path);
 				}
 				endpoint_send(200, "application/json", "]}}");
 				// close the stream
