@@ -603,7 +603,7 @@ CREATE_EVENT_LISTENER(cnc_dotasks, keypad_process);
 #if ((KEYPAD_PORT == KEYPAD_PORT_HW_I2C) || (KEYPAD_PORT == KEYPAD_PORT_SW_I2C))
 MCU_CALLBACK bool keypad_pressed(void *args)
 {
-
+	static uint32_t debounce = 0;
 	uint8_t *keys = (uint8_t *)args;
 	// keys = {inputs, diff};
 	if (keys[1] & KEYPAD_DOWN_MASK)
@@ -613,19 +613,23 @@ MCU_CALLBACK bool keypad_pressed(void *args)
 			// button released
 			cnc_call_rt_command(CMD_CODE_JOG_CANCEL);
 			keypad_released = 1;
+			debounce = mcu_millis();
 		}
 		else
 		{
 			// get the char and passes the char to the realtime char handler
-			uint8_t c = 0;
-			keypad_getc(&c);
-			if (c == CMD_CODE_RESET)
+			if (mcu_millis() - debounce > 10)
 			{
-				cnc_call_rt_command(CMD_CODE_RESET);
-			}
-			else if (!keypad_value)
-			{
-				keypad_value = c;
+				uint8_t c = 0;
+				keypad_getc(&c);
+				if (c == CMD_CODE_RESET)
+				{
+					cnc_call_rt_command(CMD_CODE_RESET);
+				}
+				else if (!keypad_value)
+				{
+					keypad_value = c;
+				}
 			}
 		}
 	}
