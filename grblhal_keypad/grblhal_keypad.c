@@ -651,14 +651,6 @@ bool keypad_process(void *args)
 		DEBUG_STR(cmd);
 	}
 
-#ifndef KEYPAD_MPG_MODE_ENABLED
-	// free the stream
-	if (has_control)
-	{
-		serial_stream_change(NULL);
-	}
-#endif
-
 	// you must return EVENT_CONTINUE to enable other tasks to run or return EVENT_HANDLED to terminate the event handling within this callback
 	return EVENT_CONTINUE;
 }
