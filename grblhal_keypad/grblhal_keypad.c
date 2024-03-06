@@ -603,6 +603,13 @@ bool keypad_process(void *args)
 	{
 		float target[3];
 
+		if(cnc_get_exec_state(EXEC_ALLACTIVE) != EXEC_IDLE) {
+			if(!cnc_get_exec_state(EXEC_JOG)){
+				keypad_value = 0;
+				return EVENT_CONTINUE;
+			}
+		}
+
 		if (!mode)
 		{
 			int32_t steps[STEPPER_COUNT];
