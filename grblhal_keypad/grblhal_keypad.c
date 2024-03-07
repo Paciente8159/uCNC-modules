@@ -319,7 +319,7 @@ bool keypad_process(void *args)
 		}
 
 		// not a jog command or the key was released
-		if (keypad_released)
+		if (keypad_released || io_get_input(KEYPAD_DOWN))
 		{
 			keypad_released = 0;
 			if (c)
@@ -514,6 +514,7 @@ bool keypad_process(void *args)
 		{
 			// load and run macro (self releases)
 			settings_load(EXTENDED_SETTING_ADDRESS(KEYPAD_MACRO1_ID), (uint8_t *)cmd, KEYPAD_MACRO_MAX_LEN);
+			cmd[strlen(cmd)]='\n';
 			keypad_stream_try_enqueue_cmd(cmd);
 			rt = 0;
 		}
@@ -523,6 +524,7 @@ bool keypad_process(void *args)
 		{
 			// load and run macro (self releases)
 			settings_load(EXTENDED_SETTING_ADDRESS(KEYPAD_MACRO2_ID), (uint8_t *)cmd, KEYPAD_MACRO_MAX_LEN);
+			cmd[strlen(cmd)]='\n';
 			keypad_stream_try_enqueue_cmd(cmd);
 			rt = 0;
 		}
@@ -532,6 +534,7 @@ bool keypad_process(void *args)
 		{
 			// load and run macro (self releases)
 			settings_load(EXTENDED_SETTING_ADDRESS(KEYPAD_MACRO3_ID), (uint8_t *)cmd, KEYPAD_MACRO_MAX_LEN);
+			cmd[strlen(cmd)]='\n';
 			keypad_stream_try_enqueue_cmd(cmd);
 			rt = 0;
 		}
@@ -541,6 +544,7 @@ bool keypad_process(void *args)
 		{
 			// load and run macro (self releases)
 			settings_load(EXTENDED_SETTING_ADDRESS(KEYPAD_MACRO4_ID), (uint8_t *)cmd, KEYPAD_MACRO_MAX_LEN);
+			cmd[strlen(cmd)]='\n';
 			keypad_stream_try_enqueue_cmd(cmd);
 			rt = 0;
 		}
@@ -550,6 +554,7 @@ bool keypad_process(void *args)
 		{
 			// load and run macro (self releases)
 			settings_load(EXTENDED_SETTING_ADDRESS(KEYPAD_MACRO5_ID), (uint8_t *)cmd, KEYPAD_MACRO_MAX_LEN);
+			cmd[strlen(cmd)]='\n';
 			keypad_stream_try_enqueue_cmd(cmd);
 			rt = 0;
 		}
@@ -559,6 +564,7 @@ bool keypad_process(void *args)
 		{
 			// load and run macro (self releases)
 			settings_load(EXTENDED_SETTING_ADDRESS(KEYPAD_MACRO6_ID), (uint8_t *)cmd, KEYPAD_MACRO_MAX_LEN);
+			cmd[strlen(cmd)]='\n';
 			keypad_stream_try_enqueue_cmd(cmd);
 			rt = 0;
 		}
@@ -568,6 +574,7 @@ bool keypad_process(void *args)
 		{
 			// load and run macro (self releases)
 			settings_load(EXTENDED_SETTING_ADDRESS(KEYPAD_MACRO7_ID), (uint8_t *)cmd, KEYPAD_MACRO_MAX_LEN);
+			cmd[strlen(cmd)]='\n';
 			keypad_stream_try_enqueue_cmd(cmd);
 			rt = 0;
 		}
@@ -577,6 +584,7 @@ bool keypad_process(void *args)
 		{
 			// load and run macro (self releases)
 			settings_load(EXTENDED_SETTING_ADDRESS(KEYPAD_MACRO8_ID), (uint8_t *)cmd, KEYPAD_MACRO_MAX_LEN);
+			cmd[strlen(cmd)]='\n';
 			keypad_stream_try_enqueue_cmd(cmd);
 			rt = 0;
 		}
