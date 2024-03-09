@@ -6,9 +6,10 @@ This module adds GrblHAL keypad to µCNC.
 
 ### 2024-03-09
 
-- fixed strobe key handling and releasing
-- fixed macro code CR termination
-- handling of realtime codes in ISR
+- fixed strobe key handling and releasing (#52)
+- fixed macro code CR termination (#52)
+- handling of realtime codes in ISR (#52)
+- clear all unhandled codes to prevent loop message (#52)
 
 ### 2024-02-24
 
