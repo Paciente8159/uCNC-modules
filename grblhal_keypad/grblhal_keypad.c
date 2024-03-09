@@ -672,6 +672,9 @@ bool keypad_process(void *args)
 		keypad_stream_try_enqueue_cmd(cmd);
 		DEBUG_STR(cmd);
 	}
+	else{
+		keypad_value = 0;
+	}
 
 	// you must return EVENT_CONTINUE to enable other tasks to run or return EVENT_HANDLED to terminate the event handling within this callback
 	return EVENT_CONTINUE;
