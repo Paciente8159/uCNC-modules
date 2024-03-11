@@ -1128,7 +1128,9 @@ void sd_card_updater()
 		return;
 	}
 
-	if (sd_chfile(uri, "r") != FR_OK)
+	char* path = &uri[3];
+
+	if (sd_chfile(path, "r") != FR_OK)
 	{
 		return;
 	}
@@ -1138,16 +1140,16 @@ void sd_card_updater()
 	{
 		if (method == ENDPOINT_POST)
 		{
-			if (uri[strlen(uri) - 1] != '/')
+			if (path[strlen(path) - 1] != '/')
 			{
-				uri[strlen(uri)] = '/';
+				path[strlen(path)] = '/';
 			}
 
 			char filename[64];
 			endpoint_file_upload_name(filename, 64);
-			strncat(uri, filename, MIN(FS_MAX_PATH_LEN - strlen(uri), 64));
+			strncat(path, filename, MIN(FS_MAX_PATH_LEN - strlen(path), 64));
 		}
-		file = sd_fopen(uri, 'w');
+		file = sd_fopen(path, 'w');
 	}
 	else if (upload.status == ENDPOINT_UPLOAD_PART)
 	{
