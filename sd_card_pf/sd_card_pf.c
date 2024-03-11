@@ -176,9 +176,9 @@ static FIL cwf;
 #define sd_fread(buff, btr, br) f_read(&cwf, buff, btr, br)
 #define sd_fwrite(buff, btw, bw) f_write(&cwf, buff, btw, bw)
 #define sd_fseek(ofs) f_lseek(&cwf, ofs)
-#define sd_fclose()         \
-	if (cwf.obj.fs)         \
-	{                       \
+#define sd_fclose()     \
+	if (cwf.obj.fs)       \
+	{                     \
 		f_close(&cwf);      \
 		sd_chfile("..", 0); \
 	}
@@ -1047,6 +1047,7 @@ bool system_menu_sd_card_action(uint8_t action)
 }
 
 #ifdef MCU_HAS_ENDPOINTS
+#include "../endpoint.h"
 void sd_card_browser(void)
 {
 	if (sd_card_mounted != SD_MOUNTED)
@@ -1115,6 +1116,55 @@ void sd_card_browser(void)
 		}
 	}
 }
+
+void sd_card_updater()
+{
+	static FRESULT file = FR_NO_FILE;
+	static char uri[FS_MAX_PATH_LEN + 5];
+	endpoint_request_uri(uri, FS_MAX_PATH_LEN + 5);
+	uint8_t method = endpoint_request_method();
+	if (strncmp(uri, "/sd", 3) || (method != ENDPOINT_POST && method != ENDPOINT_PUT))
+	{
+		return;
+	}
+
+	if (sd_chfile(uri, "r") != FR_OK)
+	{
+		return;
+	}
+
+	endpoint_upload_t upload = endpoint_file_upload_status();
+	if (upload.status == ENDPOINT_UPLOAD_START)
+	{
+		if (method == ENDPOINT_POST)
+		{
+			if (uri[strlen(uri) - 1] != '/')
+			{
+				uri[strlen(uri)] = '/';
+			}
+
+			char filename[64];
+			endpoint_file_upload_name(filename, 64);
+			strncat(uri, filename, MIN(FS_MAX_PATH_LEN - strlen(uri), 64));
+		}
+		file = sd_fopen(uri, 'w');
+	}
+	else if (upload.status == ENDPOINT_UPLOAD_PART)
+	{
+		if (file == FR_OK)
+		{
+			size_t written = 0;
+			sd_fwrite(upload.data, upload.datalen, &written);
+		}
+	}
+	else if (upload.status == ENDPOINT_UPLOAD_END)
+	{
+		if (file == FR_OK)
+		{
+			sd_fclose();
+		}
+	}
+}
 #endif
 
 DECL_MODULE(sd_card_pf)
@@ -1151,6 +1201,7 @@ DECL_MODULE(sd_card_pf)
 #endif
 
 #ifdef MCU_HAS_ENDPOINTS
-	endpoint_add("/sd/*", 0, &sd_card_browser, NULL);
+	endpoint_add("/sd", 0, &sd_card_browser, &sd_card_updater);
+	endpoint_add("/sd/*", 0, &sd_card_browser, &sd_card_updater);
 #endif
 }
