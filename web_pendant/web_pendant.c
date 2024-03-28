@@ -47,7 +47,7 @@ void web_pendant_request(void)
 		if (!endpoint_send_file("/index.html.gz", "text/html"))
 		{
 			protocol_send_string(__romstr__("Server error. File not found"));
-			endpoint_send(404, "text/plain", "FileNotFound");
+			endpoint_send_str(404, "text/plain", "FileNotFound");
 		}
 	}
 }

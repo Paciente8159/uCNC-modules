@@ -430,6 +430,7 @@ bool sd_card_dotasks(void *args)
 		{
 			sd_unmount(&cfs);
 			fs_unmount('D');
+			protocol_send_feedback(__romstr__(SD_STR_SD_PREFIX SD_STR_SD_UNMOUNTED));
 		}
 		sd_card_mounted = SD_UNDETECTED;
 		g_system_menu.flags |= SYSTEM_MENU_MODE_REDRAW;
@@ -459,7 +460,7 @@ bool sd_settings_load(void *args)
 	}
 
 	UINT i = 0;
-	bool result = false;
+	bool result = EVENT_CONTINUE;
 	settings_args_t *p = args;
 	fs_file_t *fp = fs_open("/D/uCNC.cfg", "r");
 
@@ -471,7 +472,7 @@ bool sd_settings_load(void *args)
 		if (p->size == i)
 		{
 			protocol_send_feedback(__romstr__(SD_STR_SETTINGS_LOADED));
-			result = true;
+			result = EVENT_HANDLED;
 		}
 	}
 	else
@@ -495,7 +496,7 @@ bool sd_settings_save(void *args)
 	}
 
 	UINT i = 0;
-	bool result = false;
+	bool result = EVENT_CONTINUE;
 	settings_args_t *p = args;
 
 	fs_file_t *fp = fs_open("/D/uCNC.cfg", "a+");
@@ -507,7 +508,7 @@ bool sd_settings_save(void *args)
 		if (p->size == i)
 		{
 			protocol_send_feedback(__romstr__(SD_STR_SETTINGS_SAVED));
-			result = true;
+			result = EVENT_HANDLED;
 		}
 	}
 
@@ -521,7 +522,7 @@ CREATE_EVENT_LISTENER(settings_save, sd_settings_save);
 bool sd_settings_erase(void *args)
 // OVERRIDE_EVENT_HANDLER(settings_erase)
 {
-	bool result = false;
+	bool result = EVENT_CONTINUE;
 
 	if ((sd_card_mounted != SD_MOUNTED))
 	{
@@ -532,7 +533,7 @@ bool sd_settings_erase(void *args)
 	if (fp)
 	{
 		protocol_send_feedback(__romstr__(SD_STR_SETTINGS_ERASED));
-		result = true;
+		result = EVENT_HANDLED;
 	}
 
 	fs_close(fp);
