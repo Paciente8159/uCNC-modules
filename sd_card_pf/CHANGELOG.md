@@ -7,6 +7,9 @@ This version uses PetitFS by default. But it's also possible to use a more featu
 
 ## Changelog
 
+### 2024-03-28
+- fixed SPI speed
+
 ### 2023-10-11
 - integration of multistream
 
