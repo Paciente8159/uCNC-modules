@@ -586,10 +586,12 @@ CREATE_EVENT_LISTENER(grbl_cmd, sd_card_cmd_parser);
 
 DECL_MODULE(sd_card_v2)
 {
+	//starts the file system and system commands
+	LOAD_MODULE(file_system);
 	// STARTS SYSTEM MENU MODULE
 	LOAD_MODULE(system_menu);
 	// adds the sd card item to main menu
-	DECL_MENU_ENTRY(1, sd_menu, "SD Card", NULL, system_menu_render_fs_item, NULL, system_menu_action_fs_item, NULL);
+	DECL_MENU_ENTRY(1, sd_menu, "Drives", NULL, system_menu_render_fs_item, NULL, system_menu_action_fs_item, NULL);
 
 	// sd card file system rendering menu
 	DECL_DYNAMIC_MENU(10, 1, system_menu_fs_render, system_menu_fs_action);
