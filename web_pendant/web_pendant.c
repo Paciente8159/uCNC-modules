@@ -30,7 +30,7 @@
 #define WEB_PENDANT_REFRESH_MS 200
 #endif
 
-#if (UCNC_MODULE_VERSION < 10801 || UCNC_MODULE_VERSION > 99999)
+#if (UCNC_MODULE_VERSION < 10890 || UCNC_MODULE_VERSION > 99999)
 #error "This module is not compatible with the current version of µCNC"
 #endif
 
@@ -47,7 +47,7 @@ void web_pendant_request(void)
 		if (!endpoint_send_file("/index.html.gz", "text/html"))
 		{
 			protocol_send_string(__romstr__("Server error. File not found"));
-			endpoint_send(404, "text/plain", "FileNotFound");
+			endpoint_send_str(404, "text/plain", "FileNotFound");
 		}
 	}
 }
