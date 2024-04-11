@@ -2,16 +2,16 @@
 
 Addon modules for µCNC - Universal CNC firmware for microcontrollers
 
-## About SD Card PF for µCNC
+## About SD Card v2 for µCNC
 
-SD Card PF allows to add an SD/MMC card support to µCNC via hardware/software SPI.
+SD Card v2 allows to add an SD/MMC card support to µCNC via hardware/software SPI.
 It requires any 2 µCNC generic digital input pins of the board. It uses software I2C so no dedicated I2C hardware is required.
 
-## Adding SD Card PF to µCNC
+## Adding SD Card v2 to µCNC
 
-To use the and SD Card PF follow these steps:
+To use the and SD Card v2 follow these steps:
 
-1. Copy the the `sd_card_pf` directory and place it inside the `src/modules/` directory of µCNC
+1. Copy the the `sd_card_v2` directory and place it inside the `src/modules/` directory of µCNC
 2. If needed you may redifine some IO pin and SPI options. By default this module tries to use the hardware SPI port if available and if not the software SPI pins. Please refer to [PINOUTS.md](https://github.com/Paciente8159/uCNC/blob/master/PINOUTS.md) to check the default pin associations.
 To redefine the IO pins and if software or hardware SPI can is used open `cnc_hal_config.h` and add the needed configurations.
 
@@ -45,14 +45,14 @@ To redefine the IO pins and if software or hardware SPI can is used open `cnc_ha
 4. Then you need load the module inside µCNC. Open `src/module.c` and at the bottom of the file add the following lines inside the function `load_modules()`
 
 ```
-LOAD_MODULE(sd_card_pf);
+LOAD_MODULE(sd_card_v2);
 ```
 
 5. The last step is to enable `ENABLE_MAIN_LOOP_MODULES` and `ENABLE_PARSER_MODULES`(optional) and `ENABLE_SETTINGS_MODULES`(optional) inside `cnc_config.h`
 
-## Using SD Card PF on µCNC
+## Using SD Card v2 on µCNC
 
-SD Card PF module adds a few system commands that allows you to navigate and execute files inside the SD/MMC card.
+SD Card v2 module adds a few system commands that allows you to navigate and execute files inside the SD/MMC card.
 
 * ```$mnt``` - mounts the sd card. After mounting you will be at the root of the file system.
 * ```$unmnt``` - unmounts the sd card.
