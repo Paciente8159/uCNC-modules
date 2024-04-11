@@ -4,6 +4,10 @@ This module adds graphic display support for µCNC.
 
 ## Changelog
 
+### 2024-03-30
+
+- fixed get parser modes call
+
 ### 2024-02-13
 
 - updated for v010808

@@ -840,7 +840,6 @@ void system_menu_render_idle(void)
 	uint8_t modalgroups[14];
 	uint16_t feed;
 	uint16_t spindle;
-	uint8_t coolant;
 	parser_get_modes(modalgroups, &feed, &spindle);
 	rom_strcpy(tool, __romstr__(" T"));
 	system_menu_int_to_str(&tool[2], modalgroups[11]);
