@@ -93,7 +93,7 @@ static softspi_port_t *graphic_port;
 #ifndef GRAPHIC_DISPLAY_SPI_DATA
 #define GRAPHIC_DISPLAY_SPI_DATA DOUT5
 #endif
-SOFTSPI(graphic_spi, 100000UL, 0, GRAPHIC_DISPLAY_SPI_DATA, GRAPHIC_DISPLAY_SPI_DATA, GRAPHIC_DISPLAY_SPI_CLOCK)
+SOFTSPI(graphic_spi, 1000000UL, 0, GRAPHIC_DISPLAY_SPI_DATA, GRAPHIC_DISPLAY_SPI_DATA, GRAPHIC_DISPLAY_SPI_CLOCK)
 #endif
 
 #ifndef GRAPHIC_DISPLAY_SPI_CS
@@ -230,8 +230,8 @@ uint8_t u8x8_gpio_and_delay_ucnc(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int, voi
 #endif
 		break;
 	case U8X8_MSG_GPIO_D1: // D1 or SPI data pin: Output level in arg_int
-#if GRAPHIC_DISPLAY_SPI_CLOCK != UNDEF_PIN
-		io_set_pinvalue(GRAPHIC_DISPLAY_SPI_CLOCK, (bool)arg_int);
+#if GRAPHIC_DISPLAY_SPI_DATA != UNDEF_PIN
+		io_set_pinvalue(GRAPHIC_DISPLAY_SPI_DATA, (bool)arg_int);
 #endif
 		break;
 	case U8X8_MSG_GPIO_D2: // D2 pin: Output level in arg_int
