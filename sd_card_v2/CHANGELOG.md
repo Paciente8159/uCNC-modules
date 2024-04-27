@@ -7,6 +7,10 @@ This version uses FatFs. PetitFs might be implemented in the future
 
 ## Changelog
 
+### 2023-04-27
+
+- fixed module version checking
+
 ### 2023-04-11
 
 - initial implementation (#53)

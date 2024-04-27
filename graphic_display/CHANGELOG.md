@@ -4,6 +4,10 @@ This module adds graphic display support for µCNC.
 
 ## Changelog
 
+### 2024-04-27
+
+- added display beep on press
+
 ### 2024-04-25
 
 - increased SPI speed

@@ -198,8 +198,8 @@ uint8_t u8x8_gpio_and_delay_ucnc(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int, voi
 	switch (msg)
 	{
 	case U8X8_MSG_GPIO_AND_DELAY_INIT: // called once during init phase of u8g2/u8x8
-		break;						   // can be used to setup pins
-	case U8X8_MSG_DELAY_NANO:		   // delay arg_int * 1 nano second
+		break;													 // can be used to setup pins
+	case U8X8_MSG_DELAY_NANO:					 // delay arg_int * 1 nano second
 		while (arg_int--)
 			;
 		break;
@@ -223,7 +223,7 @@ uint8_t u8x8_gpio_and_delay_ucnc(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int, voi
 		{
 			mcu_delay_us(1);
 		}
-		break;			   // arg_int=1: delay by 5us, arg_int = 4: delay by 1.25us
+		break;							 // arg_int=1: delay by 5us, arg_int = 4: delay by 1.25us
 	case U8X8_MSG_GPIO_D0: // D0 or SPI clock pin: Output level in arg_int
 #if GRAPHIC_DISPLAY_SPI_CLOCK != UNDEF_PIN
 		io_set_pinvalue(GRAPHIC_DISPLAY_SPI_CLOCK, (bool)arg_int);
@@ -309,7 +309,7 @@ uint8_t u8x8_gpio_and_delay_ucnc(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int, voi
 			u8x8_SetGPIOResult(u8x8, 0);
 		}
 #endif
-		break;					 // arg_int=1: Input dir with pullup high for I2C clock pin
+		break;										 // arg_int=1: Input dir with pullup high for I2C clock pin
 	case U8X8_MSG_GPIO_I2C_DATA: // arg_int=0: Output low at I2C data pin
 #if GRAPHIC_DISPLAY_I2C_DATA != UNDEF_PIN
 		if (arg_int)
@@ -488,7 +488,7 @@ bool graphic_display_rotary_encoder_control_sample(void *args)
 	}
 
 	pin_state = !io_get_pinvalue(GRAPHIC_DISPLAY_ENCODER_BTN) ? 1 : 0;
-
+	io_set_pinvalue(GRAPHIC_DISPLAY_BEEP, pin_state);
 	// if btn is pressed
 	if ((pin_state & 1))
 	{
@@ -535,7 +535,7 @@ CREATE_EVENT_LISTENER(cnc_io_dotasks, graphic_display_rotary_encoder_control_sam
 bool graphic_display_update(void *args)
 {
 	static bool running = false;
-
+	
 	if (!running)
 	{
 		running = true;

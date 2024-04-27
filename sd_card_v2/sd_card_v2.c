@@ -38,7 +38,7 @@
 #define SD_FAT_FS PETIT_FAT_FS
 #endif
 
-#if (UCNC_MODULE_VERSION < 10890 || UCNC_MODULE_VERSION > 99999)
+#if (UCNC_MODULE_VERSION < 10880 || UCNC_MODULE_VERSION > 99999)
 #error "This module is not compatible with the current version of µCNC"
 #endif
 
