@@ -7,6 +7,7 @@ This module adds graphic display support for µCNC.
 ### 2024-07-02
 
 - added u8g2 library abstration layer. This allows replacing the display library to make use of different types of displays/drivers while reusing the same interface.
+- it's more easy do add extra drivers and display types using some utility macros to declare the display initialization call.
 
 ### 2024-04-27
 

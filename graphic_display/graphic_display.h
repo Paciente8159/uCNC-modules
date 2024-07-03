@@ -37,6 +37,10 @@ extern "C"
 #define GRAPHIC_DISPLAY_INTERFACE GRAPHIC_DISPLAY_HW_SPI
 #endif
 
+#ifndef GRAPHIC_DISPLAY_DRIVER
+#define GRAPHIC_DISPLAY_DRIVER st7920_128x64_spi
+#endif
+
 #if (GRAPHIC_DISPLAY_INTERFACE == GRAPHIC_DISPLAY_SW_SPI)
 #ifndef GRAPHIC_DISPLAY_SPI_CLOCK
 #define GRAPHIC_DISPLAY_SPI_CLOCK DOUT4
@@ -44,7 +48,9 @@ extern "C"
 #ifndef GRAPHIC_DISPLAY_SPI_DATA
 #define GRAPHIC_DISPLAY_SPI_DATA DOUT5
 #endif
+#ifndef GRAPHIC_DISPLAY_SPI_MOSI
 #define GRAPHIC_DISPLAY_SPI_MOSI GRAPHIC_DISPLAY_SPI_DATA
+#endif
 #ifndef GRAPHIC_DISPLAY_SPI_MISO
 #define GRAPHIC_DISPLAY_SPI_MISO DIN7
 #endif
@@ -94,12 +100,17 @@ extern "C"
 /**
  * Helper macros for declaring a new display driver
  */
-#define DECL_DISPLAY(name, w, h)                                                      \
-	extern void name##_init();                                                          \
-	const display_driver_t gd_##name = {.width = w, .height = h, .init = &name##_init}; \
+#define _DECL_DISPLAY(name, w, h) \
+	extern void name##_init();      \
+	const display_driver_t gd_##name = {.width = w, .height = h, .init = &name##_init}
+
+#define DECL_DISPLAY(name, w, h) _DECL_DISPLAY(name, w, h)
+
+#define _DISPLAY_PTR(name) (display_driver_t *)&gd_##name
+#define DISPLAY_PTR(name) _DISPLAY_PTR(name)
 
 #define DISPLAY(name) void name##_init()
-#define DISPLAY_PTR(name) (display_driver_t *)&gd_##name
+
 
 #ifdef __cplusplus
 }

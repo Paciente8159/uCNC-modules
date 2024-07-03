@@ -26,7 +26,7 @@
 #include <math.h>
 #include "../system_menu.h"
 
-#if (UCNC_MODULE_VERSION < 10903 || UCNC_MODULE_VERSION > 99999)
+#if (UCNC_MODULE_VERSION < 10801 || UCNC_MODULE_VERSION > 99999)
 #error "This module is not compatible with the current version of µCNC"
 #endif
 
@@ -74,6 +74,10 @@ SOFTSPI(graphic_spi, 1000000UL, 0, GRAPHIC_DISPLAY_SPI_MOSI, GRAPHIC_DISPLAY_SPI
 #undef io0_get_input
 #define graphic_display_port ((void *)&graphic_spi)
 #else
+#if (UCNC_MODULE_VERSION < 10903)
+//for backward compatibility
+#define MCU_SPI NULL
+#endif
 #define graphic_display_port ((void *)MCU_SPI)
 #endif
 #endif
@@ -349,13 +353,11 @@ uint8_t system_menu_send_cmd(const char *__s)
 
 #endif
 
-// DISPLAY(ssd1306_128x64_i2c);
-DECL_DISPLAY(st7796_240x320_spi, 240, 320);
+DECL_DISPLAY(GRAPHIC_DISPLAY_DRIVER, 240, 320);
 
 DECL_MODULE(graphic_display)
 {
-	// display_driver_t *display_driver = DISPLAY_PTR(ssd1306_128x64_i2c);
-	display_driver_t *display_driver = DISPLAY_PTR(st7796_240x320_spi);
+	display_driver_t *display_driver = DISPLAY_PTR(GRAPHIC_DISPLAY_DRIVER);
 	gd_init(display_driver, graphic_display_port);
 	display_width = display_driver->width;
 	display_height = display_driver->height;
