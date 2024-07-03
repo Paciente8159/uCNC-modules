@@ -33,8 +33,6 @@ static int8_t graphic_last_line_offset;
 
 uint8_t u8x8_byte_ucnc_hw_spi(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int, void *arg_ptr)
 {
-	cnc_dotasks();
-
 	uint8_t *data;
 	switch (msg)
 	{
@@ -49,19 +47,28 @@ uint8_t u8x8_byte_ucnc_hw_spi(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int, void *
 		break;
 	case U8X8_MSG_BYTE_INIT:
 		u8x8_gpio_SetCS(u8x8, u8x8->display_info->chip_disable_level);
+#if (UCNC_MODULE_VERSION < 10801) && (GRAPHIC_DISPLAY_INTERFACE == GRAPHIC_DISPLAY_SW_SPI)
+		io_config_output(GRAPHIC_DISPLAY_SPI_CLOCK);
+		io_config_output(GRAPHIC_DISPLAY_SPI_MOSI);
+		io_config_output(GRAPHIC_DISPLAY_SPI_CS);
+#endif
 		softspi_config((softspi_port_t *)graphic_port, u8x8->display_info->spi_mode, u8x8->display_info->sck_clock_hz);
 		break;
 	case U8X8_MSG_BYTE_SET_DC:
 		u8x8_gpio_SetDC(u8x8, arg_int);
 		break;
 	case U8X8_MSG_BYTE_START_TRANSFER:
+#if (UCNC_MODULE_VERSION >= 10903)
 		softspi_start((softspi_port_t *)graphic_port);
+#endif
 		/* SPI mode has to be mapped to the mode of the current controller, at least Uno, Due, 101 have different SPI_MODEx values */
 		u8x8_gpio_SetCS(u8x8, u8x8->display_info->chip_enable_level);
 		u8x8->gpio_and_delay_cb(u8x8, U8X8_MSG_DELAY_NANO, u8x8->display_info->post_chip_enable_wait_ns, NULL);
 		break;
 	case U8X8_MSG_BYTE_END_TRANSFER:
+#if (UCNC_MODULE_VERSION >= 10903)
 		softspi_stop((softspi_port_t *)graphic_port);
+#endif
 		u8x8->gpio_and_delay_cb(u8x8, U8X8_MSG_DELAY_NANO, u8x8->display_info->pre_chip_disable_wait_ns, NULL);
 		u8x8_gpio_SetCS(u8x8, u8x8->display_info->chip_disable_level);
 		break;
