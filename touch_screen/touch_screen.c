@@ -9,6 +9,20 @@ extern "C"
 {
 #endif
 
+// allow undefined pins to allow compilation without errors
+// this is just in case the module is present but not being used
+#if !ASSERT_PIN(TOUCH_SCREEN_TOUCHED) || !ASSERT_PIN(TOUCH_SCREEN_CS)
+#define io0_config_output
+#define io0_set_output
+#define io0_clear_output
+#define io0_toggle_output
+#define io0_get_output
+#define io0_config_input
+#define io0_config_pullup
+#define io0_get_input
+#warning "Some touch screen pins are not defined"
+#endif
+
 	// Global variables
 	static uint16_t touch_screen_width;
 	static uint16_t touch_screen_height;
@@ -35,6 +49,7 @@ extern "C"
 	touch_screen_set_calibration(0, 0, TOUCH_SCREEN_ADC_MAX, TOUCH_SCREEN_ADC_MAX);
 #endif
 
+		io_config_output(TOUCH_SCREEN_CS);
 		softspi_start(TOUCH_SCREEN_SPI_PORT);
 		io_clear_output(TOUCH_SCREEN_CS);
 		softspi_xmit(TOUCH_SCREEN_SPI_PORT, (TOUCH_SCREEN_READ_Y | TOUCH_SCREEN_SER_MODE));
