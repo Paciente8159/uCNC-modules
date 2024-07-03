@@ -26,7 +26,7 @@
 #include <math.h>
 #include "../system_menu.h"
 
-#if (UCNC_MODULE_VERSION < 10801 || UCNC_MODULE_VERSION > 99999)
+#if (UCNC_MODULE_VERSION < 10903 || UCNC_MODULE_VERSION > 99999)
 #error "This module is not compatible with the current version of µCNC"
 #endif
 
@@ -74,7 +74,7 @@ SOFTSPI(graphic_spi, 1000000UL, 0, GRAPHIC_DISPLAY_SPI_MOSI, GRAPHIC_DISPLAY_SPI
 #undef io0_get_input
 #define graphic_display_port ((void *)&graphic_spi)
 #else
-#define graphic_display_port NULL
+#define graphic_display_port ((void *)MCU_SPI)
 #endif
 #endif
 
