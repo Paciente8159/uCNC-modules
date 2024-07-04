@@ -69,9 +69,11 @@ static uint8_t graphic_display_str_line_len(const char *__s);
 #if (GRAPHIC_DISPLAY_INTERFACE == GRAPHIC_DISPLAY_SW_SPI)
 // temporary result of reading non existing read pin
 #define io0_get_input 0
+#define io0_config_input
 SOFTSPI(graphic_spi, 1000000UL, 0, GRAPHIC_DISPLAY_SPI_MOSI, GRAPHIC_DISPLAY_SPI_MISO, GRAPHIC_DISPLAY_SPI_CLOCK)
 // delete temporary definition
 #undef io0_get_input
+#undef io0_config_input
 #define graphic_display_port ((void *)&graphic_spi)
 #else
 #if (UCNC_MODULE_VERSION < 10903)
@@ -353,11 +355,9 @@ uint8_t system_menu_send_cmd(const char *__s)
 
 #endif
 
-DECL_DISPLAY(GRAPHIC_DISPLAY_DRIVER, 240, 320);
-
 DECL_MODULE(graphic_display)
 {
-	display_driver_t *display_driver = DISPLAY_PTR(GRAPHIC_DISPLAY_DRIVER);
+	DISPLAY_PTR_INIT(display_driver, GRAPHIC_DISPLAY_DRIVER);
 	gd_init(display_driver, graphic_display_port);
 	display_width = display_driver->width;
 	display_height = display_driver->height;

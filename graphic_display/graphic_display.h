@@ -25,6 +25,7 @@ extern "C"
 #endif
 
 // #include "../system_menu.h"
+#include "../../cnc_hal_config_helper.h"
 #include <stdint.h>
 #include <stdbool.h>
 
@@ -45,6 +46,7 @@ extern "C"
 #ifndef GRAPHIC_DISPLAY_SPI_CLOCK
 #define GRAPHIC_DISPLAY_SPI_CLOCK DOUT4
 #endif
+// kept for backward compatibility
 #ifndef GRAPHIC_DISPLAY_SPI_DATA
 #define GRAPHIC_DISPLAY_SPI_DATA DOUT5
 #endif
@@ -100,16 +102,14 @@ extern "C"
 /**
  * Helper macros for declaring a new display driver
  */
-#define _DECL_DISPLAY(name, w, h) \
-	extern void name##_init();      \
-	const display_driver_t gd_##name = {.width = w, .height = h, .init = &name##_init}
+#define _DECL_DISPLAY(name, w, h) const display_driver_t gd_##name = {.width = w, .height = h, .init = &name##_init}
 
 #define DECL_DISPLAY(name, w, h) _DECL_DISPLAY(name, w, h)
 
-#define _DISPLAY_PTR(name) (display_driver_t *)&gd_##name
-#define DISPLAY_PTR(name) _DISPLAY_PTR(name)
+#define _DISPLAY_PTR(name) gd_##name
+#define DISPLAY_PTR_INIT(ptr_name, driver_name) extern const display_driver_t _DISPLAY_PTR(driver_name);display_driver_t *ptr_name = (display_driver_t *)&_DISPLAY_PTR(driver_name)
 
-#define DISPLAY(name) void name##_init()
+#define DISPLAY_INIT(name) void name##_init()
 
 
 #ifdef __cplusplus
