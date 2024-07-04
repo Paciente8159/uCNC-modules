@@ -67,7 +67,15 @@
 #define SD_SPI_CS SPI_CS
 #endif
 SOFTSPI(mmcsd_spi, 100000UL, 0, SD_SPI_SDO, SD_SPI_SDI, SD_SPI_CLK);
+#define spi_speed(X) softspi_config(&mmcsd_spi, 0, X)
 #define spi_xmit(c) softspi_xmit(&mmcsd_spi, c)
+#if (UCNC_MODULE_VERSION < 10903)
+#define spi_start()
+#define spi_stop()
+#else
+#define spi_start() softspi_start(&mmcsd_spi)
+#define spi_stop() softspi_stop(&mmcsd_spi)
+#endif
 #else
 #ifndef SD_SPI_CLK
 #define SD_SPI_CLK SPI_CLK
@@ -81,16 +89,26 @@ SOFTSPI(mmcsd_spi, 100000UL, 0, SD_SPI_SDO, SD_SPI_SDI, SD_SPI_CLK);
 #ifndef SD_SPI_CS
 #define SD_SPI_CS SPI_CS
 #endif
-#define spi_xmit(c) mcu_spi_xmit(c)
+#if (UCNC_MODULE_VERSION < 10903)
+#define spi_speed(X) softspi_config(NULL, 0, X)
+#define spi_xmit(c) softspi_xmit(NULL, c)
+#define spi_start()
+#define spi_stop()
+#else
+#define spi_speed(X) MCU_SPI->spifreq = X
+#define spi_xmit(c) softspi_xmit(MCU_SPI, c)
+#define spi_start() softspi_start(MCU_SPI)
+#define spi_stop() softspi_stop(MCU_SPI)
+#endif
 #endif
 
 // #define SD_DEBUG
 #ifdef SD_DEBUG
 #define DEBUGSTR(x) serial_print_str(x "\r\n")
-#define DEBUGINT(x)      \
+#define DEBUGINT(x)    \
 	serial_print_int(x); \
 	serial_print_str("\r\n")
-#define DEBUGFFLT(x)     \
+#define DEBUGFFLT(x)   \
 	serial_print_flt(x); \
 	serial_print_str("\r\n")
 #else
@@ -105,24 +123,17 @@ FORCEINLINE static void mmcsd_spi_speed(bool highspeed)
 {
 	if (highspeed)
 	{
-#if (!defined(SD_CARD_USE_HW_SPI) || !defined(MCU_HAS_SPI))
-		mmcsd_spi.spidelay = SPI_DELAY(10000000UL);
-#else
-		mcu_spi_config(0, 16000000UL);
-#endif
+		spi_speed(18000000UL);
 	}
 	else
 	{
-#if (!defined(SD_CARD_USE_HW_SPI) || !defined(MCU_HAS_SPI))
-		mmcsd_spi.spidelay = SPI_DELAY(100000UL);
-#else
-		mcu_spi_config(0, 100000UL);
-#endif
+		spi_speed(100000UL);
 	}
 }
 
 void mmcsd_release(uint8_t *val)
 {
+	spi_stop();
 	mcu_set_output(SD_SPI_CS);
 	spi_xmit(0xFF);
 }
@@ -282,6 +293,7 @@ DSTATUS disk_status(BYTE pdrv)
 DRESULT disk_read(BYTE pdrv, BYTE *buff, DWORD sector, UINT count)
 {
 	uint8_t cleanup __attribute__((__cleanup__(mmcsd_release))) = 1;
+	spi_start();
 	mcu_clear_output(SD_SPI_CS);
 
 	if (disk_status(0) & (STA_NOINIT | STA_NODISK))
@@ -351,6 +363,7 @@ DRESULT disk_read(BYTE pdrv, BYTE *buff, DWORD sector, UINT count)
 DRESULT disk_write(BYTE pdrv, const BYTE *buff, DWORD sector, UINT count)
 {
 	uint8_t cleanup __attribute__((__cleanup__(mmcsd_release))) = 1;
+	spi_start();
 	mcu_clear_output(SD_SPI_CS);
 
 	if (!mmcsd_card.initialized)
@@ -442,6 +455,7 @@ DRESULT disk_write(BYTE pdrv, const BYTE *buff, DWORD sector, UINT count)
 DSTATUS disk_initialize(BYTE pdrv)
 {
 	uint8_t cleanup __attribute__((__cleanup__(mmcsd_release))) = 1;
+	spi_start();
 	mcu_clear_output(SD_SPI_CS);
 
 	uint8_t resp[4], crc41;
@@ -580,6 +594,7 @@ DSTATUS disk_initialize(BYTE pdrv)
 DRESULT disk_ioctl(BYTE pdrv, BYTE cmd, void *buff)
 {
 	uint8_t cleanup __attribute__((__cleanup__(mmcsd_release))) = 1;
+	spi_start();
 	mcu_clear_output(SD_SPI_CS);
 
 	switch (cmd)
@@ -636,13 +651,14 @@ DRESULT disk_ioctl(BYTE pdrv, BYTE cmd, void *buff)
 /*-----------------------------------------------------------------------*/
 
 DRESULT disk_readp(
-	BYTE *buff,	  /* Pointer to the read buffer (NULL:Forward to the stream) */
-	DWORD sector, /* Sector number (LBA) */
-	UINT offset,  /* Byte offset to read from (0..511) */
-	UINT count	  /* Number of bytes to read (ofs + cnt mus be <= 512) */
+		BYTE *buff,		/* Pointer to the read buffer (NULL:Forward to the stream) */
+		DWORD sector, /* Sector number (LBA) */
+		UINT offset,	/* Byte offset to read from (0..511) */
+		UINT count		/* Number of bytes to read (ofs + cnt mus be <= 512) */
 )
 {
 	uint8_t cleanup __attribute__((__cleanup__(mmcsd_release))) = 1;
+	spi_start();
 	mcu_clear_output(SD_SPI_CS);
 
 	if (disk_status(0) & (STA_NOINIT | STA_NODISK))
@@ -713,16 +729,17 @@ DRESULT disk_readp(
 /*-----------------------------------------------------------------------*/
 
 DRESULT disk_writep(
-	const BYTE *buff, /* Pointer to the bytes to be written (NULL:Initiate/Finalize sector write) */
-	DWORD sector	  /* Number of bytes to send, Sector number (LBA) or zero */
+		const BYTE *buff, /* Pointer to the bytes to be written (NULL:Initiate/Finalize sector write) */
+		DWORD sector			/* Number of bytes to send, Sector number (LBA) or zero */
 )
 {
 	uint8_t error = RES_OK;
+	uint8_t cleanup __attribute__((__cleanup__(mmcsd_release))) = 1;
+	spi_start();
 	mcu_clear_output(SD_SPI_CS);
 
 	if (!mmcsd_card.initialized)
 	{
-		mmcsd_release(&error);
 		return RES_NOTRDY;
 	}
 
@@ -736,7 +753,6 @@ DRESULT disk_writep(
 
 	if (mmcsd_card.writeprotected)
 	{
-		mmcsd_release(&error);
 		return RES_WRPRT;
 	}
 
@@ -755,7 +771,6 @@ DRESULT disk_writep(
 		{
 			DEBUGSTR("SD card read error CMD24");
 			DEBUGINT(error);
-			mmcsd_release(&error);
 			return RES_ERROR;
 		}
 
@@ -772,7 +787,6 @@ DRESULT disk_writep(
 		if ((spi_xmit(0xFF) & 0x1F) != 0x05)
 		{
 			DEBUGSTR("data not accepted");
-			mmcsd_release(&error);
 			error = RES_ERROR;
 		}
 	}

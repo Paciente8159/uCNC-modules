@@ -7,6 +7,10 @@ This version uses FatFs. PetitFs might be implemented in the future
 
 ## Changelog
 
+### 2023-07-04
+
+- modified softspi interface to match improved softspi core module (#56)
+
 ### 2023-04-27
 
 - fixed module version checking
