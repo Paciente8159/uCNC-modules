@@ -394,8 +394,6 @@ void __attribute__((weak)) gd_draw_button(int16_t x0, int16_t y0, const char *s,
 	{
 		minw = ABS(minw);
 		x0 -= MAX(len + 5, minw);
-		serial_print_int(y0);
-		serial_flush();
 	}
 
 	if (minh < 0)
