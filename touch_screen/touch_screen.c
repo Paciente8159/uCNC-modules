@@ -15,11 +15,6 @@ extern "C"
 #define io0_config_output
 #define io0_set_output
 #define io0_clear_output
-#define io0_toggle_output
-#define io0_get_output
-#define io0_config_input
-#define io0_config_pullup
-#define io0_get_input
 #warning "Some touch screen pins are not defined"
 #endif
 
