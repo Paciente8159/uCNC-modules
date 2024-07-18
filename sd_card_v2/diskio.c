@@ -67,15 +67,7 @@
 #define SD_SPI_CS SPI_CS
 #endif
 SOFTSPI(mmcsd_spi, 100000UL, 0, SD_SPI_SDO, SD_SPI_SDI, SD_SPI_CLK);
-#define spi_speed(X) softspi_config(&mmcsd_spi, 0, X)
-#define spi_xmit(c) softspi_xmit(&mmcsd_spi, c)
-#if (UCNC_MODULE_VERSION < 10903)
-#define spi_start()
-#define spi_stop()
-#else
-#define spi_start() softspi_start(&mmcsd_spi)
-#define spi_stop() softspi_stop(&mmcsd_spi)
-#endif
+#define SD_SPI_PORT (&mmcsd_spi)
 #else
 #ifndef SD_SPI_CLK
 #define SD_SPI_CLK SPI_CLK
@@ -89,17 +81,7 @@ SOFTSPI(mmcsd_spi, 100000UL, 0, SD_SPI_SDO, SD_SPI_SDI, SD_SPI_CLK);
 #ifndef SD_SPI_CS
 #define SD_SPI_CS SPI_CS
 #endif
-#if (UCNC_MODULE_VERSION < 10903)
-#define spi_speed(X) softspi_config(NULL, 0, X)
-#define spi_xmit(c) softspi_xmit(NULL, c)
-#define spi_start()
-#define spi_stop()
-#else
-#define spi_speed(X) MCU_SPI->spifreq = X
-#define spi_xmit(c) softspi_xmit(MCU_SPI, c)
-#define spi_start() softspi_start(MCU_SPI)
-#define spi_stop() softspi_stop(MCU_SPI)
-#endif
+#define SD_SPI_PORT MCU_SPI
 #endif
 
 // #define SD_DEBUG
@@ -123,25 +105,27 @@ FORCEINLINE static void mmcsd_spi_speed(bool highspeed)
 {
 	if (highspeed)
 	{
-		spi_speed(18000000UL);
+		SD_SPI_PORT->spiconfig.spi.enable_dma = 1;
+		SD_SPI_PORT->spifreq = 18000000UL;
 	}
 	else
 	{
-		spi_speed(100000UL);
+		SD_SPI_PORT->spiconfig.spi.enable_dma = 0;
+		SD_SPI_PORT->spifreq = 100000UL;
 	}
 }
 
 void mmcsd_release(uint8_t *val)
 {
-	spi_stop();
+	softspi_stop(SD_SPI_PORT);
 	mcu_set_output(SD_SPI_CS);
-	spi_xmit(0xFF);
+	softspi_xmit(SD_SPI_PORT, 0xFF);
 }
 
 bool mmcsd_waittoken(uint8_t token)
 {
 	uint32_t timeout = MMCSD_TIMEOUT;
-	while ((spi_xmit(0xFF) != token) && (timeout > mcu_millis()))
+	while ((softspi_xmit(SD_SPI_PORT, 0xFF) != token) && (timeout > mcu_millis()))
 		;
 
 	if ((timeout <= mcu_millis()))
@@ -155,7 +139,7 @@ bool mmcsd_waittoken(uint8_t token)
 bool mmcsd_waitready(void)
 {
 	uint32_t timeout = MMCSD_TIMEOUT;
-	while (spi_xmit(0xFF) != 0xFF)
+	while (softspi_xmit(SD_SPI_PORT, 0xFF) != 0xFF)
 	{
 		if ((timeout < mcu_millis()))
 		{
@@ -177,14 +161,11 @@ bool mmcsd_response(uint8_t *result, uint16_t len, uint8_t token)
 		}
 	}
 
-	do
-	{
-		*result++ = spi_xmit(0xFF);
-	} while (--len);
+	softspi_bulk_xmit(SD_SPI_PORT, result, len);
 
 	// discard CRC
-	spi_xmit(0xFF);
-	spi_xmit(0xFF);
+	softspi_xmit(SD_SPI_PORT, 0xFF);
+	softspi_xmit(SD_SPI_PORT, 0xFF);
 	return true;
 }
 
@@ -192,20 +173,17 @@ bool mmcsd_message(const uint8_t *buff, uint16_t count, uint8_t token)
 {
 	do
 	{
-		spi_xmit(0xFF);
-		spi_xmit(token);
+		softspi_xmit(SD_SPI_PORT, 0xFF);
+		softspi_xmit(SD_SPI_PORT, token);
 
 		// sends data to buffer
-		for (uint32_t i = 0; i < 512; i++)
-		{
-			spi_xmit(*buff++);
-		}
+		softspi_bulk_xmit(SD_SPI_PORT, buff, 512);
 
 		// CRC dummy
-		spi_xmit(0xFF);
-		spi_xmit(0xFF);
+		softspi_xmit(SD_SPI_PORT, 0xFF);
+		softspi_xmit(SD_SPI_PORT, 0xFF);
 		// If not accepted, return with error
-		if ((spi_xmit(0xFF) & 0x1F) != 0x05)
+		if ((softspi_xmit(SD_SPI_PORT, 0xFF) & 0x1F) != 0x05)
 		{
 			DEBUGSTR("data not accepted");
 			return false;
@@ -224,7 +202,7 @@ bool mmcsd_message(const uint8_t *buff, uint16_t count, uint8_t token)
 	// sends token
 	if (token == 0xFC)
 	{
-		spi_xmit(0xFD);
+		softspi_xmit(SD_SPI_PORT, 0xFD);
 	}
 
 	return true;
@@ -252,23 +230,23 @@ FORCEINLINE static uint8_t mmcsd_command(uint8_t cmd, uint32_t arg, int8_t crc)
 #endif
 
 	mcu_set_output(SD_SPI_CS);
-	spi_xmit(0xFF);
+	softspi_xmit(SD_SPI_PORT, 0xFF);
 	mcu_clear_output(SD_SPI_CS);
-	spi_xmit(0xFF);
+	softspi_xmit(SD_SPI_PORT, 0xFF);
 
 	// sends command, arg and CRC
-	spi_xmit(packet[0]);
-	spi_xmit(packet[1]);
-	spi_xmit(packet[2]);
-	spi_xmit(packet[3]);
-	spi_xmit(packet[4]);
-	spi_xmit(packet[5]);
+	softspi_xmit(SD_SPI_PORT, packet[0]);
+	softspi_xmit(SD_SPI_PORT, packet[1]);
+	softspi_xmit(SD_SPI_PORT, packet[2]);
+	softspi_xmit(SD_SPI_PORT, packet[3]);
+	softspi_xmit(SD_SPI_PORT, packet[4]);
+	softspi_xmit(SD_SPI_PORT, packet[5]);
 
 	// returns response (R1 format)
 	uint8_t tries = MMCSD_MAX_NCR;
 	do
 	{
-		response = spi_xmit(0xFF);
+		response = softspi_xmit(SD_SPI_PORT, 0xFF);
 	} while ((response & 0x80) && tries--);
 
 	return response;
@@ -293,7 +271,7 @@ DSTATUS disk_status(BYTE pdrv)
 DRESULT disk_read(BYTE pdrv, BYTE *buff, DWORD sector, UINT count)
 {
 	uint8_t cleanup __attribute__((__cleanup__(mmcsd_release))) = 1;
-	spi_start();
+	softspi_start(SD_SPI_PORT);
 	mcu_clear_output(SD_SPI_CS);
 
 	if (disk_status(0) & (STA_NOINIT | STA_NODISK))
@@ -353,7 +331,7 @@ DRESULT disk_read(BYTE pdrv, BYTE *buff, DWORD sector, UINT count)
 		mmcsd_command(12, 0, 0xFF);
 		for (uint8_t i = 10; i != 0; i--)
 		{
-			spi_xmit(0xFF);
+			softspi_xmit(SD_SPI_PORT, 0xFF);
 		}
 	}
 
@@ -363,7 +341,7 @@ DRESULT disk_read(BYTE pdrv, BYTE *buff, DWORD sector, UINT count)
 DRESULT disk_write(BYTE pdrv, const BYTE *buff, DWORD sector, UINT count)
 {
 	uint8_t cleanup __attribute__((__cleanup__(mmcsd_release))) = 1;
-	spi_start();
+	softspi_start(SD_SPI_PORT);
 	mcu_clear_output(SD_SPI_CS);
 
 	if (!mmcsd_card.initialized)
@@ -425,7 +403,7 @@ DRESULT disk_write(BYTE pdrv, const BYTE *buff, DWORD sector, UINT count)
 		mmcsd_command(12, 0, 0xFF);
 		for (uint8_t i = 10; i != 0; i--)
 		{
-			spi_xmit(0xFF);
+			softspi_xmit(SD_SPI_PORT, 0xFF);
 		}
 	}
 
@@ -455,7 +433,8 @@ DRESULT disk_write(BYTE pdrv, const BYTE *buff, DWORD sector, UINT count)
 DSTATUS disk_initialize(BYTE pdrv)
 {
 	uint8_t cleanup __attribute__((__cleanup__(mmcsd_release))) = 1;
-	spi_start();
+	softspi_config(SD_SPI_PORT, {0});
+	softspi_start(SD_SPI_PORT);
 	mcu_clear_output(SD_SPI_CS);
 
 	uint8_t resp[4], crc41;
@@ -478,7 +457,7 @@ DSTATUS disk_initialize(BYTE pdrv)
 		mcu_set_output(SD_SPI_CS);
 		for (uint8_t i = 10; i != 0; i--)
 		{
-			spi_xmit(0xFF);
+			softspi_xmit(SD_SPI_PORT, 0xFF);
 		}
 
 		mcu_clear_output(SD_SPI_CS);
@@ -594,7 +573,7 @@ DSTATUS disk_initialize(BYTE pdrv)
 DRESULT disk_ioctl(BYTE pdrv, BYTE cmd, void *buff)
 {
 	uint8_t cleanup __attribute__((__cleanup__(mmcsd_release))) = 1;
-	spi_start();
+	softspi_start(SD_SPI_PORT);
 	mcu_clear_output(SD_SPI_CS);
 
 	switch (cmd)
@@ -658,7 +637,7 @@ DRESULT disk_readp(
 )
 {
 	uint8_t cleanup __attribute__((__cleanup__(mmcsd_release))) = 1;
-	spi_start();
+	softspi_start(SD_SPI_PORT);
 	mcu_clear_output(SD_SPI_CS);
 
 	if (disk_status(0) & (STA_NOINIT | STA_NODISK))
@@ -700,26 +679,26 @@ DRESULT disk_readp(
 	// discard offset
 	while (offset)
 	{
-		spi_xmit(0xFF);
+		softspi_xmit(SD_SPI_PORT, 0xFF);
 		offset--;
 	}
 
 	while (count)
 	{
-		*buff++ = spi_xmit(0xFF);
+		*buff++ = softspi_xmit(SD_SPI_PORT, 0xFF);
 		count--;
 	}
 
 	// discard reminder
 	while (reminder)
 	{
-		spi_xmit(0xFF);
+		softspi_xmit(SD_SPI_PORT, 0xFF);
 		reminder--;
 	}
 
 	// discard CRC
-	spi_xmit(0xFF);
-	spi_xmit(0xFF);
+	softspi_xmit(SD_SPI_PORT, 0xFF);
+	softspi_xmit(SD_SPI_PORT, 0xFF);
 
 	return RES_OK;
 }
@@ -735,7 +714,7 @@ DRESULT disk_writep(
 {
 	uint8_t error = RES_OK;
 	uint8_t cleanup __attribute__((__cleanup__(mmcsd_release))) = 1;
-	spi_start();
+	softspi_start(SD_SPI_PORT);
 	mcu_clear_output(SD_SPI_CS);
 
 	if (!mmcsd_card.initialized)
@@ -760,7 +739,7 @@ DRESULT disk_writep(
 	{
 		for (uint32_t i = 0; i < sector; i++)
 		{
-			spi_xmit(*buff++);
+			softspi_xmit(SD_SPI_PORT, *buff++);
 		}
 	}
 	else if (sector)
@@ -775,16 +754,16 @@ DRESULT disk_writep(
 		}
 
 		// start token
-		spi_xmit(0xFF);
-		spi_xmit(0xFE);
+		softspi_xmit(SD_SPI_PORT, 0xFF);
+		softspi_xmit(SD_SPI_PORT, 0xFE);
 	}
 	else
 	{
 		// CRC dummy
-		spi_xmit(0xFF);
-		spi_xmit(0xFF);
+		softspi_xmit(SD_SPI_PORT, 0xFF);
+		softspi_xmit(SD_SPI_PORT, 0xFF);
 		// If not accepted, return with error
-		if ((spi_xmit(0xFF) & 0x1F) != 0x05)
+		if ((softspi_xmit(SD_SPI_PORT, 0xFF) & 0x1F) != 0x05)
 		{
 			DEBUGSTR("data not accepted");
 			error = RES_ERROR;
