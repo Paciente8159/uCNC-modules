@@ -578,7 +578,7 @@ bool sd_card_cmd_parser(void *args)
 		*(cmd->error) = STATUS_OK;
 		return EVENT_HANDLED;
 	}
-	return GRBL_SYSTEM_CMD_EXTENDED_UNSUPPORTED;
+	return EVENT_CONTINUE;
 }
 
 CREATE_EVENT_LISTENER(grbl_cmd, sd_card_cmd_parser);
