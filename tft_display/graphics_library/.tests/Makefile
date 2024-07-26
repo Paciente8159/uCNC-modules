@@ -14,10 +14,10 @@ BIN = \
 
 CFLAGS = -g -O0 -DGFX_TESTING -DGFX_TEST_$(MAKE_TEST)
 
-run: tests
-	./tests
+run: obj/tests
+	obj/tests
 
-tests: $(BIN)
+obj/tests: $(BIN)
 	gcc -o $@ $(BIN)
 
 obj/%.o: %.c
