@@ -22,6 +22,7 @@ int main() {
 	RUN_TEST(simple_text);
 	RUN_TEST(simple_text_2);
 	RUN_TEST(simple_text_3);
+	RUN_TEST(simple_text_4);
 
 	printf("Run %d tests, %d succesful, %d failed\n", total, successful, total - successful);
 	return 0;

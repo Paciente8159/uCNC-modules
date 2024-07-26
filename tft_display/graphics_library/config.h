@@ -21,18 +21,13 @@
 #define GFX_RENDER_BUFFER_SIZE (32 * 1024)
 
 #ifdef GFX_TESTING
-#include "test/test_driver.h"
-IMPORT_FONT(TestFont);
-#define GFX_FONT TestFont
+#include ".tests/test_driver.h"
 
 #define GFX_AFTER_ELEMENT() 
 #define GFX_CTX_TIME() 0
 #else
 #include "../../../cnc.h"
 #include "../driver/ILI9486.h"
-
-IMPORT_FONT(FreeMonoBold12pt7b);
-#define GFX_FONT FreeMonoBold12pt7b
 
 #define GFX_AFTER_ELEMENT_HOOK() if(mcu_millis() - ctx->sc_time >= 3) \
 { \

@@ -20,19 +20,26 @@
 #include "../graphics_library.h"
 #include "test.h"
 
+IMPORT_FONT(TestFont);
+
 GFX_DECL_SCREEN(simple_text_screen) {
 	GFX_CLEAR(2);
-	GFX_TEXT(0, 0,  0, 1,  "\x01");
+	GFX_TEXT(0, 0,	0, 1, &TestFont, "\x01");
 }
 
 GFX_DECL_SCREEN(simple_text_screen_2) {
 	GFX_CLEAR(2);
-	GFX_TEXT(0, 0,  0, 1,  "\x01\x01");
+	GFX_TEXT(0, 0,	0, 1, &TestFont, "\x01\x01");
 }
 
 GFX_DECL_SCREEN(simple_text_screen_3) {
 	GFX_CLEAR(2);
-	GFX_TEXT(0, 0,  0, 1,  "\x02");
+	GFX_TEXT(0, 0,	0, 1, &TestFont, "\x02");
+}
+
+GFX_DECL_SCREEN(simple_text_screen_4) {
+	GFX_CLEAR(2);
+	GFX_TEXT(0, 0,	0, 1, &TestFont, 2, "\x01");
 }
 
 DECL_TEST(simple_text)
@@ -85,6 +92,29 @@ DECL_TEST(simple_text_3)
 	};
 
 	TEST_SCREEN(0, 0, 5, 6, expected);
+
+	return true;
+}
+
+DECL_TEST(simple_text_4)
+{
+	GFX_RENDER_SCREEN(simple_text_screen_4);
+
+	uint8_t expected[] = {
+		0, 0, 0, 0, 2,
+		0, 0, 0, 0, 2,
+		0, 0, 0, 0, 2,
+		0, 0, 0, 0, 2,
+		1, 1, 0, 0, 2,
+		1, 1, 0, 0, 2,
+		0, 0, 0, 0, 2,
+		0, 0, 0, 0, 2,
+		0, 0, 0, 0, 2,
+		0, 0, 0, 0, 2,
+		2, 2, 2, 2, 2,
+	};
+
+	TEST_SCREEN(0, 0, 5, 11, expected);
 
 	return true;
 }

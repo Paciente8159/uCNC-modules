@@ -23,7 +23,6 @@
 #ifndef GRAPHICS_LIBRARY_H
 #define GRAPHICS_LIBRARY_H
 
-#include "src/modules/tft_display/driver/ILI9486.h"
 #ifdef __cplusplus
 extern "C"
 {
@@ -75,6 +74,7 @@ extern void gfx_partial_render_area(screen_t *screen, uint16_t x, uint16_t y, ui
 #define GFX_YELLOW		GFX_COLOR(255, 255,	  0)
 #define GFX_WHITE			GFX_COLOR(255, 255, 255)
 
+#define GFX_DARK_GREEN			GFX_COLOR(  0, 128,	  0)
 
 #define GFX_DECL_SCREEN(name) void screen_##name##_render(screen_context_t* ctx)
 #define GFX_RENDER_SCREEN(name) gfx_render_screen(&screen_##name##_render)
@@ -118,7 +118,7 @@ extern void gfx_partial_render_area(screen_t *screen, uint16_t x, uint16_t y, ui
 extern void gfx_clear(screen_context_t *ctx, gfx_pixel_t color);
 extern void gfx_rect(screen_context_t *ctx, uint16_t x, uint16_t y, uint16_t width, uint16_t height, gfx_pixel_t color);
 extern void gfx_frame(screen_context_t *ctx, uint16_t x, uint16_t y, uint16_t width, uint16_t height, uint16_t thickness, gfx_pixel_t bg_color, gfx_pixel_t fg_color);
-extern void gfx_text(screen_context_t *ctx, uint16_t x, uint16_t y, gfx_pixel_t bg_color, gfx_pixel_t fg_color, const char* text);
+extern void gfx_text(screen_context_t *ctx, uint16_t x, uint16_t y, gfx_pixel_t bg_color, gfx_pixel_t fg_color, const struct BitmapFont *font, uint8_t scale, const char *text);
 
 /**
  * Clears the whole screen with a single color
@@ -163,11 +163,12 @@ extern void gfx_text(screen_context_t *ctx, uint16_t x, uint16_t y, gfx_pixel_t 
  */
 #define GFX_FRAME(...) __GFX_merge_2(GFX_FRAME_, __GFX_NARG(__VA_ARGS__))(__VA_ARGS__); GFX_AFTER_ELEMENT_HOOK()
 
-#define GFX_TEXT_static(x, y, bg, fg, text) if(ctx->sc_first_draw) gfx_text(ctx, x, y, bg, fg, text)
-#define GFX_TEXT_dynamic(x, y, bg, fg, text) gfx_text(ctx, x, y, bg, fg, text)
+#define GFX_TEXT_static(x, y, bg, fg, font, scale, text) if(ctx->sc_first_draw) gfx_text(ctx, x, y, bg, fg, font, scale, text)
+#define GFX_TEXT_dynamic(x, y, bg, fg, font, scale, text) gfx_text(ctx, x, y, bg, fg, font, scale, text)
 
-#define GFX_TEXT_5(...) GFX_TEXT_static(__VA_ARGS__)
-#define GFX_TEXT_6(x, y, bg, fg, text, dyn) __GFX_merge_2(GFX_TEXT_, dyn)(x, y, bg, fg, text)
+#define GFX_TEXT_6(x, y, bg, fg, font, text) GFX_TEXT_static(x, y, bg, fg, font, 1, text)
+#define GFX_TEXT_7(...) GFX_TEXT_static(__VA_ARGS__)
+#define GFX_TEXT_8(x, y, bg, fg, font, scale, text, dyn) __GFX_merge_2(GFX_TEXT_, dyn)(x, y, bg, fg, font, scale, text)
 
 /**
  * Draws a line of text
@@ -175,6 +176,8 @@ extern void gfx_text(screen_context_t *ctx, uint16_t x, uint16_t y, gfx_pixel_t 
  * \param y Starting y coordinate of the text
  * \param bg Background color of the text
  * \param fg Foreground color of the text
+ * \param font Font pointer
+ * \param scale Optional, text scale
  * \param text A string of text to draw
  * \param dynamic Optional, makes the text dynamically redrawn
  */

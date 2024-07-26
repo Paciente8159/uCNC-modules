@@ -20,7 +20,11 @@
 	See the	GNU General Public License for more details.
 */
 
-#ifdef ENABLE_GFX
+#ifndef GFX_TESTING
+#include "../../../cnc.h"
+#endif
+
+#if defined(ENABLE_GFX) | defined(GFX_TESTING)
 
 #include "graphics_library.h"
 
@@ -195,7 +199,7 @@ static inline bool gfx_font_bit(const uint8_t* bitmap, uint16_t char_offset, uin
 	return (byte >> ((~bit_pos) & 0x7)) & 1;
 }
 
-void gfx_text(screen_context_t *ctx, uint16_t x, uint16_t y, gfx_pixel_t bg_color, gfx_pixel_t fg_color, const char* text)
+void gfx_text(screen_context_t *ctx, uint16_t x, uint16_t y, gfx_pixel_t bg_color, gfx_pixel_t fg_color, const struct BitmapFont *font, uint8_t scale, const char *text)
 {
 	int16_t s_x = x - ctx->sc_x, s_y = y - ctx->sc_y;
 	if(s_y >= ctx->sc_height || s_x >= ctx->sc_width)
@@ -209,16 +213,16 @@ void gfx_text(screen_context_t *ctx, uint16_t x, uint16_t y, gfx_pixel_t bg_colo
 	// First we need to find the correct point in text
 	while((s_x + column) < 0)
 	{
-		if(*text < GFX_FONT.bf_firstChar || *text > GFX_FONT.bf_lastChar)
+		if(*text < font->bf_firstChar || *text > font->bf_lastChar)
 		{
 			++text;
 			continue;
 		}
 
-		uint8_t glyph_idx = *text - GFX_FONT.bf_firstChar;
-		const struct BitmapFontGlyph* glyph = GFX_FONT.bf_glyphs + glyph_idx;
+		uint8_t glyph_idx = *text - font->bf_firstChar;
+		const struct BitmapFontGlyph* glyph = font->bf_glyphs + glyph_idx;
 
-		if(s_x + glyph->bfg_xAdvance > 0)
+		if(s_x + glyph->bfg_xAdvance * scale > 0)
 		{
 			// Character crosses the boundary
 			// and isn't fully drawn
@@ -228,7 +232,7 @@ void gfx_text(screen_context_t *ctx, uint16_t x, uint16_t y, gfx_pixel_t bg_colo
 		else
 		{
 			// Character still not at the boundary
-			s_x += glyph->bfg_xAdvance;
+			s_x += glyph->bfg_xAdvance * scale;
 			++text;
 		}
 	}
@@ -242,19 +246,21 @@ void gfx_text(screen_context_t *ctx, uint16_t x, uint16_t y, gfx_pixel_t bg_colo
 			char c = *text++;
 			if(c == 0)
 				break;
-			if(c < GFX_FONT.bf_firstChar || c > GFX_FONT.bf_lastChar)
+			if(c < font->bf_firstChar || c > font->bf_lastChar)
 				continue;
-			glyph = GFX_FONT.bf_glyphs + c - GFX_FONT.bf_firstChar;
+			glyph = font->bf_glyphs + c - font->bf_firstChar;
 		}
 
-		const uint16_t bitmap_y_start = GFX_FONT.bf_lineHeight + glyph->bfg_yOffset;
-		const uint16_t bitmap_y_end = bitmap_y_start + glyph->bfg_height;
-		for(int16_t y = -GFX_MIN(0, s_y); y < GFX_FONT.bf_yAdvance && y + s_y < ctx->sc_height; ++y)
+		const int16_t bitmap_y_start = (font->bf_lineHeight + glyph->bfg_yOffset) * scale;
+		const int16_t bitmap_y_end = bitmap_y_start + glyph->bfg_height * scale;
+		const int16_t bitmap_x_start = glyph->bfg_xOffset * scale;
+		const int16_t bitmap_x_end = bitmap_x_start + glyph->bfg_width * scale;
+		for(int16_t y = -GFX_MIN(0, s_y); y < font->bf_yAdvance * scale && y + s_y < ctx->sc_height; ++y)
 		{
 			if(y >= bitmap_y_start && y < bitmap_y_end &&
-				column >= glyph->bfg_xOffset && column < glyph->bfg_xOffset + glyph->bfg_width)
+				column >= bitmap_x_start && column < bitmap_x_end)
 			{
-				bool bit = gfx_font_bit(GFX_FONT.bf_bitmap, glyph->bfg_bitmapOffset, column - glyph->bfg_xOffset, y - bitmap_y_start, glyph->bfg_width);
+				bool bit = gfx_font_bit(font->bf_bitmap, glyph->bfg_bitmapOffset, (column - bitmap_x_start) / scale, (y - bitmap_y_start) / scale, glyph->bfg_width);
 				GFX_BUFFER(s_x + column, s_y + y) = bit ? fg_color : bg_color;
 			}
 			else
@@ -263,7 +269,7 @@ void gfx_text(screen_context_t *ctx, uint16_t x, uint16_t y, gfx_pixel_t bg_colo
 			}
 		}
 
-		if(++column >= glyph->bfg_xAdvance)
+		if(++column >= glyph->bfg_xAdvance * scale)
 		{
 			s_x += column;
 			glyph = 0;
