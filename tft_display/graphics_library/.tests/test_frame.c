@@ -21,6 +21,7 @@
 #include "test.h"
 
 GFX_DECL_SCREEN(simple_frame_screen) {
+	GFX_SCREEN_HEADER();
 	GFX_CLEAR(0);
 	GFX_FRAME(1, 1, 3, 3, 1, 0, 0x01);
 }

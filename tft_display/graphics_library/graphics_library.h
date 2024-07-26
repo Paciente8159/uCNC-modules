@@ -79,6 +79,12 @@ extern void gfx_partial_render_area(screen_t *screen, uint16_t x, uint16_t y, ui
 #define GFX_DECL_SCREEN(name) void screen_##name##_render(screen_context_t* ctx)
 #define GFX_RENDER_SCREEN(name) gfx_render_screen(&screen_##name##_render)
 
+#define GFX_SCREEN_HEADER() \
+	const struct BitmapFont *__gfx_current_font = 0; \
+	uint8_t __gfx_font_size = 1; \
+	gfx_pixel_t __gfx_last_background = 0; \
+	uint16_t __gfx_rel_x = 0, __gfx_rel_y = 0;
+
 
 #define GFX_DECL_PARTIAL_RENDER(name) void partial_render_##name(screen_t *screen, bool full_render)
 #define GFX_RENDER_PARTIAL(name, screen) gfx_partial_render(&partial_render_##name, &screen_##screen##_render)
@@ -95,6 +101,7 @@ extern void gfx_partial_render_area(screen_t *screen, uint16_t x, uint16_t y, ui
 #define __GFX_merge_2_(a, b) a##b
 #define __GFX_merge_2(a, b) __GFX_merge_2_(a, b)
 
+#define __GFX_VAFUNC(name, ...) __GFX_merge_2(name##_, __GFX_NARG(__VA_ARGS__))(__VA_ARGS__)
 
 #define GFX_MIN_1(a) (a)
 #define GFX_MIN_2(a, b) ((a) < (b) ? (a) : (b))
@@ -111,7 +118,15 @@ extern void gfx_partial_render_area(screen_t *screen, uint16_t x, uint16_t y, ui
 
 #define GFX_MAX(...) __GFX_merge_2(GFX_MAX_, __GFX_NARG(__VA_ARGS__))(__VA_ARGS__)
 
+
+#define GFX_ABS(x, y) x, y
+#define GFX_REL(x, y) __gfx_rel_x + (x), __gfx_rel_y + (y)
+
 /***** -------======= Graphics library functions =======------- *****/
+/**
+ * Most of the drawing functions accept a _dynamic suffix in their name
+ * which allows these elements to be redrawn on a screen redraw.
+ */
 
 #define GFX_BUFFER(x, y) ctx->sc_buffer[(x) + (y) * ctx->sc_width]
 
@@ -122,15 +137,25 @@ extern void gfx_text(screen_context_t *ctx, uint16_t x, uint16_t y, gfx_pixel_t 
 
 /**
  * Clears the whole screen with a single color
+ * \param color Clear color
+ * GFX_CLEAR(color)
  */
-#define GFX_CLEAR(color) if(ctx->sc_first_draw) gfx_clear(ctx, color); GFX_AFTER_ELEMENT_HOOK()
+#define GFX_CLEAR(color) \
+	if(ctx->sc_first_draw) gfx_clear(ctx, color); \
+	__gfx_last_background = color; \
+	GFX_AFTER_ELEMENT_HOOK()
 
 
-#define GFX_RECT_static(x, y, width, height, color) if(ctx->sc_first_draw) gfx_rect(ctx, x, y, width, height, color)
-#define GFX_RECT_dynamic(x, y, width, height, color) gfx_rect(ctx, x, y, width, height, color)
+#define _GFX_RECT_static(x, y, width, height, color) \
+	if(ctx->sc_first_draw) gfx_rect(ctx, x, y, width, height, color); \
+	__gfx_rel_x = x; __gfx_rel_y = y; \
+	__gfx_last_background = color
+#define _GFX_RECT_dynamic(x, y, width, height, color) \
+	gfx_rect(ctx, x, y, width, height, color); \
+	__gfx_rel_x = x; __gfx_rel_y = y; \
+	__gfx_last_background = color
 
-#define GFX_RECT_5(...) GFX_RECT_static(__VA_ARGS__)
-#define GFX_RECT_6(x, y, width, height, color, dyn) __GFX_merge_2(GFX_RECT_, dyn)(x, y, width, height, color)
+#define GFX_RECT_6(dyn, ...) __GFX_merge_2(_GFX_RECT_, dyn)(__VA_ARGS__)
 
 /**
  * Draws a rectangle of the given color and dimensions
@@ -139,16 +164,22 @@ extern void gfx_text(screen_context_t *ctx, uint16_t x, uint16_t y, gfx_pixel_t 
  * \param width Width of the rectangle
  * \param height Height of the rectangle
  * \param color Fill color of the rectangle
- * \param dynamic Optional, makes the rectangle dynamically redrawn
+ * GFX_RECT[_dynamic](x, y, width, height, color)
  */
-#define GFX_RECT(...) __GFX_merge_2(GFX_RECT_, __GFX_NARG(__VA_ARGS__))(__VA_ARGS__); GFX_AFTER_ELEMENT_HOOK()
+#define GFX_RECT(...) __GFX_VAFUNC(GFX_RECT, static, __VA_ARGS__); GFX_AFTER_ELEMENT_HOOK()
+#define GFX_RECT_dynamic(x, y, width, height, color) __GFX_VAFUNC(GFX_RECT, dynamic, __VA_ARGS__); GFX_AFTER_ELEMENT_HOOK()
 
 
-#define GFX_FRAME_static(x, y, width, height, thickness, bg, fg) if(ctx->sc_first_draw) gfx_frame(ctx, x, y, width, height, thickness, bg, fg)
-#define GFX_FRAME_dynamic(x, y, width, height, thickness, bg, fg) gfx_frame(ctx, x, y, width, height, thickness, bg, fg)
+#define _GFX_FRAME_static(x, y, w, h, t, bg, fg) \
+	if(ctx->sc_first_draw) gfx_frame(ctx, x, y, w, h, t, bg, fg); \
+	__gfx_rel_x = (x) + (t); __gfx_rel_y = (y) + (t); \
+	__gfx_last_background = bg
+#define _GFX_FRAME_dynamic(x, y, w, h, t, bg, fg) \
+	gfx_frame(ctx, x, y, w, h, t, bg, fg); \
+	__gfx_rel_x = (x) + (t); __gfx_rel_y = (y) + (t); \
+	__gfx_last_background = bg
 
-#define GFX_FRAME_7(...) GFX_FRAME_static(__VA_ARGS__)
-#define GFX_FRAME_8(x, y, w, h, t, bg, fg, dyn) __GFX_merge_2(GFX_FRAME_, dyn)(x, y, w, h, t, bg, fg)
+#define GFX_FRAME_8(dyn, ...) __GFX_merge_2(_GFX_FRAME_, dyn)(__VA_ARGS__)
 
 /**
  * Draws a rectangle with an outer border
@@ -159,29 +190,34 @@ extern void gfx_text(screen_context_t *ctx, uint16_t x, uint16_t y, gfx_pixel_t 
  * \param thickness Border thickness
  * \param bg Color of the inner fill
  * \param fg Color of the border
- * \param dynamic Optional, makes the frame dynamically redrawn
+ * GFX_FRAME[_dynamic](x, y, width, height, thickness, bg, fg)
  */
-#define GFX_FRAME(...) __GFX_merge_2(GFX_FRAME_, __GFX_NARG(__VA_ARGS__))(__VA_ARGS__); GFX_AFTER_ELEMENT_HOOK()
+#define GFX_FRAME(...) __GFX_VAFUNC(GFX_FRAME, static, __VA_ARGS__); GFX_AFTER_ELEMENT_HOOK()
+#define GFX_FRAME_dynamic(...) __GFX_VAFUNC(GFX_FRAME, dynamic, __VA_ARGS__); GFX_AFTER_ELEMENT_HOOK()
 
-#define GFX_TEXT_static(x, y, bg, fg, font, scale, text) if(ctx->sc_first_draw) gfx_text(ctx, x, y, bg, fg, font, scale, text)
-#define GFX_TEXT_dynamic(x, y, bg, fg, font, scale, text) gfx_text(ctx, x, y, bg, fg, font, scale, text)
+#define GFX_SET_FONT(font, size) __gfx_current_font = font; __gfx_font_size = size
 
-#define GFX_TEXT_6(x, y, bg, fg, font, text) GFX_TEXT_static(x, y, bg, fg, font, 1, text)
-#define GFX_TEXT_7(...) GFX_TEXT_static(__VA_ARGS__)
-#define GFX_TEXT_8(x, y, bg, fg, font, scale, text, dyn) __GFX_merge_2(GFX_TEXT_, dyn)(x, y, bg, fg, font, scale, text)
+#define _GFX_TEXT_static(x, y, bg, fg, font, scale, text) if(ctx->sc_first_draw) gfx_text(ctx, x, y, bg, fg, font, scale, text)
+#define _GFX_TEXT_dynamic(x, y, bg, fg, font, scale, text) gfx_text(ctx, x, y, bg, fg, font, scale, text)
+
+#define GFX_TEXT_8(dyn, x, y, bg, fg, font, scale, text) __GFX_merge_2(_GFX_TEXT_, dyn)(x, y, bg, fg, font, scale, text)
+#define GFX_TEXT_6(dyn, x, y, bg, fg, text) GFX_TEXT_8(dyn, x, y, bg, fg, __gfx_current_font, __gfx_font_size, text)
+#define GFX_TEXT_5(dyn, x, y, fg, text) GFX_TEXT_6(dyn, x, y, __gfx_last_background, fg, text)
+#define GFX_TEXT_7(dyn, x, y, fg, font, scale, text) GFX_TEXT_8(dyn, x, y, __gfx_last_background, fg, font, scale, text)
 
 /**
- * Draws a line of text
+ * Draws a line of text (This function doesn't do multiline text!)
  * \param x Starting x coordinate of the text
  * \param y Starting y coordinate of the text
  * \param bg Background color of the text
  * \param fg Foreground color of the text
  * \param font Font pointer
- * \param scale Optional, text scale
+ * \param scale Text scale
  * \param text A string of text to draw
- * \param dynamic Optional, makes the text dynamically redrawn
+ * GFX_TEXT[_dynamic](x, y, [bg], fg, [font, size], text)
  */
-#define GFX_TEXT(...) __GFX_merge_2(GFX_TEXT_, __GFX_NARG(__VA_ARGS__))(__VA_ARGS__); GFX_AFTER_ELEMENT_HOOK()
+#define GFX_TEXT(...) __GFX_VAFUNC(GFX_TEXT, static, __VA_ARGS__); GFX_AFTER_ELEMENT_HOOK()
+#define GFX_TEXT_dynamic(...) __GFX_VAFUNC(GFX_TEXT, dynamic, __VA_ARGS__); GFX_AFTER_ELEMENT_HOOK()
 
 #ifdef __cplusplus
 }

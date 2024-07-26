@@ -21,6 +21,7 @@
 #include "test.h"
 
 GFX_DECL_SCREEN(simple_clear_screen) {
+	GFX_SCREEN_HEADER();
 	GFX_CLEAR(0xf0);
 }
 

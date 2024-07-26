@@ -21,6 +21,8 @@
 #include "test.h"
 
 GFX_DECL_SCREEN(simple_rect_screen) {
+	GFX_SCREEN_HEADER();
+
 	GFX_CLEAR(0);
 	GFX_RECT(1, 1, 2, 2, 1);
 }

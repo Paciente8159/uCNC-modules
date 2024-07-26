@@ -23,21 +23,25 @@
 IMPORT_FONT(TestFont);
 
 GFX_DECL_SCREEN(simple_text_screen) {
+	GFX_SCREEN_HEADER();
 	GFX_CLEAR(2);
-	GFX_TEXT(0, 0,	0, 1, &TestFont, "\x01");
+	GFX_TEXT(0, 0,	0, 1, &TestFont, 1, "\x01");
 }
 
 GFX_DECL_SCREEN(simple_text_screen_2) {
+	GFX_SCREEN_HEADER();
 	GFX_CLEAR(2);
-	GFX_TEXT(0, 0,	0, 1, &TestFont, "\x01\x01");
+	GFX_TEXT(0, 0,	0, 1, &TestFont, 1, "\x01\x01");
 }
 
 GFX_DECL_SCREEN(simple_text_screen_3) {
+	GFX_SCREEN_HEADER();
 	GFX_CLEAR(2);
-	GFX_TEXT(0, 0,	0, 1, &TestFont, "\x02");
+	GFX_TEXT(0, 0,	0, 1, &TestFont, 1, "\x02");
 }
 
 GFX_DECL_SCREEN(simple_text_screen_4) {
+	GFX_SCREEN_HEADER();
 	GFX_CLEAR(2);
 	GFX_TEXT(0, 0,	0, 1, &TestFont, 2, "\x01");
 }
@@ -114,6 +118,7 @@ DECL_TEST(simple_text_4)
 		2, 2, 2, 2, 2,
 	};
 
+	DUMP_SCREEN(0, 0, 5, 11);
 	TEST_SCREEN(0, 0, 5, 11, expected);
 
 	return true;

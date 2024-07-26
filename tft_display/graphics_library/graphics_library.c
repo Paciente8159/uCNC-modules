@@ -202,7 +202,7 @@ static inline bool gfx_font_bit(const uint8_t* bitmap, uint16_t char_offset, uin
 void gfx_text(screen_context_t *ctx, uint16_t x, uint16_t y, gfx_pixel_t bg_color, gfx_pixel_t fg_color, const struct BitmapFont *font, uint8_t scale, const char *text)
 {
 	int16_t s_x = x - ctx->sc_x, s_y = y - ctx->sc_y;
-	if(s_y >= ctx->sc_height || s_x >= ctx->sc_width)
+	if(s_y >= ctx->sc_height || s_x >= ctx->sc_width || s_y + font->bf_yAdvance * scale < 0)
 	{
 		// Out of requested range
 		return;

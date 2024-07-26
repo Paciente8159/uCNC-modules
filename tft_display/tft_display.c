@@ -23,6 +23,7 @@
 #include "src/module.h"
 
 #include "graphics_library/fonts/freemonobold12pt7b.h"
+#include "graphics_library/fonts/symbols_8x8.h"
 
 #ifndef TFT_LCD_CS
 #define TFT_LCD_CS DOUT0
@@ -136,26 +137,33 @@ void tft_blit(uint16_t x, uint16_t y, uint16_t w, uint16_t h, const gfx_pixel_t 
 #define TOP_BAR GFX_COLOR(0, 0, 178)
 
 #define FONT_MONO &FreeMonoBold12pt7b
+#define FONT_SYMBOL &Symbols8x8
 
 #define BOX_INSET(x, y, w, h) \
 	GFX_RECT(x, y, w, 3, BORDER_DARK); \
 	GFX_RECT(x, (y) + 3, 3, (h) - 3, BORDER_DARK); \
 	GFX_RECT((x) + (w) - 3, (y) + 3, 3, (h) - 3, BORDER_LIGHT); \
 	GFX_RECT((x) + 3, (y) + (h) - 3, (w) - 3, 3, BORDER_LIGHT); \
-	GFX_RECT((x) + 3, (y) + 3, (w) - 6, (h) - 6, BOX_BACKGROUND);
+	GFX_RECT((x) + 3, (y) + 3, (w) - 6, (h) - 6, BOX_BACKGROUND); \
+	__gfx_rel_x = x; __gfx_rel_y = y;
 
 #define BOX_OUTSET(x, y, w, h) \
 	GFX_RECT(x, y, w, 3, BORDER_LIGHT); \
 	GFX_RECT(x, (y) + 3, 3, (h) - 3, BORDER_LIGHT); \
 	GFX_RECT((x) + (w) - 3, (y) + 3, 3, (h) - 3, BORDER_DARK); \
 	GFX_RECT((x) + 3, (y) + (h) - 3, (w) - 3, 3, BORDER_DARK); \
-	GFX_RECT((x) + 3, (y) + 3, (w) - 6, (h) - 6, BOX_BACKGROUND);
+	GFX_RECT((x) + 3, (y) + 3, (w) - 6, (h) - 6, BOX_BACKGROUND); \
+	__gfx_rel_x = x; __gfx_rel_y = y;
 
 GFX_DECL_SCREEN(main)
 {
+	GFX_SCREEN_HEADER();
+	GFX_SET_FONT(FONT_MONO, 1);
+
 	GFX_CLEAR(BASE_BACKGROUND);
 
-	GFX_RECT(0, 0, GFX_DISPLAY_WIDTH, 20, TOP_BAR);
+	GFX_RECT(0, 0, GFX_DISPLAY_WIDTH, 22, TOP_BAR);
+	GFX_TEXT(3, 3, GFX_WHITE, FONT_SYMBOL, 2, "\x01");
 
 	BOX_OUTSET(0, 30, 50, 50);
 	BOX_OUTSET(0, 115, 50, 50);
@@ -164,26 +172,26 @@ GFX_DECL_SCREEN(main)
 	/* Coordinates */
 	BOX_INSET(70, 30, 168, 111);
 
-	GFX_TEXT(80,	40, BOX_BACKGROUND, GFX_RED, FONT_MONO, "X");
-	GFX_TEXT(80,	75, BOX_BACKGROUND, GFX_DARK_GREEN, FONT_MONO, "Y");
-	GFX_TEXT(80, 110, BOX_BACKGROUND, GFX_BLUE, FONT_MONO, "Z");
+	GFX_TEXT(GFX_REL(10, 10), GFX_RED, "X");
+	GFX_TEXT(GFX_REL(10, 45), GFX_DARK_GREEN, "Y");
+	GFX_TEXT(GFX_REL(10, 80), GFX_BLUE, "Z");
 	
-	GFX_TEXT(145,  40, BOX_BACKGROUND, GFX_BLACK, FONT_MONO, "000.00");
-	GFX_TEXT(145,  75, BOX_BACKGROUND, GFX_BLACK, FONT_MONO, "000.00");
-	GFX_TEXT(145, 110, BOX_BACKGROUND, GFX_BLACK, FONT_MONO, "000.00");
+	GFX_TEXT(GFX_REL(75, 10), GFX_BLACK, "000.00");
+	GFX_TEXT(GFX_REL(75, 45), GFX_BLACK, "000.00");
+	GFX_TEXT(GFX_REL(75, 80), GFX_BLACK, "000.00");
 
 	/* Feed and Spindle */
 	BOX_INSET(70, 150, 168, 75);
 
-	GFX_TEXT(80, 160, BOX_BACKGROUND, GFX_BLACK, FONT_MONO, "F");
-	GFX_TEXT(145 + 28, 160, BOX_BACKGROUND, GFX_BLACK, FONT_MONO, "0000");
+	GFX_TEXT(GFX_REL(10, 10), GFX_BLACK, "F");
+	GFX_TEXT(GFX_REL(75 + 28, 10), GFX_BLACK, "0000");
 
-	GFX_TEXT(80, 195, BOX_BACKGROUND, GFX_BLACK, FONT_MONO, "S");
-	GFX_TEXT(145 + 14, 195, BOX_BACKGROUND, GFX_BLACK, FONT_MONO, "00000");
+	GFX_TEXT(GFX_REL(10, 45), GFX_BLACK, "S");
+	GFX_TEXT(GFX_REL(75 + 14, 45), GFX_BLACK, "00000");
 
 	/* Status */
 	BOX_INSET(70, 235, 168, 37);
-	GFX_TEXT(80, 243, BOX_BACKGROUND, GFX_BLACK, FONT_MONO, "Alarm");
+	GFX_TEXT(GFX_REL(10, 8), GFX_BLACK, "Alarm");
 }
 
 DECL_MODULE(tft_display)
