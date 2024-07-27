@@ -192,10 +192,10 @@ void gfx_frame(screen_context_t *ctx, uint16_t x, uint16_t y, uint16_t width, ui
 	ctx->sc_dirty = true;
 }
 
-static inline bool gfx_font_bit(const uint8_t* bitmap, uint16_t char_offset, uint8_t char_x, uint8_t char_y, uint8_t char_width)
+static inline bool gfx_bitmap_bit(const uint8_t* bitmap, uint8_t x, uint8_t y, uint8_t width)
 {
-	const uint16_t bit_pos = char_x + char_y * char_width;
-	const uint8_t byte = bitmap[char_offset + (bit_pos >> 3)];
+	const uint16_t bit_pos = x + y * width;
+	const uint8_t byte = bitmap[bit_pos >> 3];
 	return (byte >> ((~bit_pos) & 0x7)) & 1;
 }
 
@@ -260,7 +260,7 @@ void gfx_text(screen_context_t *ctx, uint16_t x, uint16_t y, gfx_pixel_t bg_colo
 			if(y >= bitmap_y_start && y < bitmap_y_end &&
 				column >= bitmap_x_start && column < bitmap_x_end)
 			{
-				bool bit = gfx_font_bit(font->bf_bitmap, glyph->bfg_bitmapOffset, (column - bitmap_x_start) / scale, (y - bitmap_y_start) / scale, glyph->bfg_width);
+				bool bit = gfx_bitmap_bit(font->bf_bitmap + glyph->bfg_bitmapOffset, (column - bitmap_x_start) / scale, (y - bitmap_y_start) / scale, glyph->bfg_width);
 				GFX_BUFFER(s_x + column, s_y + y) = bit ? fg_color : bg_color;
 			}
 			else
@@ -274,6 +274,28 @@ void gfx_text(screen_context_t *ctx, uint16_t x, uint16_t y, gfx_pixel_t bg_colo
 			s_x += column;
 			glyph = 0;
 			column = 0;
+		}
+	}
+
+	ctx->sc_dirty = true;
+}
+
+void gfx_bitmap(screen_context_t *ctx, uint16_t x, uint16_t y, uint16_t width, uint16_t height, gfx_pixel_t bg_color, gfx_pixel_t fg_color, const void *bitmap, uint8_t scale)
+{
+
+	const int16_t s_x = x - ctx->sc_x, s_y = y - ctx->sc_y;
+	const int16_t e_x = s_x + width * scale, e_y = s_y + height * scale;
+	if(e_y < 0 || e_x < 0 || s_y >= ctx->sc_height || s_x >= ctx->sc_width)
+	{
+		// Out of requested range
+		return;
+	}
+
+	for(int16_t y = -GFX_MIN(0, s_y); y < height * scale && s_y + y < ctx->sc_height; ++y)
+	{
+		for(int16_t x = -GFX_MIN(0, s_x); x < width * scale && s_x < ctx->sc_width; ++x)
+		{
+			GFX_BUFFER(s_x + x, s_y + y) = gfx_bitmap_bit(bitmap, x / scale, y / scale, width) ? fg_color : bg_color;
 		}
 	}
 

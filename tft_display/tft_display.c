@@ -23,6 +23,7 @@
 #include "src/module.h"
 
 #include "graphics_library/fonts/freemonobold12pt7b.h"
+#include "graphics_library/fonts/freesans9pt7b.h"
 #include "graphics_library/fonts/symbols_8x8.h"
 
 #ifndef TFT_LCD_CS
@@ -38,7 +39,7 @@
 #endif
 
 #ifndef TFT_SPI_FREQ
-#define TFT_SPI_FREQ 5000000
+#define TFT_SPI_FREQ 10000000
 #endif
 
 /**
@@ -130,14 +131,24 @@ void tft_blit(uint16_t x, uint16_t y, uint16_t w, uint16_t h, const gfx_pixel_t 
 	tft_bulk_data((const uint8_t*)data, w * h * sizeof(uint16_t));
 }
 
-#define BASE_BACKGROUND GFX_COLOR(229, 229, 229)
-#define BORDER_DARK GFX_COLOR(153, 153, 153)
-#define BORDER_LIGHT GFX_COLOR(204, 204, 204)
-#define BOX_BACKGROUND GFX_COLOR(242, 242, 242)
-#define TOP_BAR GFX_COLOR(0, 0, 178)
+#define BASE_BACKGROUND GFX_COLOR(0xe5e5e5) // GFX_COLOR(229, 229, 229)
+#define BORDER_DARK GFX_COLOR(0x999999) //GFX_COLOR(153, 153, 153)
+#define BORDER_LIGHT GFX_COLOR(0xcccccc) //GFX_COLOR(204, 204, 204)
+#define BOX_BACKGROUND GFX_COLOR(0xf2f2f2) //GFX_COLOR(242, 242, 242)
+#define TOP_BAR GFX_COLOR(0x0000B2) //GFX_COLOR(0, 0, 178)
+#define CHARCOAL GFX_COLOR(0x2d2d2d) //GFX_COLOR(45, 45, 45)
 
 #define FONT_MONO &FreeMonoBold12pt7b
+#define FONT_SANS &FreeSans9pt7b
 #define FONT_SYMBOL &Symbols8x8
+
+const uint8_t MoveBitmap_20x20[] = {
+	0, 96, 0, 15, 0, 1, 248, 0, 6, 0, 0, 96, 0, 6, 0, 0, 96, 2, 0, 4, 96, 96, 111, 239, 127, 254, 247, 246, 6, 6, 32, 0, 64, 6, 0, 0, 96, 0, 6, 0, 0, 96, 0, 31, 128, 0, 240, 0, 6, 0
+};
+
+const uint8_t ZeroPosBitmap_15x14[] = {
+	192, 192, 195, 0, 132, 1, 152, 1, 32, 3, 192, 3, 0, 6, 0, 30, 12, 36, 36, 204, 73, 8, 150, 25, 56, 25
+};
 
 #define BOX_INSET(x, y, w, h) \
 	GFX_RECT(x, y, w, 3, BORDER_DARK); \
@@ -163,11 +174,17 @@ GFX_DECL_SCREEN(main)
 	GFX_CLEAR(BASE_BACKGROUND);
 
 	GFX_RECT(0, 0, GFX_DISPLAY_WIDTH, 22, TOP_BAR);
-	GFX_TEXT(3, 3, GFX_WHITE, FONT_SYMBOL, 2, "\x01");
+	GFX_TEXT(GFX_DISPLAY_WIDTH - 19, 3, GFX_WHITE, FONT_SYMBOL, 2, "\x01");
+	GFX_TEXT(2, 0, GFX_WHITE, FONT_SANS, 1, "G54 Abs [mm] T1");
 
 	BOX_OUTSET(0, 30, 50, 50);
+	GFX_BITMAP(GFX_REL(9, 11), 15, 14, BOX_BACKGROUND, CHARCOAL, ZeroPosBitmap_15x14, 2);
+
 	BOX_OUTSET(0, 115, 50, 50);
+	GFX_BITMAP(GFX_REL(5, 5), 20, 20, BOX_BACKGROUND, CHARCOAL, MoveBitmap_20x20, 2);
+
 	BOX_OUTSET(0, 200, 50, 50);
+
 
 	/* Coordinates */
 	BOX_INSET(70, 30, 168, 111);

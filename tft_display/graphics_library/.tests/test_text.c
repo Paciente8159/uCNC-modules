@@ -118,7 +118,6 @@ DECL_TEST(simple_text_4)
 		2, 2, 2, 2, 2,
 	};
 
-	DUMP_SCREEN(0, 0, 5, 11);
 	TEST_SCREEN(0, 0, 5, 11, expected);
 
 	return true;

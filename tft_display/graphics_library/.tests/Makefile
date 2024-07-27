@@ -5,7 +5,8 @@ BIN = \
 	obj/test_clear.o \
 	obj/test_rect.o \
 	obj/test_frame.o \
-	obj/test_text.o
+	obj/test_text.o \
+	obj/test_bitmap.o
 
 # Valid tests are:
 #   ALL_AT_ONCE

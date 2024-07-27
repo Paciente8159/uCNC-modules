@@ -127,7 +127,7 @@ typedef uint16_t gfx_pixel_t;
 /*
  * To achieve proper bit order we need to swap the bytes
  */
-#define GFX_COLOR(r, g, b) \
+#define GFX_COLOR_INTERNAL(r, g, b) \
   (((gfx_pixel_t)((r) * 0x1F / 255) & 0x1F) << 3) | \
   (((gfx_pixel_t)((g) * 0x3F / 255) & 0b111000) >> 3) | \
   (((gfx_pixel_t)((g) * 0x3F / 255) & 0b000111) << 13) | \

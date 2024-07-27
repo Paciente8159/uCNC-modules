@@ -42,7 +42,7 @@ extern "C"
 
 typedef uint8_t gfx_pixel_t;
 
-#define GFX_COLOR(r, g, b) ((((r) * 3 / 255) << 4) | (((g) * 3 / 255) << 2) | ((b) * 3 / 255))
+#define GFX_COLOR_INTERNAL(r, g, b) ((((r) * 3 / 255) << 4) | (((g) * 3 / 255) << 2) | ((b) * 3 / 255))
 
 extern void blit(uint8_t x, uint8_t y, uint8_t w, uint8_t h, const gfx_pixel_t* pixels);
 #define GFX_BLIT(x, y, w, h, pixels) blit(x, y, w, h, pixels);

@@ -36,7 +36,7 @@ typedef uint16_t gfx_pixel_t;
 
 // Define a macro to encode standard RGB values into the pixel type
 // This macro is expected to take in 8 bit values (0-255)
-#define GFX_COLOR(r, g, b) ((((r) * 31 / 255) << 10) | (((g) * 31 / 255) << 5) | ((b) * 31 / 255))
+#define GFX_COLOR_INTERNAL(r, g, b) ((((r) * 31 / 255) << 10) | (((g) * 31 / 255) << 5) | ((b) * 31 / 255))
 
 // Define the blit method used for displaying pixels onto the screen
 #define GFX_BLIT(x, y, w, h, pixels) display_blit(x, y, w, h, pixels);

@@ -130,10 +130,16 @@ extern void gfx_partial_render_area(screen_t *screen, uint16_t x, uint16_t y, ui
 
 #define GFX_BUFFER(x, y) ctx->sc_buffer[(x) + (y) * ctx->sc_width]
 
+#define GFX_COLOR_3(r, g, b) GFX_COLOR_INTERNAL(r, g, b)
+#define GFX_COLOR_1(rgb_hex) GFX_COLOR_INTERNAL(((rgb_hex) >> 16) & 0xFF, ((rgb_hex) >> 8) & 0xFF, (rgb_hex) & 0xFF)
+
+#define GFX_COLOR(...) __GFX_VAFUNC(GFX_COLOR, __VA_ARGS__)
+
 extern void gfx_clear(screen_context_t *ctx, gfx_pixel_t color);
 extern void gfx_rect(screen_context_t *ctx, uint16_t x, uint16_t y, uint16_t width, uint16_t height, gfx_pixel_t color);
 extern void gfx_frame(screen_context_t *ctx, uint16_t x, uint16_t y, uint16_t width, uint16_t height, uint16_t thickness, gfx_pixel_t bg_color, gfx_pixel_t fg_color);
 extern void gfx_text(screen_context_t *ctx, uint16_t x, uint16_t y, gfx_pixel_t bg_color, gfx_pixel_t fg_color, const struct BitmapFont *font, uint8_t scale, const char *text);
+extern void gfx_bitmap(screen_context_t *ctx, uint16_t x, uint16_t y, uint16_t width, uint16_t height, gfx_pixel_t bg_color, gfx_pixel_t fg_color, const void *bitmap, uint8_t scale);
 
 /**
  * Clears the whole screen with a single color
@@ -167,7 +173,7 @@ extern void gfx_text(screen_context_t *ctx, uint16_t x, uint16_t y, gfx_pixel_t 
  * GFX_RECT[_dynamic](x, y, width, height, color)
  */
 #define GFX_RECT(...) __GFX_VAFUNC(GFX_RECT, static, __VA_ARGS__); GFX_AFTER_ELEMENT_HOOK()
-#define GFX_RECT_dynamic(x, y, width, height, color) __GFX_VAFUNC(GFX_RECT, dynamic, __VA_ARGS__); GFX_AFTER_ELEMENT_HOOK()
+#define GFX_RECT_dynamic(...) __GFX_VAFUNC(GFX_RECT, dynamic, __VA_ARGS__); GFX_AFTER_ELEMENT_HOOK()
 
 
 #define _GFX_FRAME_static(x, y, w, h, t, bg, fg) \
@@ -218,6 +224,27 @@ extern void gfx_text(screen_context_t *ctx, uint16_t x, uint16_t y, gfx_pixel_t 
  */
 #define GFX_TEXT(...) __GFX_VAFUNC(GFX_TEXT, static, __VA_ARGS__); GFX_AFTER_ELEMENT_HOOK()
 #define GFX_TEXT_dynamic(...) __GFX_VAFUNC(GFX_TEXT, dynamic, __VA_ARGS__); GFX_AFTER_ELEMENT_HOOK()
+
+#define _GFX_BITMAP_static(x, y, w, h, bg, fg, bitmap, scale) if(ctx->sc_first_draw) gfx_bitmap(ctx, x, y, w, h, bg, fg, bitmap, scale)
+#define _GFX_BITMAP_dynamic(x, y, w, h, bg, fg, bitmap, scale) gfx_bitmap(ctx, x, y, w, h, bg, fg, bitmap, scale)
+
+#define GFX_BITMAP_9(dyn, ...) __GFX_merge_2(_GFX_BITMAP_, dyn)(__VA_ARGS__)
+#define GFX_BITMAP_8(dyn, ...) __GFX_merge_2(_GFX_BITMAP_, dyn)(__VA_ARGS__, 1)
+
+/**
+ * Draws a 2 color bitmap
+ * \param x Starting x coordinate
+ * \param y Starting y coordinate
+ * \param width Bitmap width
+ * \param height Bitmap height
+ * \param bg Background color of the bitmap
+ * \param fg Foreground color of the bitmap
+ * \param bitmap Pointer to the bitmap
+ * \param scale Scale multiplier
+ * GFX_BITMAP[_dynamic](x, y, width, height, bg, fg, bitmap, [scale])
+ */
+#define GFX_BITMAP(...) __GFX_VAFUNC(GFX_BITMAP, static, __VA_ARGS__); GFX_AFTER_ELEMENT_HOOK()
+#define GFX_BITMAP_dynamic(...) __GFX_VAFUNC(GFX_BITMAP, dynamic, __VA_ARGS__); GFX_AFTER_ELEMENT_HOOK()
 
 #ifdef __cplusplus
 }
