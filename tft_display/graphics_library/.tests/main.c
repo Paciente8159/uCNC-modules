@@ -25,6 +25,8 @@ int main() {
 	RUN_TEST(simple_text_4);
 	RUN_TEST(simple_bitmap);
 	RUN_TEST(simple_bitmap_2);
+	RUN_TEST(palette_bitmap);
+	RUN_TEST(palette_bitmap_2);
 
 	printf("Run %d tests, %d succesful, %d failed\n", total, successful, total - successful);
 	return 0;

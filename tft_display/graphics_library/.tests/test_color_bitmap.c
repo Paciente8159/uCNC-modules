@@ -1,7 +1,7 @@
 /*
-	Name: test_bitmap.c
+	Name: test_color_bitmap.c
 	Description: Graphics library for µCNC
-		Test the GFX_BITMAP function
+		Test the GFX_PALETTE_BITMAP function
 
 	Copyright: Copyright (c) Patryk Mierzyński
 	Author: Patryk Mierzyński
@@ -20,54 +20,62 @@
 #include "../graphics_library.h"
 #include "test.h"
 
-static const uint8_t bitmap[] = {
-	0x96, 0x29
+static const gfx_pixel_t colormap[] = {
+  0, 1, 2
 };
 
-GFX_DECL_SCREEN(simple_bitmap_screen) {
+static const uint8_t bitmap[] = {
+  0x41, 0x24, 0x05, 0x91
+  // 1 0 0 1
+  // 0 2 1 0
+  // 0 0 1 1
+  // 2 1 0 1
+};
+
+GFX_DECL_SCREEN(palette_bitmap_screen) {
 	GFX_SCREEN_HEADER();
 
-	GFX_CLEAR(2);
-	GFX_BITMAP(0, 0, 4, 4, 0, 1, bitmap);
+	GFX_CLEAR(3);
+	GFX_PALETTE_BITMAP(0, 0, 4, 4, 2, colormap, bitmap);
 }
 
-GFX_DECL_SCREEN(simple_bitmap_screen_2) {
+GFX_DECL_SCREEN(palette_bitmap_screen_2) {
 	GFX_SCREEN_HEADER();
 
-	GFX_CLEAR(2);
-	GFX_BITMAP(0, 0, 4, 4, 0, 1, bitmap, 2);
+	GFX_CLEAR(3);
+	GFX_PALETTE_BITMAP(0, 0, 4, 4, 2, colormap, bitmap, 2);
 }
 
-DECL_TEST(simple_bitmap)
+DECL_TEST(palette_bitmap)
 {
-	GFX_RENDER_SCREEN(simple_bitmap_screen);
+	GFX_RENDER_SCREEN(palette_bitmap_screen);
 
 	uint8_t expected[] = {
-		1, 0, 0, 1, 2,
-		0, 1, 1, 0, 2,
-		0, 0, 1, 0, 2,
-		1, 0, 0, 1, 2,
-		2, 2, 2, 2, 2,
+		1, 0, 0, 1, 3,
+		0, 2, 1, 0, 3,
+		0, 0, 1, 1, 3,
+		2, 1, 0, 1, 3,
+		3, 3, 3, 3, 3,
 	};
 	TEST_SCREEN(0, 0, 5, 5, expected);
 
 	return true;
 }
 
-DECL_TEST(simple_bitmap_2)
+DECL_TEST(palette_bitmap_2)
 {
-	GFX_RENDER_SCREEN(simple_bitmap_screen_2);
+	GFX_RENDER_SCREEN(palette_bitmap_screen_2);
 
 	uint8_t expected[] = {
-		1, 1, 0, 0, 0, 0, 1, 1, 2,
-		1, 1, 0, 0, 0, 0, 1, 1, 2,
-		0, 0, 1, 1, 1, 1, 0, 0, 2,
-		0, 0, 1, 1, 1, 1, 0, 0, 2,
-		0, 0, 0, 0, 1, 1, 0, 0, 2,
-		0, 0, 0, 0, 1, 1, 0, 0, 2,
-		1, 1, 0, 0, 0, 0, 1, 1, 2,
-		1, 1, 0, 0, 0, 0, 1, 1, 2,
-		2, 2, 2, 2, 2, 2, 2, 2, 2,
+		1, 1, 0, 0, 0, 0, 1, 1, 3,
+		1, 1, 0, 0, 0, 0, 1, 1, 3,
+		0, 0, 2, 2, 1, 1, 0, 0, 3,
+		0, 0, 2, 2, 1, 1, 0, 0, 3,
+		0, 0, 0, 0, 1, 1, 1, 1, 3,
+		0, 0, 0, 0, 1, 1, 1, 1, 3,
+		2, 2, 1, 1, 0, 0, 1, 1, 3,
+		2, 2, 1, 1, 0, 0, 1, 1, 3,
+		3, 3, 3, 3, 3, 3, 3, 3, 3,
 	};
 	TEST_SCREEN(0, 0, 9, 9, expected);
 

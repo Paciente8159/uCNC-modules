@@ -16,15 +16,14 @@
 	See the GNU General Public License for more details.
 */
 
+
+#include "../../cnc.h"
+
 #ifdef ENABLE_TFT
 
 #include "tft_display.h"
 #include "../softspi.h"
-#include "src/module.h"
-
-#include "graphics_library/fonts/freemonobold12pt7b.h"
-#include "graphics_library/fonts/freesans9pt7b.h"
-#include "graphics_library/fonts/symbols_8x8.h"
+#include "../system_menu.h"
 
 #ifndef TFT_LCD_CS
 #define TFT_LCD_CS DOUT0
@@ -39,7 +38,7 @@
 #endif
 
 #ifndef TFT_SPI_FREQ
-#define TFT_SPI_FREQ 10000000
+#define TFT_SPI_FREQ 20000000
 #endif
 
 /**
@@ -83,7 +82,9 @@ void tft_stop()
 
 void tft_command(uint8_t cmd)
 {
+#ifdef TFT_SYNC_CS
 	io_clear_output(TFT_LCD_CS);
+#endif
 	io_clear_output(TFT_LCD_RS);
 
 #ifdef TFT_ALWAYS_16BIT
@@ -93,12 +94,16 @@ void tft_command(uint8_t cmd)
 
 	TFT_CLK_SETTLE_DELAY();
 	io_set_output(TFT_LCD_RS);
+#ifdef TFT_SYNC_CS
 	io_set_output(TFT_LCD_CS);
+#endif
 }
 
 void tft_data(uint8_t data)
 {
+#ifdef TFT_SYNC_CS
 	io_clear_output(TFT_LCD_CS);
+#endif
 
 #ifdef TFT_ALWAYS_16BIT
 	softspi_xmit(TFT_SPI_PORT, 0);
@@ -106,17 +111,23 @@ void tft_data(uint8_t data)
 	softspi_xmit(TFT_SPI_PORT, data);
 
 	TFT_CLK_SETTLE_DELAY();
+#ifdef TFT_SYNC_CS
 	io_set_output(TFT_LCD_CS);
+#endif
 }
 
 void tft_bulk_data(const uint8_t *data, uint16_t len)
 {
+#ifdef TFT_SYNC_CS
 	io_clear_output(TFT_LCD_CS);
+#endif
 
 	softspi_bulk_xmit(TFT_SPI_PORT, data, 0, len);
 	
 	TFT_CLK_SETTLE_DELAY();
+#ifdef TFT_SYNC_CS
 	io_set_output(TFT_LCD_CS);
+#endif
 }
 
 void tft_blit(uint16_t x, uint16_t y, uint16_t w, uint16_t h, const gfx_pixel_t *data)
@@ -131,12 +142,16 @@ void tft_blit(uint16_t x, uint16_t y, uint16_t w, uint16_t h, const gfx_pixel_t 
 	tft_bulk_data((const uint8_t*)data, w * h * sizeof(uint16_t));
 }
 
-#define BASE_BACKGROUND GFX_COLOR(0xe5e5e5) // GFX_COLOR(229, 229, 229)
-#define BORDER_DARK GFX_COLOR(0x999999) //GFX_COLOR(153, 153, 153)
-#define BORDER_LIGHT GFX_COLOR(0xcccccc) //GFX_COLOR(204, 204, 204)
-#define BOX_BACKGROUND GFX_COLOR(0xf2f2f2) //GFX_COLOR(242, 242, 242)
-#define TOP_BAR GFX_COLOR(0x0000B2) //GFX_COLOR(0, 0, 178)
-#define CHARCOAL GFX_COLOR(0x2d2d2d) //GFX_COLOR(45, 45, 45)
+#define BASE_BACKGROUND GFX_COLOR(0xe5e5e5)
+#define BORDER_DARK GFX_COLOR(0x999999)
+#define BORDER_LIGHT GFX_COLOR(0xcccccc)
+#define BOX_BACKGROUND GFX_COLOR(0xf2f2f2)
+#define TOP_BAR GFX_COLOR(0x0000B2)
+#define CHARCOAL GFX_COLOR(0x2d2d2d)
+
+#include "graphics_library/fonts/freemonobold12pt7b.h"
+#include "graphics_library/fonts/freesans9pt7b.h"
+#include "graphics_library/fonts/symbols_8x8.h"
 
 #define FONT_MONO &FreeMonoBold12pt7b
 #define FONT_SANS &FreeSans9pt7b
@@ -166,72 +181,77 @@ const uint8_t ZeroPosBitmap_15x14[] = {
 	GFX_RECT((x) + 3, (y) + 3, (w) - 6, (h) - 6, BOX_BACKGROUND); \
 	__gfx_rel_x = x; __gfx_rel_y = y;
 
-GFX_DECL_SCREEN(main)
+#include "screens/idle.h"
+#include "screens/startup.h"
+
+/*** -------======= Event handlers =======------- ***/
+#ifdef ENABLE_MAIN_LOOP_MODULES
+
+bool tft_startup(void *args)
 {
-	GFX_SCREEN_HEADER();
-	GFX_SET_FONT(FONT_MONO, 1);
-
-	GFX_CLEAR(BASE_BACKGROUND);
-
-	GFX_RECT(0, 0, GFX_DISPLAY_WIDTH, 22, TOP_BAR);
-	GFX_TEXT(GFX_DISPLAY_WIDTH - 19, 3, GFX_WHITE, FONT_SYMBOL, 2, "\x01");
-	GFX_TEXT(2, 0, GFX_WHITE, FONT_SANS, 1, "G54 Abs [mm] T1");
-
-	BOX_OUTSET(0, 30, 50, 50);
-	GFX_BITMAP(GFX_REL(9, 11), 15, 14, BOX_BACKGROUND, CHARCOAL, ZeroPosBitmap_15x14, 2);
-
-	BOX_OUTSET(0, 115, 50, 50);
-	GFX_BITMAP(GFX_REL(5, 5), 20, 20, BOX_BACKGROUND, CHARCOAL, MoveBitmap_20x20, 2);
-
-	BOX_OUTSET(0, 200, 50, 50);
-
-
-	/* Coordinates */
-	BOX_INSET(70, 30, 168, 111);
-
-	GFX_TEXT(GFX_REL(10, 10), GFX_RED, "X");
-	GFX_TEXT(GFX_REL(10, 45), GFX_DARK_GREEN, "Y");
-	GFX_TEXT(GFX_REL(10, 80), GFX_BLUE, "Z");
-	
-	GFX_TEXT(GFX_REL(75, 10), GFX_BLACK, "000.00");
-	GFX_TEXT(GFX_REL(75, 45), GFX_BLACK, "000.00");
-	GFX_TEXT(GFX_REL(75, 80), GFX_BLACK, "000.00");
-
-	/* Feed and Spindle */
-	BOX_INSET(70, 150, 168, 75);
-
-	GFX_TEXT(GFX_REL(10, 10), GFX_BLACK, "F");
-	GFX_TEXT(GFX_REL(75 + 28, 10), GFX_BLACK, "0000");
-
-	GFX_TEXT(GFX_REL(10, 45), GFX_BLACK, "S");
-	GFX_TEXT(GFX_REL(75 + 14, 45), GFX_BLACK, "00000");
-
-	/* Status */
-	BOX_INSET(70, 235, 168, 37);
-	GFX_TEXT(GFX_REL(10, 8), GFX_BLACK, "Alarm");
+	system_menu_render_startup();
+	return EVENT_CONTINUE;
 }
+
+bool tft_update(void *args)
+{
+	system_menu_action(SYSTEM_MENU_ACTION_NONE);
+
+	system_menu_render();
+	return EVENT_CONTINUE;
+}
+
+CREATE_EVENT_LISTENER(cnc_reset, tft_startup);
+CREATE_EVENT_LISTENER(cnc_dotasks, tft_update);
+
+#endif
 
 DECL_MODULE(tft_display)
 {
-	static bool initialized = false;
+	io_set_output(TFT_LCD_CS);
+	io_set_output(TFT_LCD_RS);
 
-	if(!initialized)
-	{
-		initialized = true;
+	// Prepare for communication with the display
+	tft_start();
 
-		io_set_output(TFT_LCD_CS);
-		io_set_output(TFT_LCD_RS);
+	// Initialize
+	TFT_INIT();
+	TFT_ON();
 
-		tft_start();
+	// End communication
+	tft_stop();
 
-		TFT_INIT();
+#ifdef ENABLE_MAIN_LOOP_MODULES
+	ADD_EVENT_LISTENER(cnc_reset, tft_startup);
+	ADD_EVENT_LISTENER(cnc_dotasks, tft_update);
+#else
+#warning "Main loop extensions not enabled. TFT display will not function properly."
+#endif
 
-		TFT_ON();
+	// Init system menu module
+	system_menu_init();
+}
 
-		GFX_RENDER_SCREEN(main);
+/*** -------======= System menu module bindings =======------- ***/
+void system_menu_render_startup(void)
+{
+	tft_start();
+	GFX_RENDER_SCREEN(startup);
+	tft_stop();
+}
 
-		tft_stop();
-	}
+void system_menu_render_idle(void)
+{
+	tft_start();
+	GFX_RENDER_SCREEN(main);
+	tft_stop();
+}
+
+void system_menu_render_modal_popup(const char *__s)
+{
+	tft_start();
+
+	tft_stop();
 }
 
 #endif

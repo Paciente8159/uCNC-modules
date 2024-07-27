@@ -140,7 +140,7 @@ extern void gfx_rect(screen_context_t *ctx, uint16_t x, uint16_t y, uint16_t wid
 extern void gfx_frame(screen_context_t *ctx, uint16_t x, uint16_t y, uint16_t width, uint16_t height, uint16_t thickness, gfx_pixel_t bg_color, gfx_pixel_t fg_color);
 extern void gfx_text(screen_context_t *ctx, uint16_t x, uint16_t y, gfx_pixel_t bg_color, gfx_pixel_t fg_color, const struct BitmapFont *font, uint8_t scale, const char *text);
 extern void gfx_bitmap(screen_context_t *ctx, uint16_t x, uint16_t y, uint16_t width, uint16_t height, gfx_pixel_t bg_color, gfx_pixel_t fg_color, const void *bitmap, uint8_t scale);
-
+extern void gfx_palette_bitmap(screen_context_t *ctx, uint16_t x, uint16_t y, uint16_t width, uint16_t height, uint8_t bpp, const gfx_pixel_t *color_map, const void *bitmap, uint8_t scale);
 /**
  * Clears the whole screen with a single color
  * \param color Clear color
@@ -245,6 +245,27 @@ extern void gfx_bitmap(screen_context_t *ctx, uint16_t x, uint16_t y, uint16_t w
  */
 #define GFX_BITMAP(...) __GFX_VAFUNC(GFX_BITMAP, static, __VA_ARGS__); GFX_AFTER_ELEMENT_HOOK()
 #define GFX_BITMAP_dynamic(...) __GFX_VAFUNC(GFX_BITMAP, dynamic, __VA_ARGS__); GFX_AFTER_ELEMENT_HOOK()
+
+#define _GFX_PALETTE_BITMAP_static(...) if(ctx->sc_first_draw) gfx_palette_bitmap(ctx, __VA_ARGS__)
+#define _GFX_PALETTE_dynamic(...) gfx_palette_bitmap(ctx, __VA_ARGS__)
+
+#define GFX_PALETTE_BITMAP_9(dyn, ...) __GFX_merge_2(_GFX_PALETTE_BITMAP_, dyn)(__VA_ARGS__)
+#define GFX_PALETTE_BITMAP_8(dyn, ...) __GFX_merge_2(_GFX_PALETTE_BITMAP_, dyn)(__VA_ARGS__, 1)
+
+/**
+ * Draws a multicolor bitmap using a provided color palette
+ * \param x Starting x coordinate
+ * \param y Starting y coordinate
+ * \param width Bitmap width
+ * \param height Bitmap height
+ * \param bpp Bits per pixels
+ * \param color_map Color map
+ * \param bitmap Pointer to bitmap
+ * \param scale Scale multiplier
+ * GFX_PALETTE_BITMAP[_dynamic](x, y, width, height, bpp, color_map, bitmap, [scale])
+ */
+#define GFX_PALETTE_BITMAP(...) __GFX_VAFUNC(GFX_PALETTE_BITMAP, static, __VA_ARGS__); GFX_AFTER_ELEMENT_HOOK()
+#define GFX_PALETTE_BITMAP_dynamic(...) __GFX_VAFUNC(GFX_PALETTE_BITMAP, dynamic, __VA_ARGS__); GFX_AFTER_ELEMENT_HOOK()
 
 #ifdef __cplusplus
 }

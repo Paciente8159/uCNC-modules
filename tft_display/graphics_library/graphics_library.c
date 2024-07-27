@@ -199,6 +199,35 @@ static inline bool gfx_bitmap_bit(const uint8_t* bitmap, uint8_t x, uint8_t y, u
 	return (byte >> ((~bit_pos) & 0x7)) & 1;
 }
 
+static inline uint8_t gfx_bitmap_value(const uint8_t* bitmap, uint8_t x, uint8_t y, uint8_t width, uint8_t bpp)
+{
+	if(bpp < 8)
+	{
+		const uint16_t bit_pos = (x + y * width) * bpp;
+		const uint8_t mask = (1 << bpp) - 1;
+		const uint8_t byte = bitmap[bit_pos >> 3];
+		const int8_t shift_width = 8 - (bit_pos & 0x07) - bpp;
+		if(shift_width < 0)
+		{
+			// Borrow bits from the next byte
+			return ((byte << -shift_width) | (bitmap[(bit_pos >> 3) + 1] >> (8 + shift_width))) & mask;
+		}
+		else
+		{
+			// Bits fit into this byte
+			return (byte >> shift_width) & mask;
+		}
+	}
+	else if(bpp == 8)
+	{
+		return bitmap[x + y * width];
+	}
+	else
+	{
+		// Unimplemented
+	}
+}
+
 void gfx_text(screen_context_t *ctx, uint16_t x, uint16_t y, gfx_pixel_t bg_color, gfx_pixel_t fg_color, const struct BitmapFont *font, uint8_t scale, const char *text)
 {
 	int16_t s_x = x - ctx->sc_x, s_y = y - ctx->sc_y;
@@ -282,7 +311,6 @@ void gfx_text(screen_context_t *ctx, uint16_t x, uint16_t y, gfx_pixel_t bg_colo
 
 void gfx_bitmap(screen_context_t *ctx, uint16_t x, uint16_t y, uint16_t width, uint16_t height, gfx_pixel_t bg_color, gfx_pixel_t fg_color, const void *bitmap, uint8_t scale)
 {
-
 	const int16_t s_x = x - ctx->sc_x, s_y = y - ctx->sc_y;
 	const int16_t e_x = s_x + width * scale, e_y = s_y + height * scale;
 	if(e_y < 0 || e_x < 0 || s_y >= ctx->sc_height || s_x >= ctx->sc_width)
@@ -296,6 +324,28 @@ void gfx_bitmap(screen_context_t *ctx, uint16_t x, uint16_t y, uint16_t width, u
 		for(int16_t x = -GFX_MIN(0, s_x); x < width * scale && s_x < ctx->sc_width; ++x)
 		{
 			GFX_BUFFER(s_x + x, s_y + y) = gfx_bitmap_bit(bitmap, x / scale, y / scale, width) ? fg_color : bg_color;
+		}
+	}
+
+	ctx->sc_dirty = true;
+}
+
+void gfx_palette_bitmap(screen_context_t *ctx, uint16_t x, uint16_t y, uint16_t width, uint16_t height, uint8_t bpp, const gfx_pixel_t *color_map, const void *bitmap, uint8_t scale)
+{
+	const int16_t s_x = x - ctx->sc_x, s_y = y - ctx->sc_y;
+	const int16_t e_x = s_x + width * scale, e_y = s_y + height * scale;
+	if(e_y < 0 || e_x < 0 || s_y >= ctx->sc_height || s_x >= ctx->sc_width)
+	{
+		// Out of requested range
+		return;
+	}
+
+	for(int16_t y = -GFX_MIN(0, s_y); y < height * scale && s_y + y < ctx->sc_height; ++y)
+	{
+		for(int16_t x = -GFX_MIN(0, s_x); x < width * scale && s_x < ctx->sc_width; ++x)
+		{
+			uint8_t idx = gfx_bitmap_value((const uint8_t*)bitmap, x / scale, y / scale, width, bpp);
+			GFX_BUFFER(s_x + x, s_y + y) = color_map[idx];
 		}
 	}
 
