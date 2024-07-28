@@ -31,20 +31,28 @@
 static uint8_t gfx_render_buffer[GFX_RENDER_BUFFER_SIZE];
 static screen_t *gfx_primary_screen = 0;
 static bool gfx_rendering = false;
+static bool gfx_invalidated = false;
 
-void gfx_render_screen(screen_t* screen)
+void gfx_invalidate()
+{
+	gfx_invalidated = true;
+}
+
+void gfx_render_screen(screen_t* screen, void *arg)
 {
 	// Guard against rendering 2 screens at once
 	if(!gfx_rendering)
 	{
 		gfx_rendering = true;
-		
+
 		screen_context_t ctx = { 0 };
 		ctx.sc_buffer = (gfx_pixel_t*) gfx_render_buffer;
-		ctx.sc_first_draw = screen != gfx_primary_screen;
+		ctx.sc_first_draw = screen != gfx_primary_screen || gfx_invalidated;
 		ctx.sc_x = 0;
 		ctx.sc_width = GFX_DISPLAY_WIDTH;
 		ctx.sc_time = GFX_CTX_TIME();
+
+		ctx.sc_arg = arg;
 
 		// Calculate max row count we can render with
 		// the given buffer size
@@ -62,6 +70,11 @@ void gfx_render_screen(screen_t* screen)
 			ctx.sc_height = render_rows;
 			ctx.sc_dirty = false;
 
+#ifdef GFX_TESTING
+			// Clear used area of the buffer
+			memset(gfx_render_buffer, 0, sizeof(gfx_pixel_t) * GFX_DISPLAY_WIDTH * render_rows);
+#endif
+
 			// Render part of screen...
 			screen(&ctx);
 			// ...and send it to the display
@@ -73,16 +86,73 @@ void gfx_render_screen(screen_t* screen)
 
 		gfx_rendering = false;
 		gfx_primary_screen = screen;
+		gfx_invalidated = false;
 	}
 }
 
-void gfx_partial_render(partial_render_t *partial, screen_t *screen)
+void gfx_render_area(screen_t *screen, void *arg, uint16_t x, uint16_t y, uint16_t width, uint16_t height)
 {
-	partial(screen);
-	gfx_primary_screen = screen;
+	if(!gfx_rendering)
+	{
+		gfx_rendering = true;
+
+		screen_context_t ctx = { 0 };
+		ctx.sc_buffer = (gfx_pixel_t*) gfx_render_buffer;
+		ctx.sc_first_draw = gfx_primary_screen != screen || gfx_invalidated;
+		ctx.sc_x = x;
+		ctx.sc_width = width;
+		ctx.sc_time = GFX_CTX_TIME();
+		ctx.sc_arg = arg;
+
+		// Calculate max row count we can render with
+		// the given buffer size
+		const uint16_t max_row_count = (GFX_RENDER_BUFFER_SIZE / (sizeof(gfx_pixel_t) * width));
+
+		uint16_t current_row = 0;
+		while(current_row < height)
+		{
+			// Get row count to render
+			uint16_t render_rows = height - current_row;
+			if(render_rows > max_row_count)
+				render_rows = max_row_count;
+
+			ctx.sc_y = y + current_row;
+			ctx.sc_height = render_rows;
+			ctx.sc_dirty = false;
+
+#ifdef GFX_TESTING
+			// Clear used area of the buffer
+			memset(gfx_render_buffer, 0, sizeof(gfx_pixel_t) * width * render_rows);
+#endif
+
+			// Render part of screen...
+			screen(&ctx);
+			// ...and send it to the display
+			if(ctx.sc_dirty)
+				GFX_BLIT(x, y + current_row, width, render_rows, ctx.sc_buffer);
+
+			current_row += render_rows;
+		}
+
+		gfx_rendering = false;
+		gfx_invalidated = false;
+	}
 }
 
-void gfx_partial_render_area(screen_t *screen, uint16_t x, uint16_t y, uint16_t width, uint16_t height)
+bool gfx_is_primary(screen_t *screen)
+{
+	return screen == gfx_primary_screen;
+}
+
+// TODO: Remove this
+void gfx_partial_render(partial_render_t *partial, screen_t *screen, void *arg)
+{
+	partial(screen, arg, true);
+	gfx_primary_screen = screen;
+	gfx_invalidated = false;
+}
+
+void gfx_partial_render_area(screen_t *screen, void *arg, uint16_t x, uint16_t y, uint16_t width, uint16_t height)
 {
 	// Guard against rendering 2 screens at once
 	if(!gfx_rendering)
@@ -91,10 +161,11 @@ void gfx_partial_render_area(screen_t *screen, uint16_t x, uint16_t y, uint16_t 
 		
 		screen_context_t ctx = { 0 };
 		ctx.sc_buffer = (gfx_pixel_t*) gfx_render_buffer;
-		ctx.sc_first_draw = gfx_primary_screen != screen;
+		ctx.sc_first_draw = gfx_primary_screen != screen || gfx_invalidated;
 		ctx.sc_x = x;
 		ctx.sc_width = width;
 		ctx.sc_time = GFX_CTX_TIME();
+		ctx.sc_arg = arg;
 
 		// Calculate max row count we can render with
 		// the given buffer size
@@ -350,6 +421,26 @@ void gfx_palette_bitmap(screen_context_t *ctx, uint16_t x, uint16_t y, uint16_t 
 	}
 
 	ctx->sc_dirty = true;
+}
+
+int16_t gfx_text_center_offset(uint16_t container_width, const struct BitmapFont *font, uint16_t scale, const char *text)
+{
+	uint16_t text_width = 0;
+	while(*text)
+	{
+		if(*text < font->bf_firstChar || *text > font->bf_lastChar)
+		{
+			++text;
+			continue;
+		}
+
+		uint8_t glyph_idx = *text++ - font->bf_firstChar;
+		const struct BitmapFontGlyph* glyph = font->bf_glyphs + glyph_idx;
+
+		text_width += glyph->bfg_xAdvance;
+	}
+
+	return (container_width - text_width) / 2;
 }
 
 #endif

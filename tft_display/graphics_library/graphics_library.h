@@ -56,14 +56,17 @@ typedef struct screen_context {
 	gfx_pixel_t *sc_buffer;
 	bool sc_dirty;
 	uint32_t sc_time;
+  void *sc_arg;
 } screen_context_t;
 
 typedef void screen_t(screen_context_t*);
-typedef void partial_render_t(screen_t*);
+typedef void partial_render_t(screen_t*, void*, bool);
 
-extern void gfx_render_screen(screen_t *screen);
-extern void gfx_partial_render(partial_render_t *partial, screen_t *screen);
-extern void gfx_partial_render_area(screen_t *screen, uint16_t x, uint16_t y, uint16_t width, uint16_t height);
+extern void gfx_render_screen(screen_t *screen, void *argument);
+extern void gfx_partial_render(partial_render_t *partial, screen_t *screen, void *argument);
+extern void gfx_partial_render_area(screen_t *screen, void *argument, uint16_t x, uint16_t y, uint16_t width, uint16_t height);
+extern void gfx_render_area(screen_t *screen, void *argument, uint16_t x, uint16_t y, uint16_t width, uint16_t height);
+extern bool gfx_is_primary(screen_t *screen);
 
 #define GFX_BLACK			GFX_COLOR(  0,   0,	  0)
 #define GFX_BLUE			GFX_COLOR(  0,   0, 255)
@@ -75,22 +78,6 @@ extern void gfx_partial_render_area(screen_t *screen, uint16_t x, uint16_t y, ui
 #define GFX_WHITE			GFX_COLOR(255, 255, 255)
 
 #define GFX_DARK_GREEN			GFX_COLOR(  0, 128,	  0)
-
-#define GFX_DECL_SCREEN(name) void screen_##name##_render(screen_context_t* ctx)
-#define GFX_RENDER_SCREEN(name) gfx_render_screen(&screen_##name##_render)
-
-#define GFX_SCREEN_HEADER() \
-	const struct BitmapFont *__gfx_current_font = 0; \
-	uint8_t __gfx_font_size = 1; \
-	gfx_pixel_t __gfx_last_background = 0; \
-	uint16_t __gfx_rel_x = 0, __gfx_rel_y = 0;
-
-
-#define GFX_DECL_PARTIAL_RENDER(name) void partial_render_##name(screen_t *screen, bool full_render)
-#define GFX_RENDER_PARTIAL(name, screen) gfx_partial_render(&partial_render_##name, &screen_##screen##_render)
-
-#define GFX_PARTIAL_RENDER_AREA(x, y, width, height) gfx_partial_render_area(screen, x, y, width, height)
-
 
 // Some macro helper functions
 #define __GFX_NARG(...) __GFX_NARG_(__VA_ARGS__, __GFX_RSEQ_N())
@@ -128,12 +115,111 @@ extern void gfx_partial_render_area(screen_t *screen, uint16_t x, uint16_t y, ui
  * which allows these elements to be redrawn on a screen redraw.
  */
 
+#define GFX_RENDER_SCREEN_1(name) gfx_render_screen(&screen_##name##_render, 0)
+#define GFX_RENDER_SCREEN_2(name, arg) gfx_render_screen(&screen_##name##_render, arg)
+
+/**
+ * Declare a screen
+ * @param name Name of the screen
+ * GFX_DECL_SCREEN(name) {
+ *   GFX_SCREEN_HEADER();
+ *   // Screen elements...
+ * }
+ */
+#define GFX_DECL_SCREEN(name) void screen_##name##_render(screen_context_t* ctx)
+
+/**
+ * Render a screen
+ * @param name Name of the screen
+ * @param arg Argument to pass to the screen
+ * GFX_RENDER_SCREEN(name, [arg])
+ */
+#define GFX_RENDER_SCREEN(...) __GFX_VAFUNC(GFX_RENDER_SCREEN, __VA_ARGS__)
+
+/**
+ * Declare a partial render area group
+ * @param name Name of the area
+ * GFX_DECL_PARTIAL_RENDER(name) {
+ *   // Partial render area definitions...
+ * }
+ */
+#define GFX_DECL_PARTIAL_RENDER(name) void partial_render_##name(screen_t *screen, void *arg, bool full_render)
+
+/**
+ * Declare a partial render area
+ * @param x Starting x coordinate
+ * @param y Starting y coordinate
+ * @param width Width of the area
+ * @param height Height of the area
+ * GFX_PARTIAL_RENDER_AREA(x, y, width, height)
+ */
+#define GFX_PARTIAL_RENDER_AREA(x, y, width, height) gfx_partial_render_area(screen, arg, x, y, width, height)
+
+#define GFX_RENDER_PARTIAL_2(name, screen) gfx_partial_render(&partial_render_##name, &screen_##screen##_render, 0)
+#define GFX_RENDER_PARTIAL_3(name, screen, arg) gfx_partial_render(&partial_render_##name, &screen_##screen##_render, arg)
+
+/**
+ * Render a partial area of the screen
+ * @param name Name of the partial area
+ * @param screen Name of the screen to render
+ * @param arg Argument to pass to the screen
+ * GFX_RENDER_PARTIAL(name, screen, [arg])
+ */
+#define GFX_RENDER_PARTIAL(...) __GFX_VAFUNC(GFX_RENDER_PARTIAL, __VA_ARGS__)
+
+#define GFX_RENDER_AREA_6(name, x, y, width, height, arg) gfx_render_area(&screen_##name##_render, arg, x, y, width, height)
+#define GFX_RENDER_AREA_5(name, x, y, width, height) gfx_render_area(&screen_##name##_render, 0, x, y, width, height)
+
+/**
+ * Render an area of a screen
+ * @param name Name of the screen to render
+ * @param x Starting x coordinate
+ * @param y Starting y coordinate
+ * @param width Width of the area
+ * @param height Height of the area
+ * @param arg Argument to pass to the screen
+ * GFX_RENDER_AREA(name, x, y, width, height, [arg])
+ */
+#define GFX_RENDER_AREA(...) __GFX_VAFUNC(GFX_RENDER_AREA, __VA_ARGS__)
+
+/**
+ * Used to access the screen argument passed when rendering
+ */
+#define GFX_SCREEN_ARG(type) ((type*) ctx->sc_arg)
+
+/**
+ * Used to access the argument passed when rendering a partial area
+ */
+#define GFX_PARTIAL_ARG(type) ((type*)arg)
+
+/**
+ * Declares necessary variables for other graphics functions.
+ * Always place at the top of the screen declaration.
+ */
+#define GFX_SCREEN_HEADER() \
+	const struct BitmapFont *__gfx_current_font = 0; \
+	uint8_t __gfx_font_size = 1; \
+	gfx_pixel_t __gfx_last_background = 0; \
+	uint16_t __gfx_rel_x = 0, __gfx_rel_y = 0;
+
+
 #define GFX_BUFFER(x, y) ctx->sc_buffer[(x) + (y) * ctx->sc_width]
 
 #define GFX_COLOR_3(r, g, b) GFX_COLOR_INTERNAL(r, g, b)
 #define GFX_COLOR_1(rgb_hex) GFX_COLOR_INTERNAL(((rgb_hex) >> 16) & 0xFF, ((rgb_hex) >> 8) & 0xFF, (rgb_hex) & 0xFF)
 
+/**
+ * Used to convert standard 8 bit RGB values into proper gfx_pixel_t values.
+ * You can either use 3 parameters to specify separate red, green and blue
+ * values or use one number to specify all three channels at once in 
+ * this format: 0xRRGGBB.
+ */
 #define GFX_COLOR(...) __GFX_VAFUNC(GFX_COLOR, __VA_ARGS__)
+
+/**
+ * Check if the given screen is currently the primary screen
+ */
+#define GFX_IS_PRIMARY(name) gfx_is_primary(&screen_##name##_render)
 
 extern void gfx_clear(screen_context_t *ctx, gfx_pixel_t color);
 extern void gfx_rect(screen_context_t *ctx, uint16_t x, uint16_t y, uint16_t width, uint16_t height, gfx_pixel_t color);
@@ -141,25 +227,22 @@ extern void gfx_frame(screen_context_t *ctx, uint16_t x, uint16_t y, uint16_t wi
 extern void gfx_text(screen_context_t *ctx, uint16_t x, uint16_t y, gfx_pixel_t bg_color, gfx_pixel_t fg_color, const struct BitmapFont *font, uint8_t scale, const char *text);
 extern void gfx_bitmap(screen_context_t *ctx, uint16_t x, uint16_t y, uint16_t width, uint16_t height, gfx_pixel_t bg_color, gfx_pixel_t fg_color, const void *bitmap, uint8_t scale);
 extern void gfx_palette_bitmap(screen_context_t *ctx, uint16_t x, uint16_t y, uint16_t width, uint16_t height, uint8_t bpp, const gfx_pixel_t *color_map, const void *bitmap, uint8_t scale);
+extern int16_t gfx_text_center_offset(uint16_t container_width, const struct BitmapFont *font, uint16_t scale, const char *text);
+extern void gfx_invalidate();
+
 /**
  * Clears the whole screen with a single color
  * \param color Clear color
  * GFX_CLEAR(color)
  */
 #define GFX_CLEAR(color) \
-	if(ctx->sc_first_draw) gfx_clear(ctx, color); \
+	if(ctx->sc_first_draw) { gfx_clear(ctx, color); } \
 	__gfx_last_background = color; \
 	GFX_AFTER_ELEMENT_HOOK()
 
 
-#define _GFX_RECT_static(x, y, width, height, color) \
-	if(ctx->sc_first_draw) gfx_rect(ctx, x, y, width, height, color); \
-	__gfx_rel_x = x; __gfx_rel_y = y; \
-	__gfx_last_background = color
-#define _GFX_RECT_dynamic(x, y, width, height, color) \
-	gfx_rect(ctx, x, y, width, height, color); \
-	__gfx_rel_x = x; __gfx_rel_y = y; \
-	__gfx_last_background = color
+#define _GFX_RECT_static(x, y, width, height, color) if(ctx->sc_first_draw) gfx_rect(ctx, x, y, width, height, color);
+#define _GFX_RECT_dynamic(x, y, width, height, color) gfx_rect(ctx, x, y, width, height, color);
 
 #define GFX_RECT_6(dyn, ...) __GFX_merge_2(_GFX_RECT_, dyn)(__VA_ARGS__)
 
@@ -175,9 +258,28 @@ extern void gfx_palette_bitmap(screen_context_t *ctx, uint16_t x, uint16_t y, ui
 #define GFX_RECT(...) __GFX_VAFUNC(GFX_RECT, static, __VA_ARGS__); GFX_AFTER_ELEMENT_HOOK()
 #define GFX_RECT_dynamic(...) __GFX_VAFUNC(GFX_RECT, dynamic, __VA_ARGS__); GFX_AFTER_ELEMENT_HOOK()
 
+/**
+ * Draws a rectangle while also setting variables in screen header
+ * for relative positioning and background coloring.
+ * \param x Starting x coordinate of the container
+ * \param y Starting y coordinate of the container
+ * \param width Width of the container
+ * \param height Height of the container
+ * \param color Fill color of the container
+ * GFX_CONTAINER[_dynamic](x, y, width, height, color)
+ */
+#define GFX_CONTAINER(x, y, width, height, color) __GFX_VAFUNC(GFX_RECT, static, x, y, width, height, color); \
+	__gfx_rel_x = x; __gfx_rel_y = y; \
+	__gfx_last_background = color; \
+	GFX_AFTER_ELEMENT_HOOK()
+
+#define GFX_CONTAINER_dynamic(x, y, width, height, color) __GFX_VAFUNC(GFX_RECT, dynamic, x, y, width, height, color); \
+	__gfx_rel_x = x; __gfx_rel_y = y; \
+	__gfx_last_background = color; \
+	GFX_AFTER_ELEMENT_HOOK()
 
 #define _GFX_FRAME_static(x, y, w, h, t, bg, fg) \
-	if(ctx->sc_first_draw) gfx_frame(ctx, x, y, w, h, t, bg, fg); \
+	if(ctx->sc_first_draw) { gfx_frame(ctx, x, y, w, h, t, bg, fg); } \
 	__gfx_rel_x = (x) + (t); __gfx_rel_y = (y) + (t); \
 	__gfx_last_background = bg
 #define _GFX_FRAME_dynamic(x, y, w, h, t, bg, fg) \
@@ -224,6 +326,20 @@ extern void gfx_palette_bitmap(screen_context_t *ctx, uint16_t x, uint16_t y, ui
  */
 #define GFX_TEXT(...) __GFX_VAFUNC(GFX_TEXT, static, __VA_ARGS__); GFX_AFTER_ELEMENT_HOOK()
 #define GFX_TEXT_dynamic(...) __GFX_VAFUNC(GFX_TEXT, dynamic, __VA_ARGS__); GFX_AFTER_ELEMENT_HOOK()
+
+#define GFX_CENTER_TEXT_OFFSET_2(width, text) gfx_text_center_offset(width, __gfx_current_font, __gfx_font_size, text)
+#define GFX_CENTER_TEXT_OFFSET_4(width, font, size, text) gfx_text_center_offset(width, font, size, text)
+
+/**
+ * Calculates x coordinate offset required for the text to be
+ * centered in a container of a given width
+ * \param width Width of the container
+ * \param font Font pointer
+ * \param scale Text scale
+ * \param text Text
+ * GFX_CENTER_TEXT_OFFSET(width, [font, scale], text)
+ */
+#define GFX_CENTER_TEXT_OFFSET(...) __GFX_VAFUNC(GFX_CENTER_TEXT_OFFSET, __VA_ARGS__)
 
 #define _GFX_BITMAP_static(x, y, w, h, bg, fg, bitmap, scale) if(ctx->sc_first_draw) gfx_bitmap(ctx, x, y, w, h, bg, fg, bitmap, scale)
 #define _GFX_BITMAP_dynamic(x, y, w, h, bg, fg, bitmap, scale) gfx_bitmap(ctx, x, y, w, h, bg, fg, bitmap, scale)

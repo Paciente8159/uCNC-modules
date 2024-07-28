@@ -133,9 +133,9 @@ void tft_bulk_data(const uint8_t *data, uint16_t len)
 void tft_blit(uint16_t x, uint16_t y, uint16_t w, uint16_t h, const gfx_pixel_t *data)
 {
 	// Set columns
-	TFT_CAS(x, x + w);
+	TFT_CAS(x, x + w - 1);
 	// Set rows
-	TFT_RAS(y, y + h);
+	TFT_RAS(y, y + h - 1);
 
 	// Send pixels
 	TFT_MEMWR();
@@ -148,6 +148,9 @@ void tft_blit(uint16_t x, uint16_t y, uint16_t w, uint16_t h, const gfx_pixel_t 
 #define BOX_BACKGROUND GFX_COLOR(0xf2f2f2)
 #define TOP_BAR GFX_COLOR(0x0000B2)
 #define CHARCOAL GFX_COLOR(0x2d2d2d)
+#define SEPARATOR GFX_COLOR(0xb2b2b2)
+
+#define POPUP_BACKGROUND GFX_COLOR()
 
 #include "graphics_library/fonts/freemonobold12pt7b.h"
 #include "graphics_library/fonts/freesans9pt7b.h"
@@ -165,24 +168,17 @@ const uint8_t ZeroPosBitmap_15x14[] = {
 	192, 192, 195, 0, 132, 1, 152, 1, 32, 3, 192, 3, 0, 6, 0, 30, 12, 36, 36, 204, 73, 8, 150, 25, 56, 25
 };
 
-#define BOX_INSET(x, y, w, h) \
-	GFX_RECT(x, y, w, 3, BORDER_DARK); \
-	GFX_RECT(x, (y) + 3, 3, (h) - 3, BORDER_DARK); \
-	GFX_RECT((x) + (w) - 3, (y) + 3, 3, (h) - 3, BORDER_LIGHT); \
-	GFX_RECT((x) + 3, (y) + (h) - 3, (w) - 3, 3, BORDER_LIGHT); \
-	GFX_RECT((x) + 3, (y) + 3, (w) - 6, (h) - 6, BOX_BACKGROUND); \
-	__gfx_rel_x = x; __gfx_rel_y = y;
+#ifndef MAX_MODAL_GROUPS
+#define MAX_MODAL_GROUPS 14
+#endif
 
-#define BOX_OUTSET(x, y, w, h) \
-	GFX_RECT(x, y, w, 3, BORDER_LIGHT); \
-	GFX_RECT(x, (y) + 3, 3, (h) - 3, BORDER_LIGHT); \
-	GFX_RECT((x) + (w) - 3, (y) + 3, 3, (h) - 3, BORDER_DARK); \
-	GFX_RECT((x) + 3, (y) + (h) - 3, (w) - 3, 3, BORDER_DARK); \
-	GFX_RECT((x) + 3, (y) + 3, (w) - 6, (h) - 6, BOX_BACKGROUND); \
-	__gfx_rel_x = x; __gfx_rel_y = y;
+#include "bitmaps/warning.h"
 
-#include "screens/idle.h"
+#include "utility.h"
+
 #include "screens/startup.h"
+#include "screens/idle.h"
+#include "screens/popup.h"
 
 /*** -------======= Event handlers =======------- ***/
 #ifdef ENABLE_MAIN_LOOP_MODULES
@@ -243,13 +239,55 @@ void system_menu_render_startup(void)
 void system_menu_render_idle(void)
 {
 	tft_start();
-	GFX_RENDER_SCREEN(main);
+	if(!GFX_IS_PRIMARY(main))
+	{
+		GFX_RENDER_SCREEN(main);
+	}
+	else
+	{
+		GFX_RENDER_AREA(main,
+									COORDINATE_BOX_X + 60, COORDINATE_BOX_Y + 40,
+									COORDINATE_BOX_WIDTH - 66, COORDINATE_BOX_HEIGHT - 46);
+		GFX_RENDER_AREA(main,
+									FS_BOX_X + 30, FS_BOX_Y + 3,
+									FS_BOX_WIDTH - 36, FS_BOX_HEIGHT - 6);
+	}
 	tft_stop();
+}
+
+GFX_DECL_SCREEN(popup)
+{
+	GFX_SCREEN_HEADER();
+	struct PopupScreenArgument* parg = GFX_SCREEN_ARG(struct PopupScreenArgument);
+
+	GFX_FRAME(parg->x - 1, parg->y - 1, parg->width + 2, parg->height + 2, 1, BASE_BACKGROUND, GFX_BLACK);
+
+	GFX_TEXT(GFX_REL(5, 5), GFX_BLACK, parg->text);
+}
+
+GFX_DECL_PARTIAL_RENDER(popup)
+{
+	struct PopupScreenArgument* parg = GFX_PARTIAL_ARG(struct PopupScreenArgument);
+	GFX_PARTIAL_RENDER_AREA(parg->x - 1, parg->y - 1,
+													parg->width + 2, parg->height + 2);
 }
 
 void system_menu_render_modal_popup(const char *__s)
 {
 	tft_start();
+
+	// Precompute modal dimensions
+	struct PopupScreenArgument parg = { 0 };
+
+	parg.width = 200;
+	parg.height = 100;
+
+	parg.x = (GFX_DISPLAY_WIDTH - parg.width) / 2;
+	parg.y = (GFX_DISPLAY_HEIGHT - parg.height) / 2;
+	parg.text = __s;
+	
+	// Request a partial render
+	GFX_RENDER_PARTIAL(popup, popup, &parg);
 
 	tft_stop();
 }

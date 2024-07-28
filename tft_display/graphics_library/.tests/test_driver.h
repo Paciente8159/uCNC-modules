@@ -27,28 +27,28 @@ extern "C"
 
 #include <stdint.h>
 
-#define GFX_DISPLAY_WIDTH 100
-#define GFX_DISPLAY_HEIGHT 100
+#define GFX_DISPLAY_WIDTH 480
+#define GFX_DISPLAY_HEIGHT 320
+
+typedef uint32_t gfx_pixel_t;
 
 #undef GFX_RENDER_BUFFER_SIZE
 
 #if defined(GFX_TEST_ROW_BY_ROW)
-#define GFX_RENDER_BUFFER_SIZE (GFX_DISPLAY_WIDTH)
+#define GFX_RENDER_BUFFER_SIZE (GFX_DISPLAY_WIDTH * sizeof(gfx_pixel_t))
 #elif defined(GFX_TEST_ALL_AT_ONCE)
-#define GFX_RENDER_BUFFER_SIZE (GFX_DISPLAY_WIDTH * GFX_DISPLAY_HEIGHT)
+#define GFX_RENDER_BUFFER_SIZE (GFX_DISPLAY_WIDTH * GFX_DISPLAY_HEIGHT * sizeof(gfx_pixel_t))
 #elif defined(GFX_TEST_PIXEL_BY_PIXEL)
-#define GFX_RENDER_BUFFER_SIZE 1
+#define GFX_RENDER_BUFFER_SIZE sizeof(gfx_pixel_t)
 #endif
 
-typedef uint8_t gfx_pixel_t;
+#define GFX_COLOR_INTERNAL(r, g, b) ((r) | ((g) << 8) | ((b) << 16) | 0xFF000000)
 
-#define GFX_COLOR_INTERNAL(r, g, b) ((((r) * 3 / 255) << 4) | (((g) * 3 / 255) << 2) | ((b) * 3 / 255))
-
-extern void blit(uint8_t x, uint8_t y, uint8_t w, uint8_t h, const gfx_pixel_t* pixels);
+extern void blit(uint16_t x, uint16_t y, uint16_t w, uint16_t h, const gfx_pixel_t* pixels);
 #define GFX_BLIT(x, y, w, h, pixels) blit(x, y, w, h, pixels);
 
-extern uint16_t check_screen(uint8_t x, uint8_t y, uint8_t w, uint8_t h, const gfx_pixel_t* expected);
-extern gfx_pixel_t get_pixel(uint8_t x, uint8_t y);
+extern uint16_t check_screen(uint16_t x, uint16_t y, uint16_t w, uint16_t h, const gfx_pixel_t* expected);
+extern gfx_pixel_t get_pixel(uint16_t x, uint16_t y);
 
 #define __GFX_DRIVER
 

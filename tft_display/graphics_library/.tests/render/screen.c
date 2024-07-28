@@ -1,26 +1,59 @@
-/*
-	Name: idle.h
-	Description: Idle screen for TFT panels
+#include "../../graphics_library.h"
 
-	Copyright: Copyright (c) Patryk Mierzyński
-	Author: Patryk Mierzyński
-	Date: 27/07/2024
+#include "support.h"
 
-	µCNC is free software: you can redistribute it and/or modify
-	it under the terms of the GNU General Public License as published by
-	the Free Software Foundation, either version 3 of the License, or
-	(at your option) any later version. Please see <http://www.gnu.org/licenses/>
+const uint8_t WarningSign_14x13[] = { 3, 0, 18, 0, 72, 2, 16, 11, 64, 76, 129, 50, 8, 196, 32, 17, 12, 36, 48, 160, 1, 255, 252 };
 
-	µCNC is distributed WITHOUT ANY WARRANTY;
-	Also without the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-	See the GNU General Public License for more details.
-*/
+void get_alarm_string(char* dest)
+{
+	switch (cnc_get_alarm())
+	{
+		case 1:
+			rom_strcpy(dest, __romstr__(STR_ALARM_1));
+			break;
+		case 2:
+			rom_strcpy(dest, __romstr__(STR_ALARM_2));
+			break;
+		case 3:
+			rom_strcpy(dest, __romstr__(STR_ALARM_3));
+			break;
+		case 4:
+			rom_strcpy(dest, __romstr__(STR_ALARM_4));
+			break;
+		case 5:
+			rom_strcpy(dest, __romstr__(STR_ALARM_5));
+			break;
+		case 6:
+			rom_strcpy(dest, __romstr__(STR_ALARM_6));
+			break;
+		case 7:
+			rom_strcpy(dest, __romstr__(STR_ALARM_7));
+			break;
+		case 8:
+			rom_strcpy(dest, __romstr__(STR_ALARM_8));
+			break;
+		case 9:
+			rom_strcpy(dest, __romstr__(STR_ALARM_9));
+			break;
+		case 10:
+			rom_strcpy(dest, __romstr__(STR_ALARM_10));
+			break;
+		case 11:
+			rom_strcpy(dest, __romstr__(STR_ALARM_11));
+			break;
+		case 12:
+			rom_strcpy(dest, __romstr__(STR_ALARM_12));
+			break;
+		case 13:
+			rom_strcpy(dest, __romstr__(STR_ALARM_13));
+			break;
+		default:
+			rom_strcpy(dest, __romstr__(STR_ALARM_0));
+			break;
+	}
+}
 
-#ifndef TFT_DISPLAY_H
-#error "Please do not include this file manually"
-#endif
-
-GFX_DECL_SCREEN(main)
+GFX_DECL_SCREEN(screen)
 {
 	GFX_SCREEN_HEADER();
 	GFX_SET_FONT(FONT_MONO, 1);
@@ -65,12 +98,10 @@ GFX_DECL_SCREEN(main)
 	BOX_OUTSET(0, 200, 50, 50, BOX_BACKGROUND);
 
 	/* Coordinates */
-#define COORDINATE_BOX_X 70
-#define COORDINATE_BOX_Y 30
 #define COORDINATE_BOX_WIDTH 280
 #define COORDINATE_BOX_HEIGHT 138
 
-	BOX_INSET_dynamic(COORDINATE_BOX_X, COORDINATE_BOX_Y, COORDINATE_BOX_WIDTH, COORDINATE_BOX_HEIGHT, BOX_BACKGROUND);
+	BOX_INSET_dynamic(70, 30, COORDINATE_BOX_WIDTH, COORDINATE_BOX_HEIGHT, BOX_BACKGROUND);
 
 	float mpos[MAX(AXIS_COUNT, 3)];
 	int32_t steppos[STEPPER_COUNT];
@@ -102,12 +133,10 @@ GFX_DECL_SCREEN(main)
 	GFX_RECT_dynamic(GFX_REL(165, 3), 1, COORDINATE_BOX_HEIGHT - 6, SEPARATOR);
 
 	/* Feed and Spindle */
-#define FS_BOX_X 360
-#define FS_BOX_Y 30
 #define FS_BOX_WIDTH 110
 #define FS_BOX_HEIGHT 70
 
-	BOX_INSET_dynamic(FS_BOX_X, FS_BOX_Y, FS_BOX_WIDTH, FS_BOX_HEIGHT, BOX_BACKGROUND);
+	BOX_INSET_dynamic(360, 30, 110, 70, BOX_BACKGROUND);
 
 	GFX_TEXT(GFX_REL(9, 10), GFX_BLACK, "F");
 	sprintf(str, "%4d", feed);
@@ -168,6 +197,3 @@ GFX_DECL_SCREEN(main)
 	BOX_INSET(360, 110, 110, 37, bg_color);
 	GFX_TEXT(GFX_REL(GFX_CENTER_TEXT_OFFSET(110, str), 8), bg_color, GFX_BLACK, str);
 }
-
-#define REDRAW_STATUS() gfx_invalidate(); GFX_RENDER_AREA(main, 360, 110, 110, 37)
-

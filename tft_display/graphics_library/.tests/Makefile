@@ -9,6 +9,12 @@ BIN = \
 	obj/test_bitmap.o \
 	obj/test_color_bitmap.o
 
+BIN_RENDERER = \
+	obj/render/main.o \
+	obj/ext/graphics_library.o \
+	obj/test_driver.o \
+	obj/render/screen.o
+
 # Valid tests are:
 #   ALL_AT_ONCE
 #   ROW_BY_ROW
@@ -18,6 +24,12 @@ CFLAGS = -g -O0 -DGFX_TESTING -DGFX_TEST_$(MAKE_TEST)
 
 run: obj/tests
 	obj/tests
+
+render: obj/renderer
+	obj/renderer
+
+obj/renderer: $(BIN_RENDERER)
+	gcc -o $@ $(BIN_RENDERER) -lm
 
 obj/tests: $(BIN)
 	gcc -o $@ $(BIN)
@@ -32,7 +44,6 @@ obj/ext/%.o: ../%.c
 
 clean:
 	rm -r obj
-	rm tests
 
 .PHONY: clean
 
