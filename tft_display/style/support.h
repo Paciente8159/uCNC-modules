@@ -1,10 +1,10 @@
 /*
-	Name: warning.h
-	Description: Bitmapped warning sign
+	Name: support.h
+	Description: Helper for writing modular GUI styles
 
 	Copyright: Copyright (c) Patryk Mierzyński
 	Author: Patryk Mierzyński
-	Date: 27/07/2024
+	Date: 29/07/2024
 
 	µCNC is free software: you can redistribute it and/or modify
 	it under the terms of the GNU General Public License as published by
@@ -15,10 +15,14 @@
 	Also without the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 	See the GNU General Public License for more details.
 */
+#ifndef TFT_DISPLAY_STYLE_SUPPORT_H
+#define TFT_DISPLAY_STYLE_SUPPORT_H
 
-#ifndef TFT_DISPLAY_H
-#error "Please do not include this file manually"
+#include "../graphics_library/graphics_library.h"
+#include "../../../cnc.h"
+#include "../../system_menu.h"
+
+#define TFT_STYLE_WIN9X
+
 #endif
-
-const uint8_t WarningSign_14x13[] = { 3, 0, 18, 0, 72, 2, 16, 11, 64, 76, 129, 50, 8, 196, 32, 17, 12, 36, 48, 160, 1, 255, 252 };
 

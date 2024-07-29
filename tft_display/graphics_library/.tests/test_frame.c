@@ -30,7 +30,7 @@ DECL_TEST(simple_frame)
 {
 	GFX_RENDER_SCREEN(simple_frame_screen);
 
-	uint8_t expected[16] = {
+	gfx_pixel_t expected[16] = {
 		0, 0, 0, 0,
 		0, 1, 1, 1,
 		0, 1, 0, 1,

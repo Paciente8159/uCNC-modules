@@ -43,6 +43,13 @@ void gfx_render_screen(screen_t* screen, void *arg)
 	// Guard against rendering 2 screens at once
 	if(!gfx_rendering)
 	{
+		if(!(screen != gfx_primary_screen || gfx_invalidated) && screen->dynamic_render_cb != 0)
+		{
+			// Try to call the dynamic render callback
+			screen->dynamic_render_cb();
+			return;
+		}
+		
 		gfx_rendering = true;
 
 		screen_context_t ctx = { 0 };
@@ -76,7 +83,7 @@ void gfx_render_screen(screen_t* screen, void *arg)
 #endif
 
 			// Render part of screen...
-			screen(&ctx);
+			screen->render_cb(&ctx);
 			// ...and send it to the display
 			if(ctx.sc_dirty)
 				GFX_BLIT(0, current_row, GFX_DISPLAY_WIDTH, render_rows, ctx.sc_buffer);
@@ -126,7 +133,7 @@ void gfx_render_area(screen_t *screen, void *arg, uint16_t x, uint16_t y, uint16
 #endif
 
 			// Render part of screen...
-			screen(&ctx);
+			screen->render_cb(&ctx);
 			// ...and send it to the display
 			if(ctx.sc_dirty)
 				GFX_BLIT(x, y + current_row, width, render_rows, ctx.sc_buffer);
@@ -142,58 +149,6 @@ void gfx_render_area(screen_t *screen, void *arg, uint16_t x, uint16_t y, uint16
 bool gfx_is_primary(screen_t *screen)
 {
 	return screen == gfx_primary_screen;
-}
-
-// TODO: Remove this
-void gfx_partial_render(partial_render_t *partial, screen_t *screen, void *arg)
-{
-	partial(screen, arg, true);
-	gfx_primary_screen = screen;
-	gfx_invalidated = false;
-}
-
-void gfx_partial_render_area(screen_t *screen, void *arg, uint16_t x, uint16_t y, uint16_t width, uint16_t height)
-{
-	// Guard against rendering 2 screens at once
-	if(!gfx_rendering)
-	{
-		gfx_rendering = true;
-		
-		screen_context_t ctx = { 0 };
-		ctx.sc_buffer = (gfx_pixel_t*) gfx_render_buffer;
-		ctx.sc_first_draw = gfx_primary_screen != screen || gfx_invalidated;
-		ctx.sc_x = x;
-		ctx.sc_width = width;
-		ctx.sc_time = GFX_CTX_TIME();
-		ctx.sc_arg = arg;
-
-		// Calculate max row count we can render with
-		// the given buffer size
-		const uint16_t max_row_count = (GFX_RENDER_BUFFER_SIZE / (sizeof(gfx_pixel_t) * width));
-
-		uint16_t current_row = 0;
-		while(current_row < height)
-		{
-			// Get row count to render
-			uint16_t render_rows = height - current_row;
-			if(render_rows > max_row_count)
-				render_rows = max_row_count;
-
-			ctx.sc_y = y + current_row;
-			ctx.sc_height = render_rows;
-			ctx.sc_dirty = false;
-
-			// Render part of screen...
-			screen(&ctx);
-			// ...and send it to the display
-			if(ctx.sc_dirty)
-				GFX_BLIT(x, y + current_row, width, render_rows, ctx.sc_buffer);
-
-			current_row += render_rows;
-		}
-
-		gfx_rendering = false;
-	}
 }
 
 void gfx_clear(screen_context_t *ctx, gfx_pixel_t color)
@@ -296,6 +251,7 @@ static inline uint8_t gfx_bitmap_value(const uint8_t* bitmap, uint8_t x, uint8_t
 	else
 	{
 		// Unimplemented
+		return 0;
 	}
 }
 
@@ -423,7 +379,7 @@ void gfx_palette_bitmap(screen_context_t *ctx, uint16_t x, uint16_t y, uint16_t 
 	ctx->sc_dirty = true;
 }
 
-int16_t gfx_text_center_offset(uint16_t container_width, const struct BitmapFont *font, uint16_t scale, const char *text)
+int16_t gfx_text_center_offset(uint16_t container_width, const struct BitmapFont *font, uint8_t scale, const char *text)
 {
 	uint16_t text_width = 0;
 	while(*text)
@@ -441,6 +397,40 @@ int16_t gfx_text_center_offset(uint16_t container_width, const struct BitmapFont
 	}
 
 	return (container_width - text_width) / 2;
+}
+
+void gfx_text_size(uint16_t *width, uint16_t *height, const struct BitmapFont *font, uint8_t scale, const char *text)
+{
+	*height = font->bf_yAdvance;
+	*width = 0;
+	uint16_t line_width = 0;
+
+	while(*text)
+	{
+		if(*text == '\n')
+		{
+			++text;
+			if(line_width > *width)
+				*width = line_width;
+			*height += font->bf_yAdvance;
+			line_width = 0;
+			continue;
+		}
+
+		if(*text < font->bf_firstChar || *text > font->bf_lastChar)
+		{
+			++text;
+			continue;
+		}
+
+		uint8_t glyph_idx = *text++ - font->bf_firstChar;
+		const struct BitmapFontGlyph* glyph = font->bf_glyphs + glyph_idx;
+
+		line_width += glyph->bfg_xAdvance;
+	}
+
+	if(line_width > *width)
+		*width = line_width;
 }
 
 #endif

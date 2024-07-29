@@ -1,7 +1,6 @@
 /*
-	Name: test_font.h
-	Description: Graphics library for µCNC
-    Font used for unit testing
+	Name: move.h
+	Description: Bitmapped move icon
 
 	Copyright: Copyright (c) Patryk Mierzyński
 	Author: Patryk Mierzyński
@@ -14,24 +13,10 @@
 
 	µCNC is distributed WITHOUT ANY WARRANTY;
 	Also without the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-	See the	GNU General Public License for more details.
+	See the GNU General Public License for more details.
 */
 
-#include "../font.h"
-
-const uint8_t TestFontBitmaps[] = {
-  /* 0: */ 0x80,
-	/* 1: */ 0x98,
-};
-
-const struct BitmapFontGlyph TestFontGlyphs[] = {
-	{ 0, 1, 1, 2, 0, -1 }, // 0x01
-	{ 1, 2, 3, 4, 1, -2 }, // 0x02
-};
-
-const struct BitmapFont TestFont = {
-  TestFontBitmaps,
-  TestFontGlyphs,
-  0x01, 0x02, 5, 3
+const uint8_t MoveBitmap_20x20[] = {
+	0, 96, 0, 15, 0, 1, 248, 0, 6, 0, 0, 96, 0, 6, 0, 0, 96, 2, 0, 4, 96, 96, 111, 239, 127, 254, 247, 246, 6, 6, 32, 0, 64, 6, 0, 0, 96, 0, 6, 0, 0, 96, 0, 31, 128, 0, 240, 0, 6, 0
 };
 

@@ -50,7 +50,7 @@ DECL_TEST(palette_bitmap)
 {
 	GFX_RENDER_SCREEN(palette_bitmap_screen);
 
-	uint8_t expected[] = {
+	gfx_pixel_t expected[] = {
 		1, 0, 0, 1, 3,
 		0, 2, 1, 0, 3,
 		0, 0, 1, 1, 3,
@@ -66,7 +66,7 @@ DECL_TEST(palette_bitmap_2)
 {
 	GFX_RENDER_SCREEN(palette_bitmap_screen_2);
 
-	uint8_t expected[] = {
+	gfx_pixel_t expected[] = {
 		1, 1, 0, 0, 0, 0, 1, 1, 3,
 		1, 1, 0, 0, 0, 0, 1, 1, 3,
 		0, 0, 2, 2, 1, 1, 0, 0, 3,

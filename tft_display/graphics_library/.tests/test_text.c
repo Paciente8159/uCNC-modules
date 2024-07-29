@@ -20,7 +20,7 @@
 #include "../graphics_library.h"
 #include "test.h"
 
-IMPORT_FONT(TestFont);
+INCLUDE_FONT(TestFont);
 
 GFX_DECL_SCREEN(simple_text_screen) {
 	GFX_SCREEN_HEADER();
@@ -50,7 +50,7 @@ DECL_TEST(simple_text)
 {
 	GFX_RENDER_SCREEN(simple_text_screen);
 
-	uint8_t expected[] = {
+	gfx_pixel_t expected[] = {
 		0, 0, 2, 2,
 		0, 0, 2, 2,
 		1, 0, 2, 2,
@@ -68,7 +68,7 @@ DECL_TEST(simple_text_2)
 {
 	GFX_RENDER_SCREEN(simple_text_screen_2);
 
-	uint8_t expected[] = {
+	gfx_pixel_t expected[] = {
 		0, 0, 0, 0, 2,
 		0, 0, 0, 0, 2,
 		1, 0, 1, 0, 2,
@@ -86,7 +86,7 @@ DECL_TEST(simple_text_3)
 {
 	GFX_RENDER_SCREEN(simple_text_screen_3);
 
-	uint8_t expected[] = {
+	gfx_pixel_t expected[] = {
 		0, 0, 0, 0, 2,
 		0, 1, 0, 0, 2,
 		0, 0, 1, 0, 2,
@@ -104,7 +104,7 @@ DECL_TEST(simple_text_4)
 {
 	GFX_RENDER_SCREEN(simple_text_screen_4);
 
-	uint8_t expected[] = {
+	gfx_pixel_t expected[] = {
 		0, 0, 0, 0, 2,
 		0, 0, 0, 0, 2,
 		0, 0, 0, 0, 2,

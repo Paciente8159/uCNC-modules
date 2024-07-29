@@ -31,7 +31,7 @@ DECL_TEST(simple_rect)
 {
 	GFX_RENDER_SCREEN(simple_rect_screen);
 
-	uint8_t expected[16] = {
+	gfx_pixel_t expected[16] = {
 		0, 0, 0, 0,
 		0, 1, 1, 0,
 		0, 1, 1, 0,

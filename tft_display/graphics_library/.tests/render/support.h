@@ -87,15 +87,11 @@ void kinematics_apply_forward(int32_t *steppos, float *mpos) {
 void kinematics_apply_reverse_transform(float *mpos) {}
 void parser_machine_to_work(float *wpos) { }
 
-#define BASE_BACKGROUND GFX_COLOR(0xe5e5e5)
 #define BORDER_DARK GFX_COLOR(0x999999)
-#define BORDER_LIGHT GFX_COLOR(0xcccccc)
-#define BOX_BACKGROUND GFX_COLOR(0xf2f2f2)
-#define TOP_BAR GFX_COLOR(0x0000B2)
+#define BORDER_LIGHT GFX_WHITE //GFX_COLOR(0xcccccc)
 #define CHARCOAL GFX_COLOR(0x2d2d2d)
-#define SEPARATOR GFX_COLOR(0xb2b2b2)
 
-#define POPUP_BACKGROUND GFX_COLOR()
+#define BORDER_WIDTH 2
 
 #include "../../fonts/freemonobold12pt7b.h"
 #include "../../fonts/freesans9pt7b.h"
@@ -113,37 +109,11 @@ const uint8_t ZeroPosBitmap_15x14[] = {
 	192, 192, 195, 0, 132, 1, 152, 1, 32, 3, 192, 3, 0, 6, 0, 30, 12, 36, 36, 204, 73, 8, 150, 25, 56, 25
 };
 
-#define BOX_INSET(x, y, w, h, bg) \
-	GFX_RECT(x, y, w, 3, BORDER_DARK); \
-	GFX_RECT(x, (y) + 3, 3, (h) - 3, BORDER_DARK); \
-	GFX_RECT((x) + (w) - 3, (y) + 3, 3, (h) - 3, BORDER_LIGHT); \
-	GFX_RECT((x) + 3, (y) + (h) - 3, (w) - 3, 3, BORDER_LIGHT); \
-	GFX_RECT((x) + 3, (y) + 3, (w) - 6, (h) - 6, bg); \
-	__gfx_rel_x = x; __gfx_rel_y = y; __gfx_last_background = bg;
+#define TFT_DISPLAY_H
 
-#define BOX_INSET_dynamic(x, y, w, h, bg) \
-	GFX_RECT(x, y, w, 3, BORDER_DARK); \
-	GFX_RECT(x, (y) + 3, 3, (h) - 3, BORDER_DARK); \
-	GFX_RECT((x) + (w) - 3, (y) + 3, 3, (h) - 3, BORDER_LIGHT); \
-	GFX_RECT((x) + 3, (y) + (h) - 3, (w) - 3, 3, BORDER_LIGHT); \
-	GFX_RECT_dynamic((x) + 3, (y) + 3, (w) - 6, (h) - 6, bg); \
-	__gfx_rel_x = x; __gfx_rel_y = y; __gfx_last_background = bg;
+#include "../../../colors.h"
 
-#define BOX_OUTSET(x, y, w, h, bg) \
-	GFX_RECT(x, y, w, 3, BORDER_LIGHT); \
-	GFX_RECT(x, (y) + 3, 3, (h) - 3, BORDER_LIGHT); \
-	GFX_RECT((x) + (w) - 3, (y) + 3, 3, (h) - 3, BORDER_DARK); \
-	GFX_RECT((x) + 3, (y) + (h) - 3, (w) - 3, 3, BORDER_DARK); \
-	GFX_RECT((x) + 3, (y) + 3, (w) - 6, (h) - 6, bg); \
-	__gfx_rel_x = x; __gfx_rel_y = y; __gfx_last_background = bg;
-
-#define BOX_OUTSET_dynamic(x, y, w, h, bg) \
-	GFX_RECT(x, y, w, 3, BORDER_LIGHT); \
-	GFX_RECT(x, (y) + 3, 3, (h) - 3, BORDER_LIGHT); \
-	GFX_RECT((x) + (w) - 3, (y) + 3, 3, (h) - 3, BORDER_DARK); \
-	GFX_RECT((x) + 3, (y) + (h) - 3, (w) - 3, 3, BORDER_DARK); \
-	GFX_RECT_dynamic((x) + 3, (y) + 3, (w) - 6, (h) - 6, bg); \
-	__gfx_rel_x = x; __gfx_rel_y = y; __gfx_last_background = bg;
+#include "../../../utility.h"
 
 #ifndef MAX_MODAL_GROUPS
 #define MAX_MODAL_GROUPS 14

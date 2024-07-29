@@ -1,7 +1,6 @@
 /*
-	Name: test_font.h
-	Description: Graphics library for µCNC
-    Font used for unit testing
+	Name: startup.c
+	Description: Startup screen
 
 	Copyright: Copyright (c) Patryk Mierzyński
 	Author: Patryk Mierzyński
@@ -14,24 +13,20 @@
 
 	µCNC is distributed WITHOUT ANY WARRANTY;
 	Also without the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-	See the	GNU General Public License for more details.
+	See the GNU General Public License for more details.
 */
+#include "../../support.h"
 
-#include "../font.h"
+#ifdef TFT_STYLE_WIN9X
 
-const uint8_t TestFontBitmaps[] = {
-  /* 0: */ 0x80,
-	/* 1: */ 0x98,
-};
+#include "../bitmaps/logo.h"
 
-const struct BitmapFontGlyph TestFontGlyphs[] = {
-	{ 0, 1, 1, 2, 0, -1 }, // 0x01
-	{ 1, 2, 3, 4, 1, -2 }, // 0x02
-};
+GFX_DECL_SCREEN(startup)
+{
+	GFX_SCREEN_HEADER();
+	GFX_CLEAR(GFX_BLACK);
+	GFX_PALETTE_BITMAP(180, 100, 40, 40, 2, Logo_Colors, Logo_40x40, 3);
+}
 
-const struct BitmapFont TestFont = {
-  TestFontBitmaps,
-  TestFontGlyphs,
-  0x01, 0x02, 5, 3
-};
+#endif
 

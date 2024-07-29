@@ -42,7 +42,7 @@ DECL_TEST(simple_bitmap)
 {
 	GFX_RENDER_SCREEN(simple_bitmap_screen);
 
-	uint8_t expected[] = {
+	gfx_pixel_t expected[] = {
 		1, 0, 0, 1, 2,
 		0, 1, 1, 0, 2,
 		0, 0, 1, 0, 2,
@@ -58,7 +58,7 @@ DECL_TEST(simple_bitmap_2)
 {
 	GFX_RENDER_SCREEN(simple_bitmap_screen_2);
 
-	uint8_t expected[] = {
+	gfx_pixel_t expected[] = {
 		1, 1, 0, 0, 0, 0, 1, 1, 2,
 		1, 1, 0, 0, 0, 0, 1, 1, 2,
 		0, 0, 1, 1, 1, 1, 0, 0, 2,

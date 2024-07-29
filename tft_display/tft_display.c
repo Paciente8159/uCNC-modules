@@ -24,6 +24,7 @@
 #include "tft_display.h"
 #include "../softspi.h"
 #include "../system_menu.h"
+#include "style/style.h"
 
 #ifndef TFT_LCD_CS
 #define TFT_LCD_CS DOUT0
@@ -142,44 +143,6 @@ void tft_blit(uint16_t x, uint16_t y, uint16_t w, uint16_t h, const gfx_pixel_t 
 	tft_bulk_data((const uint8_t*)data, w * h * sizeof(uint16_t));
 }
 
-#define BASE_BACKGROUND GFX_COLOR(0xe5e5e5)
-#define BORDER_DARK GFX_COLOR(0x999999)
-#define BORDER_LIGHT GFX_COLOR(0xcccccc)
-#define BOX_BACKGROUND GFX_COLOR(0xf2f2f2)
-#define TOP_BAR GFX_COLOR(0x0000B2)
-#define CHARCOAL GFX_COLOR(0x2d2d2d)
-#define SEPARATOR GFX_COLOR(0xb2b2b2)
-
-#define POPUP_BACKGROUND GFX_COLOR()
-
-#include "graphics_library/fonts/freemonobold12pt7b.h"
-#include "graphics_library/fonts/freesans9pt7b.h"
-#include "graphics_library/fonts/symbols_8x8.h"
-
-#define FONT_MONO &FreeMonoBold12pt7b
-#define FONT_SANS &FreeSans9pt7b
-#define FONT_SYMBOL &Symbols8x8
-
-const uint8_t MoveBitmap_20x20[] = {
-	0, 96, 0, 15, 0, 1, 248, 0, 6, 0, 0, 96, 0, 6, 0, 0, 96, 2, 0, 4, 96, 96, 111, 239, 127, 254, 247, 246, 6, 6, 32, 0, 64, 6, 0, 0, 96, 0, 6, 0, 0, 96, 0, 31, 128, 0, 240, 0, 6, 0
-};
-
-const uint8_t ZeroPosBitmap_15x14[] = {
-	192, 192, 195, 0, 132, 1, 152, 1, 32, 3, 192, 3, 0, 6, 0, 30, 12, 36, 36, 204, 73, 8, 150, 25, 56, 25
-};
-
-#ifndef MAX_MODAL_GROUPS
-#define MAX_MODAL_GROUPS 14
-#endif
-
-#include "bitmaps/warning.h"
-
-#include "utility.h"
-
-#include "screens/startup.h"
-#include "screens/idle.h"
-#include "screens/popup.h"
-
 /*** -------======= Event handlers =======------- ***/
 #ifdef ENABLE_MAIN_LOOP_MODULES
 
@@ -199,6 +162,7 @@ bool tft_update(void *args)
 
 CREATE_EVENT_LISTENER(cnc_reset, tft_startup);
 CREATE_EVENT_LISTENER(cnc_dotasks, tft_update);
+CREATE_EVENT_LISTENER(cnc_alarm, tft_update);
 
 #endif
 
@@ -220,6 +184,7 @@ DECL_MODULE(tft_display)
 #ifdef ENABLE_MAIN_LOOP_MODULES
 	ADD_EVENT_LISTENER(cnc_reset, tft_startup);
 	ADD_EVENT_LISTENER(cnc_dotasks, tft_update);
+	ADD_EVENT_LISTENER(cnc_alarm, tft_update);
 #else
 #warning "Main loop extensions not enabled. TFT display will not function properly."
 #endif
@@ -232,65 +197,45 @@ DECL_MODULE(tft_display)
 void system_menu_render_startup(void)
 {
 	tft_start();
-	GFX_RENDER_SCREEN(startup);
+	style_startup();
 	tft_stop();
 }
 
 void system_menu_render_idle(void)
 {
 	tft_start();
-	if(!GFX_IS_PRIMARY(main))
-	{
-		GFX_RENDER_SCREEN(main);
-	}
-	else
-	{
-		GFX_RENDER_AREA(main,
-									COORDINATE_BOX_X + 60, COORDINATE_BOX_Y + 40,
-									COORDINATE_BOX_WIDTH - 66, COORDINATE_BOX_HEIGHT - 46);
-		GFX_RENDER_AREA(main,
-									FS_BOX_X + 30, FS_BOX_Y + 3,
-									FS_BOX_WIDTH - 36, FS_BOX_HEIGHT - 6);
-	}
+	style_idle();
 	tft_stop();
-}
-
-GFX_DECL_SCREEN(popup)
-{
-	GFX_SCREEN_HEADER();
-	struct PopupScreenArgument* parg = GFX_SCREEN_ARG(struct PopupScreenArgument);
-
-	GFX_FRAME(parg->x - 1, parg->y - 1, parg->width + 2, parg->height + 2, 1, BASE_BACKGROUND, GFX_BLACK);
-
-	GFX_TEXT(GFX_REL(5, 5), GFX_BLACK, parg->text);
-}
-
-GFX_DECL_PARTIAL_RENDER(popup)
-{
-	struct PopupScreenArgument* parg = GFX_PARTIAL_ARG(struct PopupScreenArgument);
-	GFX_PARTIAL_RENDER_AREA(parg->x - 1, parg->y - 1,
-													parg->width + 2, parg->height + 2);
 }
 
 void system_menu_render_modal_popup(const char *__s)
 {
 	tft_start();
 
-	// Precompute modal dimensions
-	struct PopupScreenArgument parg = { 0 };
+	style_popup(__s);
+	// // Precompute modal dimensions
+	// struct PopupScreenArgument parg = { 0 };
 
-	parg.width = 200;
-	parg.height = 100;
+	// parg.width = 200;
+	// parg.height = 100;
 
-	parg.x = (GFX_DISPLAY_WIDTH - parg.width) / 2;
-	parg.y = (GFX_DISPLAY_HEIGHT - parg.height) / 2;
-	parg.text = __s;
-	
-	// Request a partial render
-	GFX_RENDER_PARTIAL(popup, popup, &parg);
+	// parg.x = (GFX_DISPLAY_WIDTH - parg.width) / 2;
+	// parg.y = (GFX_DISPLAY_HEIGHT - parg.height) / 2;
+	// parg.text = __s;
+	// 
+	// // Request a partial render
+	// GFX_RENDER_PARTIAL(popup, popup, &parg);
 
 	tft_stop();
 }
+
+void system_menu_render_alarm()
+{
+	tft_start();
+	style_alarm();
+	tft_stop();
+}
+
 
 #endif
 

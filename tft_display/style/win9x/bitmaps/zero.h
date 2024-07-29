@@ -1,10 +1,10 @@
 /*
-	Name: startup.h
-	Description: Startup screen for TFT panels
+	Name: zero.h
+	Description: Bitmapped zero position sign
 
 	Copyright: Copyright (c) Patryk Mierzyński
 	Author: Patryk Mierzyński
-	Date: 27/07/2024
+	Date: 29/07/2024
 
 	µCNC is free software: you can redistribute it and/or modify
 	it under the terms of the GNU General Public License as published by
@@ -16,16 +16,7 @@
 	See the GNU General Public License for more details.
 */
 
-#ifndef TFT_DISPLAY_H
-#error "Please do not include this file manually"
-#endif
-
-#include "../bitmaps/logo.h"
-
-GFX_DECL_SCREEN(startup)
-{
-	GFX_SCREEN_HEADER();
-	GFX_CLEAR(GFX_BLACK);
-	GFX_PALETTE_BITMAP(180, 100, 40, 40, 2, Logo_Colors, Logo_40x40, 3);
-}
+const uint8_t ZeroPosBitmap_12x9[] = {
+	130, 8, 32, 68, 2, 128, 16, 98, 137, 68, 152, 41, 130, 96
+};
 

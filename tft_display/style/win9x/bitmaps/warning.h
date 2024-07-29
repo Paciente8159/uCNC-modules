@@ -1,7 +1,6 @@
 /*
-	Name: test_font.h
-	Description: Graphics library for µCNC
-    Font used for unit testing
+	Name: warning.h
+	Description: Bitmapped warning sign
 
 	Copyright: Copyright (c) Patryk Mierzyński
 	Author: Patryk Mierzyński
@@ -14,24 +13,8 @@
 
 	µCNC is distributed WITHOUT ANY WARRANTY;
 	Also without the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-	See the	GNU General Public License for more details.
+	See the GNU General Public License for more details.
 */
 
-#include "../font.h"
-
-const uint8_t TestFontBitmaps[] = {
-  /* 0: */ 0x80,
-	/* 1: */ 0x98,
-};
-
-const struct BitmapFontGlyph TestFontGlyphs[] = {
-	{ 0, 1, 1, 2, 0, -1 }, // 0x01
-	{ 1, 2, 3, 4, 1, -2 }, // 0x02
-};
-
-const struct BitmapFont TestFont = {
-  TestFontBitmaps,
-  TestFontGlyphs,
-  0x01, 0x02, 5, 3
-};
+const uint8_t WarningSign_14x13[] = { 3, 0, 18, 0, 72, 2, 16, 11, 64, 76, 129, 50, 8, 196, 32, 17, 12, 36, 48, 160, 1, 255, 252 };
 

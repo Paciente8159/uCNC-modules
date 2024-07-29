@@ -29,9 +29,10 @@ DECL_TEST(simple_clear)
 {
 	GFX_RENDER_SCREEN(simple_clear_screen);
 
-	uint8_t expected[9];
+	gfx_pixel_t expected[9];
 	for(int i = 0; i < 9; ++i) expected[i] = 0xf0;
 	TEST_SCREEN(0, 0, 3, 3, expected);
+
 
 	return true;
 }
