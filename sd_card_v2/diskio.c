@@ -67,7 +67,6 @@
 #define SD_SPI_CS SPI_CS
 #endif
 SOFTSPI(mmcsd_spi, 100000UL, 0, SD_SPI_SDO, SD_SPI_SDI, SD_SPI_CLK);
-#define SD_SPI_PORT (&mmcsd_spi)
 #else
 #ifndef SD_SPI_CLK
 #define SD_SPI_CLK SPI_CLK
@@ -81,8 +80,10 @@ SOFTSPI(mmcsd_spi, 100000UL, 0, SD_SPI_SDO, SD_SPI_SDI, SD_SPI_CLK);
 #ifndef SD_SPI_CS
 #define SD_SPI_CS SPI_CS
 #endif
-#define SD_SPI_PORT MCU_SPI
+HARDSPI(mmcsd_spi);
 #endif
+
+#define SD_SPI_PORT (&mmcsd_spi)
 
 // #define SD_DEBUG
 #ifdef SD_DEBUG
@@ -163,7 +164,7 @@ bool mmcsd_response(uint8_t *result, uint16_t len, uint8_t token)
 	uint32_t s = mcu_micros();
 	softspi_bulk_xmit(SD_SPI_PORT, result, result, len);
 	uint32_t e = mcu_micros();
-	serial_print_int((e-s));
+	serial_print_int((e - s));
 	serial_print_str("us\n");
 
 	// discard CRC
@@ -262,12 +263,16 @@ DSTATUS disk_status(BYTE pdrv)
 		DEBUGSTR("SD card status not init");
 		return (STA_NOINIT);
 	}
-	/*
-		if (mmcsd_card.writeprotected)
-		{
-			return (STA_PROTECT);
-		}
-	*/
+
+	if (mmcsd_card.writeprotected)
+	{
+		return (STA_PROTECT);
+	}
+
+	if(softspi_isbusy(SD_SPI_PORT)){
+		return STA_BUS_BUSY;
+	}
+
 	return 0;
 }
 
@@ -735,7 +740,7 @@ DRESULT disk_writep(
 		mcu_clear_output(SD_SPI_CS);
 	}
 
-	if (!mmcsd_card.initialized)
+	if (disk_status(0) & (STA_NOINIT | STA_NODISK | STA_PROTECT))
 	{
 		return RES_NOTRDY;
 	}
@@ -748,7 +753,7 @@ DRESULT disk_writep(
 	DEBUGSTR("SD card write address");
 	DEBUGINT(sector);
 
-	if (mmcsd_card.writeprotected)
+	if (disk_status(0) & STA_PROTECT)
 	{
 		return RES_WRPRT;
 	}

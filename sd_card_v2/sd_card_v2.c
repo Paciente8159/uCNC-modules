@@ -181,6 +181,10 @@ enum SD_CARD_STATUS
 static uint8_t sd_card_mounted;
 fs_t sd_fs;
 
+bool sd_fs_bus_ready(void){
+	return (disk_status(0) != STA_BUS_BUSY);
+}
+
 bool sd_fs_finfo(const char *path, fs_file_info_t *finfo)
 {
 	FILINFO info;
@@ -441,7 +445,7 @@ bool sd_card_dotasks(void *args)
 		sd_card_mounted = SD_UNDETECTED;
 		g_system_menu.flags |= SYSTEM_MENU_MODE_REDRAW;
 	}
-	else if (!mcu_get_input(SD_CARD_DETECT_PIN) && !sd_card_mounted)
+	else if (!mcu_get_input(SD_CARD_DETECT_PIN) && !sd_card_mounted && sd_fs_bus_ready())
 	{
 		sd_card_mounted = SD_DETECTED;
 		cnc_delay_ms(2000);
