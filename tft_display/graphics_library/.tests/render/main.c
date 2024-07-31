@@ -6,7 +6,7 @@
 #include "../../graphics_library.h"
 #include <stdio.h>
 
-extern GFX_DECL_SCREEN(screen);
+GFX_INCLUDE_SCREEN(screen);
 extern gfx_pixel_t test_driver_buffer[];
 
 int main() {

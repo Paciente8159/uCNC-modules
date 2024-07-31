@@ -18,37 +18,56 @@
 #ifndef WIN9X_UTILITY_H
 #define WIN9X_UTILITY_H
 
-#define TWO_TONE_BORDER(x, y, w, h, t, c1, c2) \
+#include "colors.h"
+
+#define _TWO_TONE_BORDER(x, y, w, h, t, c1, c2) \
 	GFX_RECT(x, y, (w) - (t), (t), c1); \
 	GFX_RECT(x, y, (t), (h) - (t), c1); \
 	GFX_RECT((x) + (w) - (t), (y) + (t), (t), (h) - (t), c2); \
 	GFX_RECT((x) + (t), (y) + (h) - (t), (w) - (t), (t), c2);
 
+#define TWO_TONE_BORDER(...) { _TWO_TONE_BORDER(__VA_ARGS__) }
+
+#define _BORDER(x, y, w, h, t, c) \
+	GFX_RECT(x, y, (w) - (t), (t), c); \
+	GFX_RECT(x, y, (t), (h) - (t), c); \
+	GFX_RECT((x) + (w) - (t), (y) + (t), (t), (h) - (t), c); \
+	GFX_RECT((x) + (t), (y) + (h) - (t), (w) - (t), (t), c);
+
+#define BORDER(...) { _BORDER(__VA_ARGS__) }
+
+#define BUTTON_DEF() GFX_DECL_ELEMENT(win9x_button, uint16_t width, uint16_t height, const char *text, bool highlight)
+extern BUTTON_DEF();
+
 #define BORDER_WIDTH 2
 
-#define BOX_INSET(x, y, w, h, bg) \
+#define BOX_INSET(x, y, w, h, bg) { \
 	TWO_TONE_BORDER(x, y, w, h, BORDER_WIDTH, SHADOW_DARK, SHADOW_LIGHT); \
-	GFX_CONTAINER((x) + BORDER_WIDTH, (y) + BORDER_WIDTH, (w) - BORDER_WIDTH * 2, (h) - BORDER_WIDTH * 2, bg);
+	GFX_CONTAINER((x) + BORDER_WIDTH, (y) + BORDER_WIDTH, (w) - BORDER_WIDTH * 2, (h) - BORDER_WIDTH * 2, bg); }
 
-#define BOX_INSET_dynamic(x, y, w, h, bg) \
+#define BOX_INSET_dynamic(x, y, w, h, bg) { \
 	TWO_TONE_BORDER(x, y, w, h, BORDER_WIDTH, SHADOW_DARK, SHADOW_LIGHT); \
-	GFX_CONTAINER_dynamic((x) + BORDER_WIDTH, (y) + BORDER_WIDTH, (w) - BORDER_WIDTH * 2, (h) - BORDER_WIDTH * 2, bg);
+	GFX_CONTAINER_dynamic((x) + BORDER_WIDTH, (y) + BORDER_WIDTH, (w) - BORDER_WIDTH * 2, (h) - BORDER_WIDTH * 2, bg); }
 
-#define BOX_OUTSET(x, y, w, h, bg) \
+#define BOX_OUTSET(x, y, w, h, bg) { \
 	TWO_TONE_BORDER(x, y, w, h, BORDER_WIDTH, SHADOW_LIGHT, SHADOW_DARK); \
-	GFX_CONTAINER((x) + BORDER_WIDTH, (y) + BORDER_WIDTH, (w) - BORDER_WIDTH * 2, (h) - BORDER_WIDTH * 2, bg);
+	GFX_CONTAINER((x) + BORDER_WIDTH, (y) + BORDER_WIDTH, (w) - BORDER_WIDTH * 2, (h) - BORDER_WIDTH * 2, bg); }
 
-#define BOX_OUTSET_dynamic(x, y, w, h, bg) \
+#define BOX_OUTSET_dynamic(x, y, w, h, bg) { \
 	TWO_TONE_BORDER(x, y, w, h, BORDER_WIDTH, SHADOW_LIGHT, SHADOW_DARK); \
-	GFX_CONTAINER_dynamic((x) + BORDER_WIDTH, (y) + BORDER_WIDTH, (w) - BORDER_WIDTH * 2, (h) - BORDER_WIDTH * 2, bg);
+	GFX_CONTAINER_dynamic((x) + BORDER_WIDTH, (y) + BORDER_WIDTH, (w) - BORDER_WIDTH * 2, (h) - BORDER_WIDTH * 2, bg); }
 
 #define FONT_MONO &FreeMonoBold12pt7b
 #define FONT_SANS &FreeSans9pt7b
 #define FONT_SYMBOL &Symbols8x8
+#define FONT_PIXEL &PixelFont
+#define FONT_PIXEL_MONO &PixelFontMono
 
 INCLUDE_FONT(FreeSans9pt7b);
 INCLUDE_FONT(FreeMonoBold12pt7b);
 INCLUDE_FONT(Symbols8x8);
+INCLUDE_FONT(PixelFont);
+INCLUDE_FONT(PixelFontMono);
 
 #endif
 

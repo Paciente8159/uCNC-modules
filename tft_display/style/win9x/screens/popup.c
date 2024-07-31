@@ -25,7 +25,8 @@
 
 struct PopupScreenArgument {
 	uint16_t width, height;
-	const char *text;
+	uint8_t line_count;
+	const char **text;
 };
 
 GFX_DECL_SCREEN(popup)
@@ -50,7 +51,49 @@ GFX_DECL_SCREEN(popup)
 	// Body
 	GFX_CONTAINER(POPUP_X, POPUP_Y + 22, POPUP_WIDTH, POPUP_HEIGHT - 22, BASE_BACKGROUND);
 
-	GFX_TEXT(GFX_REL(5, 5), GFX_BLACK, GFX_SCREEN_ARG(struct PopupScreenArgument)->text);
+	for(uint8_t i = 0; i < GFX_SCREEN_ARG(struct PopupScreenArgument)->line_count; ++i) {
+		// TODO: One day, when multiline text function is implemented, use it instead of this.
+		GFX_TEXT(GFX_REL(5, 5 + i * __gfx_current_font->bf_yAdvance * __gfx_font_size), GFX_BLACK, GFX_SCREEN_ARG(struct PopupScreenArgument)->text[i]);
+	}
+}
+
+void style_popup(const char* text)
+{
+	char copy[strlen(text)];
+	strcpy(copy, text);
+
+	uint8_t line_count = 0;
+	for(int i = 0; text[i] != 0; ++i)
+	{
+		if(text[i] == '\n')
+		{
+			copy[i] = 0;
+			++line_count;
+		}
+	}
+
+	uint8_t current_line = 0;
+	char* last_ptr = copy;
+	char* lines[line_count];
+	for(int i = 0; text[i] != 0; ++i)
+	{
+		if(text[i] == '\n')
+		{
+			lines[current_line++] = last_ptr;
+			last_ptr = copy + i + 1;
+		}
+	}
+	lines[current_line] = last_ptr;
+
+	struct PopupScreenArgument arg = { 0 };
+	arg.line_count = line_count;
+	arg.text = lines;
+
+	gfx_text_size(&arg.width, &arg.height, FONT_SANS, 1, text);
+	arg.width += 10;
+	arg.height += 32;
+
+	GFX_RENDER_SCREEN(popup);
 }
 
 #endif

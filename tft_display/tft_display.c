@@ -189,6 +189,8 @@ DECL_MODULE(tft_display)
 #warning "Main loop extensions not enabled. TFT display will not function properly."
 #endif
 
+	style_init();
+
 	// Init system menu module
 	system_menu_init();
 }
@@ -211,21 +213,7 @@ void system_menu_render_idle(void)
 void system_menu_render_modal_popup(const char *__s)
 {
 	tft_start();
-
 	style_popup(__s);
-	// // Precompute modal dimensions
-	// struct PopupScreenArgument parg = { 0 };
-
-	// parg.width = 200;
-	// parg.height = 100;
-
-	// parg.x = (GFX_DISPLAY_WIDTH - parg.width) / 2;
-	// parg.y = (GFX_DISPLAY_HEIGHT - parg.height) / 2;
-	// parg.text = __s;
-	// 
-	// // Request a partial render
-	// GFX_RENDER_PARTIAL(popup, popup, &parg);
-
 	tft_stop();
 }
 

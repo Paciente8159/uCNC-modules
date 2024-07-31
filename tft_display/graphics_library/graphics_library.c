@@ -401,8 +401,10 @@ int16_t gfx_text_center_offset(uint16_t container_width, const struct BitmapFont
 
 void gfx_text_size(uint16_t *width, uint16_t *height, const struct BitmapFont *font, uint8_t scale, const char *text)
 {
-	*height = font->bf_yAdvance;
-	*width = 0;
+	if(height)
+		*height = font->bf_yAdvance;
+	if(width)
+		*width = 0;
 	uint16_t line_width = 0;
 
 	while(*text)
@@ -410,9 +412,10 @@ void gfx_text_size(uint16_t *width, uint16_t *height, const struct BitmapFont *f
 		if(*text == '\n')
 		{
 			++text;
-			if(line_width > *width)
+			if(width && line_width > *width)
 				*width = line_width;
-			*height += font->bf_yAdvance;
+			if(height)
+				*height += font->bf_yAdvance;
 			line_width = 0;
 			continue;
 		}
@@ -429,7 +432,7 @@ void gfx_text_size(uint16_t *width, uint16_t *height, const struct BitmapFont *f
 		line_width += glyph->bfg_xAdvance;
 	}
 
-	if(line_width > *width)
+	if(width && line_width > *width)
 		*width = line_width;
 }
 

@@ -184,8 +184,19 @@ extern bool gfx_is_primary(screen_t *screen);
 	const struct BitmapFont *__gfx_current_font = 0; \
 	uint8_t __gfx_font_size = 1; \
 	gfx_pixel_t __gfx_last_background = 0; \
-	uint16_t __gfx_rel_x = 0, __gfx_rel_y = 0;
+	uint16_t __gfx_rel_x = 0, __gfx_rel_y = 0
 
+#define GFX_PUSH_STATE() { \
+	const struct BitmapFont *__push__gfx_current_font = __gfx_current_font; \
+	uint8_t __push__gfx_font_size = __gfx_font_size; \
+	gfx_pixel_t __push__gfx_last_background = __gfx_last_background; \
+	uint16_t __push__gfx_rel_x = __gfx_rel_x, __push__gfx_rel_y = __gfx_rel_y; \
+	const struct BitmapFont *__gfx_current_font = __push__gfx_current_font; \
+	uint8_t __gfx_font_size = __push__gfx_font_size; \
+	gfx_pixel_t __gfx_last_background = __push__gfx_last_background; \
+	uint16_t __gfx_rel_x = __push__gfx_rel_x, __gfx_rel_y = __push__gfx_rel_y
+
+#define GFX_POP_STATE() }
 
 #define GFX_BUFFER(x, y) ctx->sc_buffer[(x) + (y) * ctx->sc_width]
 
@@ -226,6 +237,12 @@ extern void gfx_text_size(uint16_t *width, uint16_t *height, const struct Bitmap
 	__gfx_last_background = color; \
 	GFX_AFTER_ELEMENT_HOOK()
 
+#define GFX_SET_BACKGROUND(color) __gfx_last_background = color;
+
+#define _GFX_SET_ORIGIN(x, y) __gfx_rel_x = x; __gfx_rel_y = y;
+#define GFX_SET_ORIGIN(...) _GFX_SET_ORIGIN(__VA_ARGS__)
+
+#define GFX_BACKGROUND __gfx_last_background
 
 #define _GFX_RECT_static(x, y, width, height, color) if(ctx->sc_first_draw) gfx_rect(ctx, x, y, width, height, color);
 #define _GFX_RECT_dynamic(x, y, width, height, color) gfx_rect(ctx, x, y, width, height, color);
@@ -244,6 +261,11 @@ extern void gfx_text_size(uint16_t *width, uint16_t *height, const struct Bitmap
 #define GFX_RECT(...) __GFX_VAFUNC(GFX_RECT, static, __VA_ARGS__); GFX_AFTER_ELEMENT_HOOK()
 #define GFX_RECT_dynamic(...) __GFX_VAFUNC(GFX_RECT, dynamic, __VA_ARGS__); GFX_AFTER_ELEMENT_HOOK()
 
+#define _GFX_CONTAINER(x, y, width, height, color) __GFX_VAFUNC(GFX_RECT, static, x, y, width, height, color); \
+	__gfx_rel_x = x; __gfx_rel_y = y; \
+	__gfx_last_background = color; \
+	GFX_AFTER_ELEMENT_HOOK()
+
 /**
  * Draws a rectangle while also setting variables in screen header
  * for relative positioning and background coloring.
@@ -254,10 +276,7 @@ extern void gfx_text_size(uint16_t *width, uint16_t *height, const struct Bitmap
  * \param color Fill color of the container
  * GFX_CONTAINER[_dynamic](x, y, width, height, color)
  */
-#define GFX_CONTAINER(x, y, width, height, color) __GFX_VAFUNC(GFX_RECT, static, x, y, width, height, color); \
-	__gfx_rel_x = x; __gfx_rel_y = y; \
-	__gfx_last_background = color; \
-	GFX_AFTER_ELEMENT_HOOK()
+#define GFX_CONTAINER(...) _GFX_CONTAINER(__VA_ARGS__)
 
 #define GFX_CONTAINER_dynamic(x, y, width, height, color) __GFX_VAFUNC(GFX_RECT, dynamic, x, y, width, height, color); \
 	__gfx_rel_x = x; __gfx_rel_y = y; \
@@ -290,6 +309,7 @@ extern void gfx_text_size(uint16_t *width, uint16_t *height, const struct Bitmap
 #define GFX_FRAME_dynamic(...) __GFX_VAFUNC(GFX_FRAME, dynamic, __VA_ARGS__); GFX_AFTER_ELEMENT_HOOK()
 
 #define GFX_SET_FONT(font, size) __gfx_current_font = font; __gfx_font_size = size
+#define GFX_SET_FONT_SIZE(size) __gfx_font_size = size
 
 #define _GFX_TEXT_static(x, y, bg, fg, font, scale, text) if(ctx->sc_first_draw) gfx_text(ctx, x, y, bg, fg, font, scale, text)
 #define _GFX_TEXT_dynamic(x, y, bg, fg, font, scale, text) gfx_text(ctx, x, y, bg, fg, font, scale, text)
@@ -368,6 +388,14 @@ extern void gfx_text_size(uint16_t *width, uint16_t *height, const struct Bitmap
  */
 #define GFX_PALETTE_BITMAP(...) __GFX_VAFUNC(GFX_PALETTE_BITMAP, static, __VA_ARGS__); GFX_AFTER_ELEMENT_HOOK()
 #define GFX_PALETTE_BITMAP_dynamic(...) __GFX_VAFUNC(GFX_PALETTE_BITMAP, dynamic, __VA_ARGS__); GFX_AFTER_ELEMENT_HOOK()
+
+
+#define GFX_DECL_ELEMENT(name, ...) void gfx_element_##name(screen_context_t *ctx, \
+	uint16_t __gfx_rel_x, uint16_t __gfx_rel_y, const struct BitmapFont *__gfx_current_font, \
+	uint8_t __gfx_font_size, gfx_pixel_t __gfx_last_background, __VA_ARGS__)
+
+#define GFX_DRAW_ELEMENT(name, ...) if(ctx->sc_first_draw) gfx_element_##name(ctx, __gfx_rel_x, __gfx_rel_y, __gfx_current_font, __gfx_font_size, __gfx_last_background, __VA_ARGS__); GFX_AFTER_ELEMENT_HOOK()
+#define GFX_DRAW_ELEMENT_dynamic(name, ...) gfx_element_##name(ctx, __gfx_rel_x, __gfx_rel_y, __gfx_current_font, __gfx_font_size, __gfx_last_background, __VA_ARGS__); GFX_AFTER_ELEMENT_HOOK()
 
 #ifdef __cplusplus
 }

@@ -27,6 +27,8 @@
 #define STR_ALARM_12 "Tool sync fail"
 #define STR_ALARM_13 "Limits tripped"
 
+#define STR_MOVEMENT "Movement"
+
 #define EXEC_IDLE 0																						 // All flags cleared
 #define EXEC_RUN 1																						 // Motions are being executed
 #define EXEC_HOLD 2																						 // Feed hold is active
@@ -62,7 +64,7 @@ bool cnc_has_alarm() {
 }
 
 uint8_t cnc_get_alarm() {
-	return 1;
+	return 0;
 }
 
 void parser_get_modes(uint8_t *modes, uint16_t *feed, uint16_t *spindle) {
@@ -87,35 +89,15 @@ void kinematics_apply_forward(int32_t *steppos, float *mpos) {
 void kinematics_apply_reverse_transform(float *mpos) {}
 void parser_machine_to_work(float *wpos) { }
 
-#define BORDER_DARK GFX_COLOR(0x999999)
-#define BORDER_LIGHT GFX_WHITE //GFX_COLOR(0xcccccc)
-#define CHARCOAL GFX_COLOR(0x2d2d2d)
-
-#define BORDER_WIDTH 2
-
-#include "../../fonts/freemonobold12pt7b.h"
-#include "../../fonts/freesans9pt7b.h"
-#include "../../fonts/symbols_8x8.h"
-
-#define FONT_MONO &FreeMonoBold12pt7b
-#define FONT_SANS &FreeSans9pt7b
-#define FONT_SYMBOL &Symbols8x8
-
-const uint8_t MoveBitmap_20x20[] = {
-	0, 96, 0, 15, 0, 1, 248, 0, 6, 0, 0, 96, 0, 6, 0, 0, 96, 2, 0, 4, 96, 96, 111, 239, 127, 254, 247, 246, 6, 6, 32, 0, 64, 6, 0, 0, 96, 0, 6, 0, 0, 96, 0, 31, 128, 0, 240, 0, 6, 0
-};
-
-const uint8_t ZeroPosBitmap_15x14[] = {
-	192, 192, 195, 0, 132, 1, 152, 1, 32, 3, 192, 3, 0, 6, 0, 30, 12, 36, 36, 204, 73, 8, 150, 25, 56, 25
-};
-
-#define TFT_DISPLAY_H
-
-#include "../../../colors.h"
-
-#include "../../../utility.h"
-
 #ifndef MAX_MODAL_GROUPS
 #define MAX_MODAL_GROUPS 14
 #endif
+
+#include "../../../style/win9x/utility.h"
+
+#include "../../../style/win9x/fonts/symbols_8x8.h"
+#include "../../../style/win9x/fonts/freesans9pt7b.h"
+#include "../../../style/win9x/fonts/freemonobold12pt7b.h"
+#include "../../../style/win9x/fonts/pixel.h"
+#include "../../../style/win9x/fonts/pixelmono.h"
 
