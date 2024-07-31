@@ -34,10 +34,6 @@
 #define TFT_LCD_RS DOUT1
 #endif
 
-#ifndef TFT_SPI_PORT
-#define TFT_SPI_PORT MCU_SPI
-#endif
-
 #ifndef TFT_SPI_FREQ
 #define TFT_SPI_FREQ 20000000
 #endif
@@ -67,18 +63,16 @@
 
 #define TFT_CLK_SETTLE_DELAY() mcu_delay_us(1)
 
+HARDSPI(tft_spi, TFT_SPI_FREQ, 0);
+
 void tft_start()
 {
-	softspi_config_t conf = { 0 };
-	conf.spi.mode = 0;
-	conf.spi.enable_dma = 1;
-	softspi_config(TFT_SPI_PORT, conf, TFT_SPI_FREQ);
-	softspi_start(TFT_SPI_PORT);
+	softspi_start(&tft_spi);
 }
 
 void tft_stop()
 {
-	softspi_stop(TFT_SPI_PORT);
+	softspi_stop(&tft_spi);
 }
 
 void tft_command(uint8_t cmd)
@@ -89,9 +83,9 @@ void tft_command(uint8_t cmd)
 	io_clear_output(TFT_LCD_RS);
 
 #ifdef TFT_ALWAYS_16BIT
-	softspi_xmit(TFT_SPI_PORT, 0);
+	softspi_xmit(&tft_spi, 0);
 #endif
-	softspi_xmit(TFT_SPI_PORT, cmd);
+	softspi_xmit(&tft_spi, cmd);
 
 	TFT_CLK_SETTLE_DELAY();
 	io_set_output(TFT_LCD_RS);
@@ -107,9 +101,9 @@ void tft_data(uint8_t data)
 #endif
 
 #ifdef TFT_ALWAYS_16BIT
-	softspi_xmit(TFT_SPI_PORT, 0);
+	softspi_xmit(&tft_spi, 0);
 #endif
-	softspi_xmit(TFT_SPI_PORT, data);
+	softspi_xmit(&tft_spi, data);
 
 	TFT_CLK_SETTLE_DELAY();
 #ifdef TFT_SYNC_CS
@@ -123,7 +117,7 @@ void tft_bulk_data(const uint8_t *data, uint16_t len)
 	io_clear_output(TFT_LCD_CS);
 #endif
 
-	softspi_bulk_xmit(TFT_SPI_PORT, data, 0, len);
+	softspi_bulk_xmit(&tft_spi, data, 0, len);
 	
 	TFT_CLK_SETTLE_DELAY();
 #ifdef TFT_SYNC_CS
@@ -170,6 +164,10 @@ DECL_MODULE(tft_display)
 {
 	io_set_output(TFT_LCD_CS);
 	io_set_output(TFT_LCD_RS);
+
+	softspi_config_t conf = { 0 };
+	conf.spi.enable_dma = 1;
+	softspi_config(&tft_spi, conf, TFT_SPI_FREQ);
 
 	// Prepare for communication with the display
 	tft_start();
