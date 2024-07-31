@@ -38,7 +38,7 @@
 #define SD_FAT_FS PETIT_FAT_FS
 #endif
 
-#if (UCNC_MODULE_VERSION < 10880 || UCNC_MODULE_VERSION > 99999)
+#if (UCNC_MODULE_VERSION < 11000 || UCNC_MODULE_VERSION > 99999)
 #error "This module is not compatible with the current version of µCNC"
 #endif
 
@@ -582,7 +582,7 @@ bool sd_card_cmd_parser(void *args)
 		*(cmd->error) = STATUS_OK;
 		return EVENT_HANDLED;
 	}
-	return GRBL_SYSTEM_CMD_EXTENDED_UNSUPPORTED;
+	return EVENT_CONTINUE;
 }
 
 CREATE_EVENT_LISTENER(grbl_cmd, sd_card_cmd_parser);
