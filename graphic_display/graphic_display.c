@@ -70,18 +70,14 @@ static uint8_t graphic_display_str_line_len(const char *__s);
 // temporary result of reading non existing read pin
 #define io0_get_input 0
 #define io0_config_input
-SOFTSPI(graphic_spi, 1000000UL, 0, GRAPHIC_DISPLAY_SPI_MOSI, GRAPHIC_DISPLAY_SPI_MISO, GRAPHIC_DISPLAY_SPI_CLOCK)
+SOFTSPI(graphic_spi, 10000000UL, 0, GRAPHIC_DISPLAY_SPI_MOSI, GRAPHIC_DISPLAY_SPI_MISO, GRAPHIC_DISPLAY_SPI_CLOCK)
 // delete temporary definition
 #undef io0_get_input
 #undef io0_config_input
-#define graphic_display_port ((void *)&graphic_spi)
 #else
-#if (UCNC_MODULE_VERSION < 10903)
-//for backward compatibility
-#define MCU_SPI NULL
+SOFTSPI(graphic_spi, 10000000UL, 0);
 #endif
-#define graphic_display_port ((void *)MCU_SPI)
-#endif
+#define graphic_display_port ((void *)&graphic_spi)
 #endif
 
 #if (GRAPHIC_DISPLAY_INTERFACE & (GRAPHIC_DISPLAY_SW_I2C | GRAPHIC_DISPLAY_HW_I2C))
