@@ -1,10 +1,10 @@
 /*
-	Name: main.c
-	Description: Main file of the Win9x GUI style
+	Name: elements.c
+	Description: Element implementations
 
 	Copyright: Copyright (c) Patryk Mierzyński
 	Author: Patryk Mierzyński
-	Date: 29/07/2024
+	Date: 31/07/2024
 
 	µCNC is free software: you can redistribute it and/or modify
 	it under the terms of the GNU General Public License as published by
@@ -19,35 +19,14 @@
 
 #ifdef TFT_STYLE_WIN9X
 
-// Declare fonts for later use in this style
-#include "fonts/freemonobold12pt7b.h"
-#include "fonts/freesans9pt7b.h"
-#include "fonts/symbols_8x8.h"
-#include "fonts/pixel.h"
-#include "fonts/pixelmono.h"
+#include "utility.h"
 
-GFX_INCLUDE_SCREEN(startup);
-GFX_INCLUDE_SCREEN(idle);
+BUTTON_DEF() {
+	GFX_SET_FONT(FONT_PIXEL, 1);
 
-void style_init()
-{
-	
-}
-
-void style_startup()
-{
-	GFX_RENDER_SCREEN(startup);
-}
-
-void style_idle()
-{
-	GFX_RENDER_SCREEN(idle);
-}
-
-void style_alarm()
-{
-	// This screen takes care of alarms
-	GFX_RENDER_SCREEN(idle);
+	TWO_TONE_BORDER(GFX_REL(0, 0), width, height, 2, SHADOW_LIGHT, SHADOW_DARK);
+	GFX_RECT(GFX_REL(2, 2), width - 4, height - 4, BASE_BACKGROUND);
+	GFX_TEXT(GFX_REL(GFX_CENTER_TEXT_OFFSET(width - 4, text) + 2, (height - 15) / 2 + 2), GFX_BLACK, text);
 }
 
 #endif
