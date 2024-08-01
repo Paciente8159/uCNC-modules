@@ -155,8 +155,8 @@ bool tft_update(void *args)
 }
 
 CREATE_EVENT_LISTENER(cnc_reset, tft_startup);
-CREATE_EVENT_LISTENER(cnc_dotasks, tft_update);
-CREATE_EVENT_LISTENER(cnc_alarm, tft_update);
+CREATE_EVENT_LISTENER_WITHLOCK(cnc_dotasks, tft_update, LISTENER_HWSPI_LOCK);
+CREATE_EVENT_LISTENER_WITHLOCK(cnc_alarm, tft_update, LISTENER_HWSPI_LOCK);
 
 #endif
 
