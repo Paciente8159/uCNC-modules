@@ -48,6 +48,22 @@
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
 #define ABS(a) ((a) < 0 ? -(a) : (a))
 
+typedef struct system_menu_
+{
+	uint8_t flags;
+	uint8_t current_menu;
+	int16_t current_index;
+	int8_t current_multiplier;
+	uint8_t total_items;
+	//system_menu_page_t *menu_entry;
+	// uint32_t next_redraw;
+	uint32_t action_timeout;
+} system_menu_t;
+
+system_menu_t g_system_menu = {
+	.current_index = 9
+};
+
 void rom_strcpy(char* dest, const char* src) {
 	while(*src)
 		*dest++ = *src++;

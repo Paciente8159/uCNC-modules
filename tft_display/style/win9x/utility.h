@@ -19,6 +19,7 @@
 #define WIN9X_UTILITY_H
 
 #include "colors.h"
+#include "config.h"
 
 #define _TWO_TONE_BORDER(x, y, w, h, t, c1, c2) \
 	GFX_RECT(x, y, (w) - (t), (t), c1); \
@@ -36,8 +37,20 @@
 
 #define BORDER(...) { _BORDER(__VA_ARGS__) }
 
+#define _HIGHLIGHT(x, y, w, h, highlight) \
+	if(highlight) { \
+		GFX_CONTAINER(x, y, w, h, GFX_COLOR(SELECT_HIGHLIGHT)); \
+	} else { \
+		GFX_SET_ORIGIN(x, y); \
+	}
+
+#define HIGHLIGHT(...) _HIGHLIGHT(__VA_ARGS__)
+
 #define BUTTON_DEF() GFX_DECL_ELEMENT(win9x_button, uint16_t width, uint16_t height, const char *text, bool highlight)
 extern BUTTON_DEF();
+
+#define LIST_SELECTOR_DEF() GFX_DECL_ELEMENT(win9x_list_selector, const char* header, const char **options, uint8_t option_count, uint8_t selected_index, int highlight_index, uint16_t *out_width, uint16_t *out_height)
+extern LIST_SELECTOR_DEF();
 
 #define BORDER_WIDTH 2
 

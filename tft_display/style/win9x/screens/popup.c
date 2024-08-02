@@ -45,9 +45,6 @@ GFX_DECL_SCREEN(popup)
 	GFX_CONTAINER(POPUP_X, POPUP_Y, POPUP_WIDTH, 22, GFX_COLOR(0x0000b0));
 	GFX_TEXT(POPUP_X + 4, POPUP_Y + 1, GFX_WHITE, "Attention");
 
-	BOX_INSET(50, 50, 20, 20, BOX_BACKGROUND);
-	BOX_OUTSET(50, 80, 20, 20, BOX_BACKGROUND);
-
 	// Body
 	GFX_CONTAINER(POPUP_X, POPUP_Y + 22, POPUP_WIDTH, POPUP_HEIGHT - 22, BASE_BACKGROUND);
 
@@ -62,7 +59,7 @@ void style_popup(const char* text)
 	char copy[strlen(text)];
 	strcpy(copy, text);
 
-	uint8_t line_count = 0;
+	uint8_t line_count = 1;
 	for(int i = 0; text[i] != 0; ++i)
 	{
 		if(text[i] == '\n')
@@ -93,7 +90,12 @@ void style_popup(const char* text)
 	arg.width += 10;
 	arg.height += 32;
 
-	GFX_RENDER_SCREEN(popup);
+#undef POPUP_WIDTH
+#undef POPUP_HEIGHT
+#define POPUP_WIDTH arg.width
+#define POPUP_HEIGHT arg.height
+
+	GFX_RENDER_AREA(popup, POPUP_X - 2, POPUP_Y - 2, POPUP_WIDTH + 4, POPUP_HEIGHT + 4, &arg);
 }
 
 #endif

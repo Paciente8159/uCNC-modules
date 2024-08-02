@@ -165,8 +165,8 @@ DECL_MODULE(tft_display)
 	io_set_output(TFT_LCD_CS);
 	io_set_output(TFT_LCD_RS);
 
-	softspi_config_t conf = { 0 };
-	conf.spi.enable_dma = 1;
+	spi_config_t conf = { 0 };
+	conf.enable_dma = 1;
 	softspi_config(&tft_spi, conf, TFT_SPI_FREQ);
 
 	// Prepare for communication with the display
@@ -187,10 +187,12 @@ DECL_MODULE(tft_display)
 #warning "Main loop extensions not enabled. TFT display will not function properly."
 #endif
 
-	style_init();
-
 	// Init system menu module
 	system_menu_init();
+
+	// The style initialization happens after system menu init
+	// to allow for overrides of renderers and menus.
+	style_init();
 }
 
 /*** -------======= System menu module bindings =======------- ***/

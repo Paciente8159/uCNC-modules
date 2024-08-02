@@ -153,12 +153,12 @@ GFX_DECL_SCREEN(screen)
 	// TODO: Grab the strings from language file
 	GFX_SET_ORIGIN(x, y);
 	const char* opts_move[] = { "Rapid", "Linear" };
-	GFX_DRAW_ELEMENT(list_selector, &w, &h, "Movement type", opts_move, 2, 0, 0);
+	GFX_DRAW_ELEMENT(list_selector, &w, &h, "Movement type", opts_move, 2, 0, g_system_menu.current_index);
 
 	x += w + 14;
 	GFX_SET_ORIGIN(x, y);
 	const char* opts_coord[] = { "Workspace", "Relative", "Machine" };
-	GFX_DRAW_ELEMENT(list_selector, &w, &h, "Coordinate type", opts_coord, 3, 0, 0);
+	GFX_DRAW_ELEMENT(list_selector, &w, &h, "Coordinate type", opts_coord, 3, 0, g_system_menu.current_index - 2);
 	
 	GFX_SET_BACKGROUND(BASE_BACKGROUND);
 
@@ -171,28 +171,28 @@ GFX_DECL_SCREEN(screen)
 
 	GFX_TEXT(GFX_REL(10, 8), GFX_BLACK, "Coordinates");
 
-	HIGHLIGHT(GFX_REL(13, 8+25), COORD_BOX_SIZE + 55, 34, true);
+	HIGHLIGHT(GFX_REL(13, 8+25), COORD_BOX_SIZE + 55, 34, g_system_menu.current_index == 5);
 	GFX_BITMAP(GFX_REL(2, 8), 9, 9, GFX_BACKGROUND, GFX_BLACK, CheckboxEmpty_9x9, 2);
 	GFX_TEXT(GFX_REL(28, 8), GFX_BLACK, FONT_PIXEL_MONO, 2, "X");
 	GFX_DRAW_ELEMENT(coordinate_box, GFX_REL(52, 4), true, COORD_DECIMAL_DIGITS, COORD_FRACTIONAL_DIGITS, -123.54, -1);
 	GFX_BACKGROUND = BASE_BACKGROUND;
 	
-	HIGHLIGHT(GFX_REL(0, 34), COORD_BOX_SIZE + 55, 34, false);
+	HIGHLIGHT(GFX_REL(0, 34), COORD_BOX_SIZE + 55, 34, g_system_menu.current_index == 6);
 	GFX_BITMAP(GFX_REL(2, 8), 9, 9, GFX_BACKGROUND, GFX_BLACK, CheckboxEmpty_9x9, 2);
 	GFX_TEXT(GFX_REL(28, 8), GFX_BLACK, FONT_PIXEL_MONO, 2, "Y");
 	GFX_DRAW_ELEMENT(coordinate_box, GFX_REL(52, 4), true, COORD_DECIMAL_DIGITS, COORD_FRACTIONAL_DIGITS, -123.54, -1);
 	GFX_BACKGROUND = BASE_BACKGROUND;
 
-	HIGHLIGHT(GFX_REL(0, 34), COORD_BOX_SIZE + 55, 34, false);
+	HIGHLIGHT(GFX_REL(0, 34), COORD_BOX_SIZE + 55, 34, g_system_menu.current_index == 7);
 	GFX_BITMAP(GFX_REL(2, 8), 9, 9, GFX_BACKGROUND, GFX_BLACK, CheckboxEmpty_9x9, 2);
 	GFX_TEXT(GFX_REL(28, 8), GFX_BLACK, FONT_PIXEL_MONO, 2, "Z");
 	GFX_DRAW_ELEMENT(coordinate_box, GFX_REL(52, 4), true, COORD_DECIMAL_DIGITS, COORD_FRACTIONAL_DIGITS, -123.54, -1);
 	GFX_BACKGROUND = BASE_BACKGROUND;
 
 	GFX_SET_ORIGIN(10, GFX_DISPLAY_HEIGHT - 35);
-	GFX_DRAW_ELEMENT(win9x_button, 50, 25, "Back", false);
+	GFX_DRAW_ELEMENT(win9x_button, 50, 25, "Back", g_system_menu.current_index == 8);
 	
 	GFX_SET_ORIGIN(65, GFX_DISPLAY_HEIGHT - 35);
-	GFX_DRAW_ELEMENT(win9x_button, 50, 25, "Move", false);
+	GFX_DRAW_ELEMENT(win9x_button, 50, 25, "Move", g_system_menu.current_index == 9);
 }
 

@@ -26,12 +26,17 @@
 #include "fonts/pixel.h"
 #include "fonts/pixelmono.h"
 
+#define BITMAP_IMPL
+#include "bitmaps/checkbox.h"
+
 GFX_INCLUDE_SCREEN(startup);
 GFX_INCLUDE_SCREEN(idle);
 
+extern void movement_screen_init();
+
 void style_init()
 {
-	
+	movement_screen_init();
 }
 
 void style_startup()
