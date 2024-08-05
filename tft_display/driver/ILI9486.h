@@ -116,26 +116,24 @@
 /* Definitions required by the graphics library */
 
 #if (TFT_MEMCTL_VALUE & TFT_MEMCTL_ROTATE_90)
-#define GFX_DISPLAY_WIDTH 480
-#define GFX_DISPLAY_HEIGHT 320
+#define TFT_DISPLAY_WIDTH 480
+#define TFT_DISPLAY_HEIGHT 320
 #else
-#define GFX_DISPLAY_WIDTH 320
-#define GFX_DISPLAY_HEIGHT 480
+#define TFT_DISPLAY_WIDTH 320
+#define TFT_DISPLAY_HEIGHT 480
 #endif
 
-typedef uint16_t gfx_pixel_t;
+// typedef uint16_t gfx_pixel_t;
 /*
  * To achieve proper bit order we need to swap the bytes
  */
-#define GFX_COLOR_INTERNAL(r, g, b) \
-  (((gfx_pixel_t)((r) * 0x1F / 255) & 0x1F) << 3) | \
-  (((gfx_pixel_t)((g) * 0x3F / 255) & 0b111000) >> 3) | \
-  (((gfx_pixel_t)((g) * 0x3F / 255) & 0b000111) << 13) | \
-  (((gfx_pixel_t)((b) * 0x1F / 255) & 0x1F) << 8)
+// #define GFX_COLOR_INTERNAL(r, g, b) \
+//   (((gfx_pixel_t)((r) * 0x1F / 255) & 0x1F) << 3) | \
+//   (((gfx_pixel_t)((g) * 0x3F / 255) & 0b111000) >> 3) | \
+//   (((gfx_pixel_t)((g) * 0x3F / 255) & 0b000111) << 13) | \
+//   (((gfx_pixel_t)((b) * 0x1F / 255) & 0x1F) << 8)
 
-extern void tft_blit(uint16_t, uint16_t, uint16_t, uint16_t, const gfx_pixel_t*);
-#define GFX_BLIT(x, y, w, h, pixels) tft_blit(x, y, w, h, pixels)
-
-#define __GFX_DRIVER
+// extern void tft_blit(uint16_t, uint16_t, uint16_t, uint16_t, const gfx_pixel_t*);
+// #define GFX_BLIT(x, y, w, h, pixels) tft_blit(x, y, w, h, pixels)
 
 #endif

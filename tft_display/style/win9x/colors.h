@@ -19,24 +19,40 @@
 #ifndef WIN9X_COLORS_H
 #define WIN9X_COLORS_H
 
-#define BASE_BACKGROUND GFX_COLOR(0xe5e5e5)
-#define BOX_BACKGROUND GFX_COLOR(0xf2f2f2)
+#ifdef __cplusplus
+extern "C"
+{
+#endif
 
-#define SHADOW_DARK GFX_COLOR(0x999999)
-#define SHADOW_LIGHT GFX_COLOR(0xFFFFFF)
-#define SHADOW_DARKER GFX_COLOR(0x666666)
+#include "lvgl.h"
+#include "misc/lv_color.h"
 
-#define TOP_BAR GFX_COLOR(0x0000B2)
-#define SEPARATOR GFX_COLOR(0xb2b2b2)
+const static lv_color_t bg_base = { 229, 229, 229 };
+const static lv_color_t bg_box = { 242, 242, 242 };
 
-#define CHARCOAL GFX_COLOR(0x2d2d2d)
+const static lv_color_t col_black = { 0, 0, 0 };
+const static lv_color_t col_white = { 255, 255, 255 };
+const static lv_color_t col_red = { 0, 0, 255 };
 
-#define SELECT_HIGHLIGHT GFX_COLOR(0xcccccc)
+const static lv_color_t shadow_dark = { 153, 153, 153 };
+const static lv_color_t shadow_light = { 255, 255, 255 };
+const static lv_color_t shadow_darker = { 102, 102, 102 };
 
-#define STATUS_COLOR_YELLOW GFX_COLOR(0xffff22)
-#define STATUS_COLOR_GREEN GFX_COLOR(0x88ff88)
-#define STATUS_COLOR_RED GFX_COLOR(0xff1111)
-#define STATUS_COLOR_BLUE GFX_COLOR(0xccccff)
+const static lv_color_t bg_title_bar = { 178, 0, 0 };
+const static lv_color_t separator = { 178, 178, 178 };
+
+const static lv_color_t charcoal = { 45, 45, 45 };
+
+const static lv_color_t select_highlight = { 204, 204, 204 };
+
+const static lv_color_t status_yellow = { 34, 255, 255 };
+const static lv_color_t status_green = { 136, 255, 136 };
+const static lv_color_t status_red = { 17, 17, 255 };
+const static lv_color_t status_blue = { 255, 204, 204 };
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
 

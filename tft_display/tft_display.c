@@ -18,6 +18,8 @@
 
 
 #include "../../cnc.h"
+#include "display/lv_display.h"
+#include "misc/lv_color.h"
 
 #ifdef ENABLE_TFT
 
@@ -25,6 +27,8 @@
 #include "../softspi.h"
 #include "../system_menu.h"
 #include "style/style.h"
+
+#include "lvgl.h"
 
 #ifndef TFT_LCD_CS
 #define TFT_LCD_CS DOUT0
@@ -36,6 +40,10 @@
 
 #ifndef TFT_SPI_FREQ
 #define TFT_SPI_FREQ 20000000
+#endif
+
+#ifndef LVGL_BUFFER_SIZE
+#define LVGL_BUFFER_SIZE (32 * 1024)
 #endif
 
 /**
@@ -137,6 +145,29 @@ void tft_blit(uint16_t x, uint16_t y, uint16_t w, uint16_t h, const gfx_pixel_t 
 	tft_bulk_data((const uint8_t*)data, w * h * sizeof(uint16_t));
 }
 
+static void lvgl_flush_cb(lv_display_t *display, const lv_area_t *area, uint8_t *pixel_map)
+{
+	tft_start();
+
+	// Set columns
+	TFT_CAS(area->x1, area->x2);
+	// Set rows
+	TFT_RAS(area->y1, area->y2);
+
+	uint32_t w = area->x2 - area->x1;
+	uint32_t h = area->y2 - area->y1;
+
+	// Send pixels
+	TFT_MEMWR();
+	// This assumes that the driver sends us data in RGB565 mode with 2 bytes per pixel
+	tft_bulk_data(pixel_map, w * h * 2);
+
+	tft_stop();
+
+	// Notify library of flush completion
+	lv_display_flush_ready(display);
+}
+
 /*** -------======= Event handlers =======------- ***/
 #ifdef ENABLE_MAIN_LOOP_MODULES
 
@@ -160,6 +191,9 @@ CREATE_EVENT_LISTENER_WITHLOCK(cnc_alarm, tft_update, LISTENER_HWSPI_LOCK);
 
 #endif
 
+lv_disp_t *lvgl_display;
+static uint8_t lvgl_display_buffer[LVGL_BUFFER_SIZE];
+
 DECL_MODULE(tft_display)
 {
 	io_set_output(TFT_LCD_CS);
@@ -179,6 +213,14 @@ DECL_MODULE(tft_display)
 	// End communication
 	tft_stop();
 
+	// Initialize LVGL
+	lv_init();
+
+	lvgl_display = lv_display_create(TFT_DISPLAY_WIDTH, TFT_DISPLAY_HEIGHT);
+	lv_display_set_flush_cb(lvgl_display, lvgl_flush_cb);
+	lv_display_set_buffers(lvgl_display, lvgl_display_buffer, 0, LVGL_BUFFER_SIZE, LV_DISPLAY_RENDER_MODE_PARTIAL);
+	lv_display_set_color_format(lvgl_display, LV_COLOR_FORMAT_RGB565);
+
 #ifdef ENABLE_MAIN_LOOP_MODULES
 	ADD_EVENT_LISTENER(cnc_reset, tft_startup);
 	ADD_EVENT_LISTENER(cnc_dotasks, tft_update);
@@ -192,36 +234,28 @@ DECL_MODULE(tft_display)
 
 	// The style initialization happens after system menu init
 	// to allow for overrides of renderers and menus.
-	style_init();
+	style_init(lvgl_display);
 }
 
 /*** -------======= System menu module bindings =======------- ***/
 void system_menu_render_startup(void)
 {
-	tft_start();
 	style_startup();
-	tft_stop();
 }
 
 void system_menu_render_idle(void)
 {
-	tft_start();
 	style_idle();
-	tft_stop();
 }
 
 void system_menu_render_modal_popup(const char *__s)
 {
-	tft_start();
 	style_popup(__s);
-	tft_stop();
 }
 
 void system_menu_render_alarm()
 {
-	tft_start();
 	style_alarm();
-	tft_stop();
 }
 
 

@@ -1,10 +1,10 @@
 /*
-	Name: zero.h
-	Description: Bitmapped zero position sign
+	Name: pixel_mono.h
+	Description: Monospaced bitmapped font designed to imitate the Windows 9x font.
 
 	Copyright: Copyright (c) Patryk Mierzyński
 	Author: Patryk Mierzyński
-	Date: 29/07/2024
+	Date: 30/07/2024
 
 	µCNC is free software: you can redistribute it and/or modify
 	it under the terms of the GNU General Public License as published by
@@ -16,7 +16,20 @@
 	See the GNU General Public License for more details.
 */
 
-const uint8_t ZeroPosBitmap_12x9[] = {
-	130, 8, 32, 68, 2, 128, 16, 98, 137, 68, 152, 41, 130, 96
-};
+#ifndef WIN9X_FONTS_PIXEL_MONO_H
+#define WIN9X_FONTS_PIXEL_MONO_H
+
+#ifdef __cplusplus
+extern "C"
+{
+#endif
+
+extern const lv_font_t font_pixel_mono_7pt;
+extern const lv_font_t font_pixel_mono_14pt;
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif
 

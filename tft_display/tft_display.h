@@ -30,15 +30,7 @@ extern "C"
 #define DAT(dat) tft_data(dat)
 #define DAT_BULK(data, len) tft_bulk_data(data, len)
 
-// Used for RPi type screens
-#define TFT_ALWAYS_16BIT
-
-// Makes sure the driver pulses the chip select line before
-// every transfer, this can be used to synchronize the
-// receiver in case of lost clocks.
-#define TFT_SYNC_CS
-
-#include "graphics_library/graphics_library.h"
+#include "driver.h"
 
 DECL_MODULE(tft_display);
 

@@ -15,6 +15,35 @@
 	Also without the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 	See the GNU General Public License for more details.
 */
+#ifndef WIN9X_BITMAP_WARNING_H
+#define WIN9X_BITMAP_WARNING_H
 
-const uint8_t WarningSign_14x13[] = { 3, 0, 18, 0, 72, 2, 16, 11, 64, 76, 129, 50, 8, 196, 32, 17, 12, 36, 48, 160, 1, 255, 252 };
+#ifdef __cplusplus
+extern "C"
+{
+#endif
+
+#ifdef BITMAP_IMPL
+static const uint8_t WarningSign_14x15[] = { 
+	3, 0, 3, 0, 7, 128, 7, 128, 12, 192, 12, 192, 28, 224, 28, 224, 60, 240, 63, 240, 127, 248, 124, 248, 252, 252, 255, 252, 255, 252
+};
+
+const lv_image_dsc_t Img_Warning = {
+	.header = {
+		.cf = LV_COLOR_FORMAT_A1,
+		.w = 14,
+		.h = 15,
+	},
+	.data = WarningSign_14x15,
+	.data_size = sizeof(WarningSign_14x15),
+};
+#else
+extern const lv_image_dsc_t Img_Warning;
+#endif
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif
 

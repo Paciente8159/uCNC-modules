@@ -1,10 +1,10 @@
 /*
-	Name: config.h
-	Description: Configuration file of the Win9x GUI style
+	Name: driver.h
+	Description: Defines which driver should be used for the TFT module and configures it
 
 	Copyright: Copyright (c) Patryk Mierzyński
 	Author: Patryk Mierzyński
-	Date: 01/08/2024
+	Date: 03/08/2024
 
 	µCNC is free software: you can redistribute it and/or modify
 	it under the terms of the GNU General Public License as published by
@@ -15,11 +15,28 @@
 	Also without the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 	See the GNU General Public License for more details.
 */
-#ifndef WIN9X_CONFIG_H
-#define WIN9X_CONFIG_H
 
-#define COORDINATE_DECIMAL_DIGITS 3
-#define COORDINATE_FRACTIONAL_DIGITS 2
+#ifndef TFT_DRIVER_H
+#define TFT_DRIVER_H
+
+#ifdef __cplusplus
+extern "C"
+{
+#endif
+
+// Used for RPi type screens
+#define TFT_ALWAYS_16BIT
+
+// Makes sure the driver pulses the chip select line before
+// every transfer, this can be used to synchronize the
+// receiver in case of lost clocks.
+#define TFT_SYNC_CS
+
+#include "driver/ILI9486.h"
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
 
