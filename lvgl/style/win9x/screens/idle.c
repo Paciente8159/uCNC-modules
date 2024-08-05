@@ -16,16 +16,20 @@
 	See the GNU General Public License for more details.
 */
 
-#include "../../support.h"
+#include "../../config.h"
 
 #ifdef TFT_STYLE_WIN9X
 
+#include "lvgl.h"
 #include "../colors.h"
-#include "../utility.h"
-
+#include "../styles.h"
+#include "../bitmaps/lock.h"
 #include "../bitmaps/warning.h"
-#include "../bitmaps/move.h"
-#include "../bitmaps/zero.h"
+#include "../fonts/pixel.h"
+#include "../fonts/pixel_mono.h"
+
+#include "../../../../../cnc.h"
+#include "../../../../system_menu.h"
 
 #ifndef MAX_MODAL_GROUPS
 #define MAX_MODAL_GROUPS 14
@@ -33,20 +37,32 @@
 
 static void get_alarm_string(char* dest);
 
-void idle_screen_dyn_draw(void);
+static lv_obj_t *screen;
 
-GFX_DECL_SCREEN(idle, idle_screen_dyn_draw)
+static struct _topbar {
+	lv_obj_t *state_text;
+	lv_obj_t *lock_icon;
+
+	lv_obj_t *alarm_box;
+	lv_obj_t *alarm_text;
+} g_topbar;
+
+static struct _posbox {
+	lv_obj_t *coordinate_table;
+	lv_obj_t *feed_spindle_table;
+	lv_obj_t *state_box;
+	lv_obj_t *state_label;
+} g_state;
+
+static const char* axis_labels[] = {
+	"X", "Y", "Z"
+};
+
+static void update_topbar()
 {
-	GFX_SCREEN_HEADER();
-	GFX_SET_FONT(FONT_MONO, 1);
-
-	GFX_CLEAR(BASE_BACKGROUND);
-
-	/* Top bar */
-	GFX_CONTAINER_dynamic(0, 0, GFX_DISPLAY_WIDTH, 22, TOP_BAR);
-
 	uint8_t state = cnc_get_exec_state(EXEC_RESET_LOCKED);
-	GFX_TEXT_dynamic(GFX_DISPLAY_WIDTH - 19, 3, GFX_WHITE, FONT_SYMBOL, 2, state ? "\x01" : "\x02");
+
+	lv_image_set_src(g_topbar.lock_icon, state ? &Img_Locked : &Img_Unlocked);
 
 	uint8_t modes[MAX_MODAL_GROUPS];
 	uint16_t feed, spindle;
@@ -59,34 +75,22 @@ GFX_DECL_SCREEN(idle, idle_screen_dyn_draw)
 					modes[4] == 21 ? "mm" : "inch",
 					modes[11]);
 
-	GFX_TEXT_dynamic(2, 0, GFX_WHITE, FONT_SANS, 1, str);
-
+	lv_label_set_text(g_topbar.state_text, str);
 	if(cnc_has_alarm())
 	{
-		GFX_RECT_dynamic(180, 0, 220, 22, GFX_RED);
 		get_alarm_string(str);
-		GFX_TEXT_dynamic(180 + GFX_CENTER_TEXT_OFFSET(220, FONT_SANS, 1, str), 0, GFX_RED, GFX_WHITE, FONT_SANS, 1, str);
+		lv_label_set_text(g_topbar.alarm_text, str);
 
-		GFX_BITMAP_dynamic(182, 5, 14, 13, GFX_RED, GFX_WHITE, WarningSign_14x13);
-		GFX_BITMAP_dynamic(384, 5, 14, 13, GFX_RED, GFX_WHITE, WarningSign_14x13);
+		lv_obj_remove_flag(g_topbar.alarm_box, LV_OBJ_FLAG_HIDDEN);
 	}
+	else
+	{
+		lv_obj_add_flag(g_topbar.alarm_box, LV_OBJ_FLAG_HIDDEN);
+	}
+}
 
-	BOX_OUTSET(0, 115, 50, 50, BASE_BACKGROUND);
-	GFX_BITMAP(GFX_REL(2, 2), 20, 20, BASE_BACKGROUND, CHARCOAL, MoveBitmap_20x20, 2);
-
-	BOX_OUTSET(0, 30, 50, 50, BASE_BACKGROUND);
-	GFX_BITMAP(GFX_REL(4, 8), 12, 9, BASE_BACKGROUND, CHARCOAL, ZeroPosBitmap_12x9, 3);
-
-	BOX_OUTSET(0, 200, 50, 50, BASE_BACKGROUND);
-
-	/* Coordinates */
-#define COORDINATE_BOX_X 70
-#define COORDINATE_BOX_Y 30
-#define COORDINATE_BOX_WIDTH 280
-#define COORDINATE_BOX_HEIGHT 138
-
-	BOX_INSET_dynamic(COORDINATE_BOX_X, COORDINATE_BOX_Y, COORDINATE_BOX_WIDTH, COORDINATE_BOX_HEIGHT, BOX_BACKGROUND);
-
+static void update_coordinates()
+{
 	float mpos[MAX(AXIS_COUNT, 3)];
 	int32_t steppos[STEPPER_COUNT];
 	itp_get_rt_position(steppos);
@@ -98,106 +102,308 @@ GFX_DECL_SCREEN(idle, idle_screen_dyn_draw)
 		wpos[i] = mpos[i];
 	parser_machine_to_work(wpos);
 
-#define DRAW_AXIS(y, axis, idx, color) \
-	GFX_TEXT(GFX_REL(7, y), color, axis); \
-	sprintf(str, "%4d.%02d %4d.%02d", (int)wpos[idx], ABS((int)(wpos[idx] * 100) % 100), (int)mpos[idx], ABS((int)(mpos[idx] * 100) % 100)); \
-	GFX_TEXT_dynamic(GFX_REL(57, y), GFX_BLACK, str);
+	char str[32];
+	for(int i = 0; i < MAX(AXIS_COUNT, 3); ++i)
+	{
+	 	sprintf(str, "%4d.%03d", (int)wpos[i], ABS((int)(wpos[i] * 1000) % 1000));
+		lv_table_set_cell_value(g_state.coordinate_table, i + 1, 1, str);
+		sprintf(str, "%4d.%03d", (int)mpos[i], ABS((int)(mpos[i] * 1000) % 1000));
+		lv_table_set_cell_value(g_state.coordinate_table, i + 1, 2, str);
+	}
+}
 
-	GFX_TEXT(GFX_REL(36, 7), GFX_BLACK, "Work");
-	GFX_TEXT(GFX_REL(169, 7), GFX_BLACK, "Machine");
+static void update_feed_spindle()
+{
+	uint8_t modes[MAX_MODAL_GROUPS];
+	uint16_t feed, spindle;
+	parser_get_modes(modes, &feed, &spindle);
 
-	GFX_RECT(GFX_REL(0, 7 + 26), COORDINATE_BOX_WIDTH - 6, 1, SEPARATOR);
-	DRAW_AXIS(40, "X", 0, GFX_RED);
-	GFX_RECT_dynamic(GFX_REL(0, 40 + 26), COORDINATE_BOX_WIDTH - 6, 1, SEPARATOR);
-	DRAW_AXIS(73, "Y", 1, GFX_DARK_GREEN);
-	GFX_RECT_dynamic(GFX_REL(0, 73 + 26), COORDINATE_BOX_WIDTH - 6, 1, SEPARATOR);
-	DRAW_AXIS(106, "Z", 2, GFX_BLUE);
-
-	GFX_RECT_dynamic(GFX_REL(29, 0), 1, COORDINATE_BOX_HEIGHT - 6, SEPARATOR);
-	GFX_RECT_dynamic(GFX_REL(162, 0), 1, COORDINATE_BOX_HEIGHT - 6, SEPARATOR);
-
-	/* Feed and Spindle */
-#define FS_BOX_X 360
-#define FS_BOX_Y 30
-#define FS_BOX_WIDTH 110
-#define FS_BOX_HEIGHT 70
-
-	BOX_INSET_dynamic(FS_BOX_X, FS_BOX_Y, FS_BOX_WIDTH, FS_BOX_HEIGHT, BOX_BACKGROUND);
-
-	GFX_TEXT(GFX_REL(6, 7), GFX_BLACK, "F");
+	char str[16];
 	sprintf(str, "%4d", feed);
-	GFX_TEXT_dynamic(GFX_REL(45, 7), GFX_BLACK, str);
-
-	GFX_RECT_dynamic(GFX_REL(0, 32), FS_BOX_WIDTH - 6, 1, SEPARATOR);
-
-	GFX_TEXT(GFX_REL(6, 37), GFX_BLACK, "S");
+	lv_table_set_cell_value(g_state.feed_spindle_table, 0, 1, str);
 	sprintf(str, "%5d", spindle);
-	GFX_TEXT_dynamic(GFX_REL(31, 37), GFX_BLACK, str);
+	lv_table_set_cell_value(g_state.feed_spindle_table, 1, 1, str);
+}
 
-	/* Status */
-	state = cnc_get_exec_state(EXEC_ALLACTIVE);
+static void update_state()
+{
+	uint8_t state = cnc_get_exec_state(EXEC_ALLACTIVE);
 	uint8_t filter = 0x80;
 	while(!(state & filter) && filter)
 		filter >>= 1;
 	state &= filter;
 
-	gfx_pixel_t bg_color = BOX_BACKGROUND;
+	char str[64];
+
+	lv_color_t bg_color = bg_box;
 	switch(state)
 	{
 		case EXEC_DOOR:
 			rom_strcpy(str, MSG_STATUS_DOOR);
-			bg_color = STATUS_COLOR_RED;
+			bg_color = status_red;
 			break;
 		case EXEC_KILL:
 		case EXEC_UNHOMED:
 		case EXEC_LIMITS:
 			rom_strcpy(str, MSG_STATUS_ALARM);
-			bg_color = STATUS_COLOR_RED;
+			bg_color = status_red;
 			break;
 		case EXEC_HOLD:
 			rom_strcpy(str, MSG_STATUS_HOLD);
-			bg_color = STATUS_COLOR_YELLOW;
+			bg_color = status_yellow;
 			break;
 		case EXEC_HOMING:
 			rom_strcpy(str, MSG_STATUS_HOME);
-			bg_color = STATUS_COLOR_GREEN;
+			bg_color = status_green;
 			break;
 		case EXEC_JOG:
 			rom_strcpy(str, MSG_STATUS_JOG);
-			bg_color = STATUS_COLOR_BLUE;
+			bg_color = status_blue;
 			break;
 		case EXEC_RUN:
 			rom_strcpy(str, MSG_STATUS_RUN);
-			bg_color = STATUS_COLOR_GREEN;
+			bg_color = status_green;
 			break;
 		default:
 			rom_strcpy(str, MSG_STATUS_IDLE);
 			break;
 	}
 
-#define SCREEN_MAIN_STATUS_X 360
-#define SCREEN_MAIN_STATUS_Y 110
-#define SCREEN_MAIN_STATUS_WIDTH 110
-#define SCREEN_MAIN_STATUS_HEIGHT 37
-
-	BOX_INSET(SCREEN_MAIN_STATUS_X, SCREEN_MAIN_STATUS_Y, SCREEN_MAIN_STATUS_WIDTH, SCREEN_MAIN_STATUS_HEIGHT, bg_color);
-	GFX_TEXT(GFX_REL(GFX_CENTER_TEXT_OFFSET(SCREEN_MAIN_STATUS_WIDTH, str), 7), bg_color, GFX_BLACK, str);
+	lv_obj_set_style_bg_color(g_state.state_box, bg_color, LV_PART_MAIN);
+	lv_label_set_text(g_state.state_label, str);
 }
 
-void idle_screen_dyn_draw(void)
+static void coord_box_event_cb(lv_event_t *event)
 {
-	GFX_RENDER_AREA(idle, 0, 0, GFX_DISPLAY_WIDTH, 22); \
-	GFX_RENDER_AREA(idle, COORDINATE_BOX_X + 60, COORDINATE_BOX_Y + 40, COORDINATE_BOX_WIDTH - 66, COORDINATE_BOX_HEIGHT - 46); \
-	GFX_RENDER_AREA(idle, FS_BOX_X + 30, FS_BOX_Y + 3, FS_BOX_WIDTH - 36, FS_BOX_HEIGHT - 6);
-	
-	static uint8_t last_exec_state = 0;
-	uint8_t state = cnc_get_exec_state(EXEC_ALLACTIVE);
-	if(state != last_exec_state) {
-		last_exec_state = state;
+	lv_draw_task_t *draw_task = lv_event_get_draw_task(event);
+	lv_draw_dsc_base_t *base_dsc = (lv_draw_dsc_base_t*)draw_task->draw_dsc;
 
-		gfx_invalidate();
-		GFX_RENDER_AREA(idle, SCREEN_MAIN_STATUS_X, SCREEN_MAIN_STATUS_Y, SCREEN_MAIN_STATUS_WIDTH, SCREEN_MAIN_STATUS_HEIGHT);
+	if(base_dsc->part == LV_PART_ITEMS)
+	{
+    uint32_t row = base_dsc->id1;
+    uint32_t col = base_dsc->id2;
+
+		lv_draw_label_dsc_t *label_draw_dsc = lv_draw_task_get_label_dsc(draw_task);
+		if(label_draw_dsc)
+		{
+			if(col == 0 || row == 0)
+			{
+				label_draw_dsc->align = LV_TEXT_ALIGN_LEFT;
+			}
+			else
+			{
+				label_draw_dsc->align = LV_TEXT_ALIGN_RIGHT;
+			}
+		}
+
+		lv_draw_border_dsc_t *border_draw_dsc = lv_draw_task_get_border_dsc(draw_task);
+		if(border_draw_dsc)
+		{
+			if(col == 0)
+			{
+				border_draw_dsc->side &= ~LV_BORDER_SIDE_LEFT;
+			}
+			if(row == 0)
+			{
+				border_draw_dsc->side &= ~LV_BORDER_SIDE_TOP;
+			}
+		}
+  }
+}
+
+static void feed_box_event_cb(lv_event_t *event)
+{
+	lv_draw_task_t *draw_task = lv_event_get_draw_task(event);
+	lv_draw_dsc_base_t *base_dsc = (lv_draw_dsc_base_t*)draw_task->draw_dsc;
+
+	if(base_dsc->part == LV_PART_ITEMS)
+	{
+		uint32_t row = base_dsc->id1;
+    uint32_t col = base_dsc->id2;
+
+		lv_draw_label_dsc_t *label_draw_dsc = lv_draw_task_get_label_dsc(draw_task);
+		if(label_draw_dsc)
+		{
+			if(col == 0)
+			{
+				label_draw_dsc->align = LV_TEXT_ALIGN_LEFT;
+			}
+			else
+			{
+				label_draw_dsc->align = LV_TEXT_ALIGN_RIGHT;
+			}
+		}
+
+		lv_draw_border_dsc_t *border_draw_dsc = lv_draw_task_get_border_dsc(draw_task);
+		if(border_draw_dsc)
+		{
+			border_draw_dsc->side = LV_BORDER_SIDE_TOP;
+			if(row == 0)
+			{
+				border_draw_dsc->side = LV_BORDER_SIDE_NONE;
+			}
+		}
 	}
+}
+
+void style_create_idle_screen()
+{
+	screen = lv_obj_create(NULL);
+	lv_obj_set_style_bg_color(screen, bg_base, LV_PART_MAIN);
+	lv_obj_set_style_text_font(screen, &font_pixel_bold_11pt, LV_PART_MAIN);
+
+	{
+		lv_obj_t *topbar = lv_obj_create(screen);
+		lv_obj_set_style_bg_color(topbar, bg_title_bar, LV_PART_MAIN);
+		lv_obj_set_style_text_color(topbar, col_white, LV_PART_MAIN);
+		lv_obj_set_size(topbar, 480, 22);
+
+		g_topbar.state_text = lv_label_create(topbar);
+		lv_obj_set_align(g_topbar.state_text, LV_ALIGN_LEFT_MID);
+		lv_obj_set_pos(g_topbar.state_text, 2, 0);
+
+		g_topbar.lock_icon = lv_image_create(topbar);
+		lv_obj_set_align(g_topbar.lock_icon, LV_ALIGN_RIGHT_MID);
+		lv_obj_set_pos(g_topbar.lock_icon, -3, 0);
+		lv_obj_set_style_image_recolor(g_topbar.lock_icon, col_white, LV_PART_MAIN);
+
+		g_topbar.alarm_box = lv_obj_create(topbar);
+		lv_obj_set_pos(g_topbar.alarm_box, 180, 0);
+		lv_obj_set_size(g_topbar.alarm_box, 220, 22);
+		lv_obj_set_style_bg_color(g_topbar.alarm_box, col_red, LV_PART_MAIN);
+
+		lv_obj_t *warn_1 = lv_image_create(g_topbar.alarm_box);
+		lv_image_set_src(warn_1, &Img_Warning);
+		lv_obj_set_style_image_recolor(warn_1, col_white, LV_PART_MAIN);
+		lv_obj_set_align(warn_1, LV_ALIGN_LEFT_MID);
+		lv_obj_set_pos(warn_1, 3, 0);
+
+		lv_obj_t *warn_2 = lv_image_create(g_topbar.alarm_box);
+		lv_image_set_src(warn_2, &Img_Warning);
+		lv_obj_set_style_image_recolor(warn_2, col_white, LV_PART_MAIN);
+		lv_obj_set_align(warn_2, LV_ALIGN_RIGHT_MID);
+		lv_obj_set_pos(warn_2, -3, 0);
+
+		g_topbar.alarm_text = lv_label_create(g_topbar.alarm_box);
+		lv_obj_set_align(g_topbar.alarm_text, LV_ALIGN_CENTER);
+
+		update_topbar();
+	}
+
+	{
+		lv_obj_t *btn1 = lv_button_create(screen);
+		lv_obj_set_pos(btn1, 0, 30);
+		lv_obj_set_size(btn1, 50, 50);
+		lv_obj_add_style(btn1, &g_styles.button, 0);
+		WIN9X_BORDER_PART_TWO(btn1, shadow_dark);
+		
+		lv_obj_t *btn2 = lv_button_create(screen);
+		lv_obj_set_pos(btn2, 0, 115);
+		lv_obj_set_size(btn2, 50, 50);
+		lv_obj_add_style(btn2, &g_styles.button, 0);
+		WIN9X_BORDER_PART_TWO(btn2, shadow_dark);
+
+		lv_obj_t *btn3 = lv_button_create(screen);
+		lv_obj_set_pos(btn3, 0, 200);
+		lv_obj_set_size(btn3, 50, 50);
+		lv_obj_add_style(btn3, &g_styles.button, 0);
+		WIN9X_BORDER_PART_TWO(btn3, shadow_dark);
+	}
+
+	{
+		lv_obj_t *container = lv_obj_create(screen);
+		lv_obj_set_pos(container, 70, 30);
+		lv_obj_set_size(container, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+
+		lv_obj_set_style_text_font(container, &font_pixel_mono_14pt, LV_PART_MAIN);
+		lv_obj_set_style_text_color(container, col_black, LV_PART_MAIN);
+
+		lv_obj_add_style(container, &g_styles.container, LV_PART_MAIN);
+		WIN9X_BORDER_PART_TWO(container, shadow_light);
+
+		lv_obj_t *table = lv_table_create(container);
+
+		lv_obj_add_style(table, &g_styles.table_item, LV_PART_ITEMS);
+		lv_obj_set_style_align(table, LV_ALIGN_CENTER, LV_PART_ITEMS);
+
+		lv_table_set_column_width(table, 0, 40);
+		lv_table_set_column_width(table, 1, 108);
+		lv_table_set_column_width(table, 2, 108);
+		
+		lv_table_set_cell_value(table, 0, 1, "Work");
+		lv_table_set_cell_value(table, 0, 2, "Machine");
+
+		for(int i = 0; i < 3; ++i)
+		{
+			lv_table_set_cell_value(table, i + 1, 0, axis_labels[i]);
+		}
+
+		lv_obj_add_event_cb(table, coord_box_event_cb, LV_EVENT_DRAW_TASK_ADDED, NULL);
+		lv_obj_add_flag(table, LV_OBJ_FLAG_SEND_DRAW_TASK_EVENTS);
+
+		g_state.coordinate_table = table;
+		update_coordinates();
+	}
+
+	{
+		lv_obj_t *container = lv_obj_create(screen);
+		lv_obj_set_pos(container, 350, 30);
+		lv_obj_set_size(container, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+
+		lv_obj_set_style_text_font(container, &font_pixel_mono_14pt, LV_PART_MAIN);
+		lv_obj_set_style_text_color(container, col_black, LV_PART_MAIN);
+
+		lv_obj_add_style(container, &g_styles.container, LV_PART_MAIN);
+		WIN9X_BORDER_PART_TWO(container, shadow_light);
+
+		lv_obj_t *table = lv_table_create(container);
+
+		lv_obj_add_style(table, &g_styles.table_item, LV_PART_ITEMS);
+
+		lv_table_set_cell_value(table, 0, 0, "F");
+		lv_table_set_cell_value(table, 1, 0, "S");
+
+		lv_table_set_column_width(table, 0, 30);
+		lv_table_set_column_width(table, 1, 80);
+
+		lv_obj_add_event_cb(table, feed_box_event_cb, LV_EVENT_DRAW_TASK_ADDED, NULL);
+		lv_obj_add_flag(table, LV_OBJ_FLAG_SEND_DRAW_TASK_EVENTS);
+
+		g_state.feed_spindle_table = table;
+		update_feed_spindle();
+	}
+
+	{
+		lv_obj_t *container = lv_obj_create(screen);
+		lv_obj_set_pos(container, 350, 110);
+		lv_obj_set_size(container, 110, LV_SIZE_CONTENT);
+
+		lv_obj_set_style_text_font(container, &font_pixel_mono_14pt, LV_PART_MAIN);
+		lv_obj_set_style_text_color(container, col_black, LV_PART_MAIN);
+
+		lv_obj_set_style_pad_all(container, 4, LV_PART_MAIN);
+
+		lv_obj_add_style(container, &g_styles.container, LV_PART_MAIN);
+		WIN9X_BORDER_PART_TWO(container, shadow_light);
+
+		g_state.state_box = container;
+
+		lv_obj_t *label = lv_label_create(container);
+		lv_obj_set_align(label, LV_ALIGN_CENTER);
+
+		g_state.state_label = label;
+		update_state();
+	}
+
+	lv_screen_load(screen);
+}
+
+void idle_screen_update()
+{
+	update_topbar();
+	update_coordinates();
+	update_feed_spindle();
+	update_state();
 }
 
 static void get_alarm_string(char* dest)
@@ -248,7 +454,6 @@ static void get_alarm_string(char* dest)
 			break;
 	}
 }
-
 
 #endif
 

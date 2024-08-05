@@ -1,10 +1,10 @@
 /*
-	Name: style.h
-	Description: Base of the style subsystem
+	Name: styles.h
+	Description: Predefined styles used in the GUI
 
 	Copyright: Copyright (c) Patryk Mierzyński
 	Author: Patryk Mierzyński
-	Date: 29/07/2024
+	Date: 04/08/2024
 
 	µCNC is free software: you can redistribute it and/or modify
 	it under the terms of the GNU General Public License as published by
@@ -16,8 +16,8 @@
 	See the GNU General Public License for more details.
 */
 
-#ifndef TFT_DISPLAY_STYLE_H
-#define TFT_DISPLAY_STYLE_H
+#ifndef WIN9X_STYLES_H
+#define WIN9X_STYLES_H
 
 #ifdef __cplusplus
 extern "C"
@@ -26,12 +26,22 @@ extern "C"
 
 #include "lvgl.h"
 
-extern void style_init(lv_display_t *display);
+typedef struct _styles {
+	lv_style_t button;
+	lv_style_t container;
+	lv_style_t table_item;
+} win9x_styles;
 
-extern void style_startup();
-extern void style_idle();
-extern void style_popup(const char* text);
-extern void style_alarm();
+typedef struct _two_color_border {
+	lv_color_t color1;
+	lv_color_t color2;
+	uint8_t width;
+} win9x_two_color_border_t;
+
+extern void win9x_two_color_border_draw(lv_event_t *event);
+#define WIN9X_BORDER_PART_TWO(obj, color) lv_obj_add_event_cb(obj, win9x_two_color_border_draw, LV_EVENT_DRAW_MAIN_END, (lv_color_t*)&(color));
+
+extern win9x_styles g_styles;
 
 #ifdef __cplusplus
 }

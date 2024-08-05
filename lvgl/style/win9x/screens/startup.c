@@ -15,17 +15,26 @@
 	Also without the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 	See the GNU General Public License for more details.
 */
-#include "../../support.h"
+#include "../../config.h"
 
 #ifdef TFT_STYLE_WIN9X
 
+#include "lvgl.h"
+#include "../colors.h"
 #include "../bitmaps/logo.h"
 
-GFX_DECL_SCREEN(startup)
+static lv_obj_t *screen;
+
+void style_create_startup_screen()
 {
-	GFX_SCREEN_HEADER();
-	GFX_CLEAR(GFX_BLACK);
-	GFX_PALETTE_BITMAP(180, 100, 40, 40, 2, Logo_Colors, Logo_40x40, 3);
+	screen = lv_obj_create(NULL);
+
+	lv_obj_set_style_bg_color(screen, col_black, LV_PART_MAIN);
+
+	lv_obj_t *logo = lv_img_create(screen);
+	lv_image_set_src(logo, &Img_Logo);
+	lv_obj_set_pos(logo, 180, 100);
+	lv_obj_set_size(logo, 120, 120);
 }
 
 #endif
