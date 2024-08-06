@@ -394,8 +394,6 @@ void style_create_idle_screen()
 		g_state.state_label = label;
 		update_state();
 	}
-
-	lv_screen_load(screen);
 }
 
 void idle_screen_update()
@@ -404,6 +402,23 @@ void idle_screen_update()
 	update_coordinates();
 	update_feed_spindle();
 	update_state();
+}
+
+void style_idle()
+{
+	extern lv_obj_t *g_current_screen;
+	if(g_current_screen != screen)
+	{
+		lv_screen_load(screen);
+		g_current_screen = screen;
+	}
+
+	idle_screen_update();
+}
+
+void style_alarm()
+{
+	style_idle();
 }
 
 static void get_alarm_string(char* dest)
