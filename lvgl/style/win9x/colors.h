@@ -45,6 +45,8 @@ const static lv_color_t charcoal = { 45, 45, 45 };
 
 const static lv_color_t select_highlight = { 204, 204, 204 };
 
+const static lv_color_t button_click = { 204, 204, 204 };
+
 const static lv_color_t status_yellow = { 34, 255, 255 };
 const static lv_color_t status_green = { 136, 255, 136 };
 const static lv_color_t status_red = { 17, 17, 255 };

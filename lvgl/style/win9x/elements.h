@@ -1,10 +1,10 @@
 /*
-	Name: style.h
-	Description: Base of the style subsystem
+	Name: elements.h
+	Description: Predefined components for the GUI
 
 	Copyright: Copyright (c) Patryk Mierzyński
 	Author: Patryk Mierzyński
-	Date: 29/07/2024
+	Date: 06/08/2024
 
 	µCNC is free software: you can redistribute it and/or modify
 	it under the terms of the GNU General Public License as published by
@@ -16,8 +16,8 @@
 	See the GNU General Public License for more details.
 */
 
-#ifndef TFT_DISPLAY_STYLE_H
-#define TFT_DISPLAY_STYLE_H
+#ifndef WIN9X_ELEMENTS_H
+#define WIN9X_ELEMENTS_H
 
 #ifdef __cplusplus
 extern "C"
@@ -26,12 +26,8 @@ extern "C"
 
 #include "lvgl.h"
 
-extern void style_init(lv_display_t *display, lv_indev_t *indev);
-
-extern void style_startup();
-extern void style_idle();
-extern void style_popup(const char* text);
-extern void style_alarm();
+extern lv_obj_t *win9x_radio_list(lv_obj_t *parent, const char *header, const char **items, int item_count, uint8_t *index_ptr);
+extern lv_obj_t *win9x_button(lv_obj_t *parent, const char *text);
 
 #ifdef __cplusplus
 }

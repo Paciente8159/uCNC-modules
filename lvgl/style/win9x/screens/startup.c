@@ -37,5 +37,15 @@ void style_create_startup_screen()
 	lv_obj_set_size(logo, 120, 120);
 }
 
+void style_startup()
+{
+	extern lv_obj_t *g_current_screen;
+	if(g_current_screen != screen)
+	{
+		lv_screen_load(screen);
+		g_current_screen = screen;
+	}
+}
+
 #endif
 

@@ -24,20 +24,24 @@
 #define BITMAP_IMPL
 #include "bitmaps/lock.h"
 #include "bitmaps/warning.h"
-// #include "bitmaps/checkbox.h"
+#include "bitmaps/checkbox.h"
 
 #include "styles.h"
 #include "colors.h"
 
 extern void style_create_startup_screen();
 extern void style_create_idle_screen();
+extern void style_create_movement_screen();
 
 win9x_styles g_styles;
+lv_obj_t* g_current_screen = 0;
+lv_indev_t *g_indev = 0;
 
-void style_init(lv_display_t *display)
+void style_init(lv_display_t *display, lv_indev_t *indev)
 {
 	lv_theme_t *theme = lv_theme_simple_init(display);
 	lv_display_set_theme(display, theme);
+	g_indev = indev;
 
 
 	lv_style_init(&g_styles.button);
@@ -50,6 +54,7 @@ void style_init(lv_display_t *display)
 
 	lv_style_init(&g_styles.container);
 	lv_style_set_bg_color(&g_styles.container, bg_box);
+	lv_style_set_bg_opa(&g_styles.container, LV_OPA_COVER);
 
 	lv_style_set_border_color(&g_styles.container, shadow_dark);
 	lv_style_set_border_side(&g_styles.container, LV_BORDER_SIDE_FULL);
@@ -66,19 +71,7 @@ void style_init(lv_display_t *display)
 
 	style_create_startup_screen();
 	style_create_idle_screen();
-}
-
-void style_startup()
-{
-}
-
-void style_idle()
-{
-}
-
-void style_alarm()
-{
-	// This screen takes care of alarms
+	style_create_movement_screen();
 }
 
 void win9x_two_color_border_draw(lv_event_t *event)
