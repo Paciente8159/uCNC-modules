@@ -18,7 +18,7 @@
 
 #include "../../config.h"
 
-#ifdef TFT_STYLE_WIN9X
+#ifdef GUI_STYLE_WIN9X
 
 #include "lvgl.h"
 #include "../colors.h"
@@ -28,8 +28,8 @@
 #include "../fonts/pixel.h"
 #include "../fonts/pixel_mono.h"
 
-#include "../../../../../cnc.h"
-#include "../../../../system_menu.h"
+#include "src/cnc.h"
+#include "src/modules/system_menu.h"
 
 #ifndef MAX_MODAL_GROUPS
 #define MAX_MODAL_GROUPS 14

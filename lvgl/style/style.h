@@ -16,8 +16,8 @@
 	See the GNU General Public License for more details.
 */
 
-#ifndef TFT_DISPLAY_STYLE_H
-#define TFT_DISPLAY_STYLE_H
+#ifndef LVGL_STYLE_H
+#define LVGL_STYLE_H
 
 #ifdef __cplusplus
 extern "C"

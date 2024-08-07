@@ -18,7 +18,7 @@
 
 #include "../../config.h"
 
-#ifdef TFT_STYLE_WIN9X
+#ifdef GUI_STYLE_WIN9X
 
 #include "lvgl.h"
 #include "../colors.h"
@@ -26,7 +26,7 @@
 #include "../fonts/pixel.h"
 #include "../fonts/pixel_mono.h"
 #include "../bitmaps/checkbox.h"
-#include "../../../../../cnc.h"
+#include "src/cnc.h"
 #include "../elements.h"
 #include "math.h"
 

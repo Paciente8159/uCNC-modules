@@ -16,6 +16,11 @@
 	See the GNU General Public License for more details.
 */
 
+
+#include "../../config.h"
+
+#ifdef GUI_STYLE_WIN9X
+
 #include "lvgl.h"
 
 static const uint8_t bitmaps[] = {
@@ -175,4 +180,6 @@ const lv_font_t font_pixel_7pt = {
 	.underline_thickness = 0,
 	.dsc = &font_dsc
 };
+
+#endif
 

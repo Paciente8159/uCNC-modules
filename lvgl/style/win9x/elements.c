@@ -1,6 +1,6 @@
 #include "../config.h"
 
-#ifdef TFT_STYLE_WIN9X
+#ifdef GUI_STYLE_WIN9X
 
 #include "elements.h"
 #include "styles.h"

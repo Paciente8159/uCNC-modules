@@ -1,10 +1,10 @@
 /*
-	Name: config.h
-	Description: Defines which style should be compiled
+	Name: lvgl.c
+	Description: Support module for LVGL
 
 	Copyright: Copyright (c) Patryk Mierzyński
 	Author: Patryk Mierzyński
-	Date: 03/08/2024
+	Date: 07/08/2024
 
 	µCNC is free software: you can redistribute it and/or modify
 	it under the terms of the GNU General Public License as published by
@@ -16,19 +16,10 @@
 	See the GNU General Public License for more details.
 */
 
-#ifndef LVGL_STYLE_CONFIG_H
-#define LVGL_STYLE_CONFIG_H
+#include "lvgl.h"
 
-#ifdef __cplusplus
-extern "C"
+DECL_MODULE(lvgl)
 {
-#endif
 
-#define GUI_STYLE_WIN9X
-
-#ifdef __cplusplus
 }
-#endif
-
-#endif
 
