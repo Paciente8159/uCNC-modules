@@ -24,7 +24,7 @@ extern "C"
 {
 #endif
 
-#include "../../module.h"
+#include "src/module.h"
 
 #define CMD(cmd) tft_command(cmd)
 #define DAT(dat) tft_data(dat)
