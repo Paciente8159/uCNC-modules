@@ -51,7 +51,7 @@
  * Initialization sequence for ILI9486 driver
  * Reference:
  *	https://github.com/Bodmer/TFT_eSPI/blob/master/TFT_Drivers/ILI9486_Init.h
- *	https://www.hpinfotech.ro/ILI9486.pdf
+ *	https://www.waveshare.com/w/upload/7/78/ILI9486_Datasheet.pdf
  */
 #define TFT_INIT() { \
 	TFT_RESET(); \
