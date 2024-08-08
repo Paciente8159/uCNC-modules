@@ -16,31 +16,44 @@
 	See the GNU General Public License for more details.
 */
 
-
 #include "src/cnc.h"
 
-#ifdef ENABLE_TFT
+#if defined(TFT_SPI_HARDWARE) || (defined(TFT_SPI_MOSI) && defined(TFT_SPI_CLK))
 
 #include "tft_display.h"
 #include "src/modules/softspi.h"
 #include "src/modules/lvgl/lvgl_support.h"
 
-#ifndef TFT_LCD_CS
-#define TFT_LCD_CS DOUT0
+#ifdef TFT_CS
+// Clear/set IO pin
+#define TFT_SELECT() io_clear_output(TFT_CS)
+#define TFT_RELEASE() io_set_output(TFT_CS)
+#else
+// Do nothing
+#define TFT_SELECT()
+#define TFT_RELEASE()
 #endif
 
-#ifndef TFT_LCD_RS
-#define TFT_LCD_RS DOUT1
+#ifndef TFT_RS
+#define TFT_RS DOUT1
 #endif
 
 #ifndef TFT_SPI_FREQ
 #define TFT_SPI_FREQ 20000000
 #endif
 
-#ifndef LVGL_BUFFER_SIZE
-#define LVGL_BUFFER_SIZE (32 * 1024)
+#ifndef TFT_BUFFER_SIZE
+#define TFT_BUFFER_SIZE (32 * 1024)
 #endif
 
+#ifndef TFT_SYNC_CS
+// Makes sure the driver pulses the chip select line before
+// every transfer, this can be used to synchronize the
+// receiver in case of lost clocks.
+#define TFT_SYNC_CS 1
+#endif
+
+#ifndef TFT_CLK_SETTLE_DELAY
 /**
  * Question: Why is this macro needed?
  * Answer:
@@ -63,27 +76,43 @@
  * This macro must delay code execution by atleast 1 SPI clock cycle, sometimes
  * if the clock is fast enough that delay is not needed.
  */
-
 #define TFT_CLK_SETTLE_DELAY() mcu_delay_us(1)
+#endif
 
+#ifdef TFT_SPI_HARDWARE
 HARDSPI(tft_spi, TFT_SPI_FREQ, 0);
+#else
+SOFTSPI(tft_spi, TFT_SPI_FREQ, 0, TFT_SPI_MOSI, UNDEF_PIN, TFT_SPI_CLK);
+#endif
+
+#define CMD(cmd) tft_command(cmd)
+#define DAT(dat) tft_data(dat)
+#define DAT_BULK(data, len) tft_bulk_data(data, len)
+
+#include "driver.h"
 
 static void tft_start()
 {
 	softspi_start(&tft_spi);
+#if !TFT_SYNC_CS
+	TFT_SELECT();
+#endif
 }
 
 static void tft_stop()
 {
+#if !TFT_SYNC_CS
+	TFT_RELEASE();
+#endif
 	softspi_stop(&tft_spi);
 }
 
 static void tft_command(uint8_t cmd)
 {
-#ifdef TFT_SYNC_CS
-	io_clear_output(TFT_LCD_CS);
+#if TFT_SYNC_CS
+	TFT_SELECT();
 #endif
-	io_clear_output(TFT_LCD_RS);
+	io_clear_output(TFT_RS);
 
 #ifdef TFT_ALWAYS_16BIT
 	softspi_xmit(&tft_spi, 0);
@@ -91,16 +120,16 @@ static void tft_command(uint8_t cmd)
 	softspi_xmit(&tft_spi, cmd);
 
 	TFT_CLK_SETTLE_DELAY();
-	io_set_output(TFT_LCD_RS);
-#ifdef TFT_SYNC_CS
-	io_set_output(TFT_LCD_CS);
+	io_set_output(TFT_RS);
+#if TFT_SYNC_CS
+	TFT_RELEASE();
 #endif
 }
 
 static void tft_data(uint8_t data)
 {
-#ifdef TFT_SYNC_CS
-	io_clear_output(TFT_LCD_CS);
+#if TFT_SYNC_CS
+	TFT_SELECT();
 #endif
 
 #ifdef TFT_ALWAYS_16BIT
@@ -109,22 +138,22 @@ static void tft_data(uint8_t data)
 	softspi_xmit(&tft_spi, data);
 
 	TFT_CLK_SETTLE_DELAY();
-#ifdef TFT_SYNC_CS
-	io_set_output(TFT_LCD_CS);
+#if TFT_SYNC_CS
+	TFT_RELEASE();
 #endif
 }
 
 static void tft_bulk_data(const uint8_t *data, uint16_t len)
 {
-#ifdef TFT_SYNC_CS
-	io_clear_output(TFT_LCD_CS);
+#if TFT_SYNC_CS
+	TFT_SELECT();
 #endif
 
 	softspi_bulk_xmit(&tft_spi, data, 0, len);
 	
 	TFT_CLK_SETTLE_DELAY();
-#ifdef TFT_SYNC_CS
-	io_set_output(TFT_LCD_CS);
+#if TFT_SYNC_CS
+	TFT_RELEASE();
 #endif
 }
 
@@ -187,12 +216,12 @@ static void lvgl_flush_wait_cb(lv_display_t *display)
 		cnc_dotasks();
 }
 
-static uint8_t lvgl_display_buffer[LVGL_BUFFER_SIZE];
+static uint8_t lvgl_display_buffer[TFT_BUFFER_SIZE];
 
 DECL_MODULE(tft_display)
 {
-	io_set_output(TFT_LCD_CS);
-	io_set_output(TFT_LCD_RS);
+	TFT_RELEASE();
+	io_set_output(TFT_RS);
 
 	spi_config_t conf = { 0 };
 	conf.enable_dma = 1;
@@ -215,7 +244,7 @@ DECL_MODULE(tft_display)
 	lvgl_display = lv_display_create(TFT_DISPLAY_WIDTH, TFT_DISPLAY_HEIGHT);
 	lv_display_set_flush_cb(lvgl_display , lvgl_flush_cb);
 	lv_display_set_flush_wait_cb(lvgl_display, lvgl_flush_wait_cb);
-	lv_display_set_buffers(lvgl_display, lvgl_display_buffer, 0, LVGL_BUFFER_SIZE, LV_DISPLAY_RENDER_MODE_PARTIAL);
+	lv_display_set_buffers(lvgl_display, lvgl_display_buffer, 0, TFT_BUFFER_SIZE, LV_DISPLAY_RENDER_MODE_PARTIAL);
 	lv_display_set_color_format(lvgl_display, LV_COLOR_FORMAT_RGB565);
 
 	// Send the object to LVGL support module

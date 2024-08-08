@@ -27,11 +27,6 @@ extern "C"
 // Used for RPi type screens
 #define TFT_ALWAYS_16BIT
 
-// Makes sure the driver pulses the chip select line before
-// every transfer, this can be used to synchronize the
-// receiver in case of lost clocks.
-#define TFT_SYNC_CS
-
 #include "driver/ILI9486.h"
 
 #ifdef __cplusplus

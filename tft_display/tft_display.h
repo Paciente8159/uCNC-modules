@@ -26,12 +26,6 @@ extern "C"
 
 #include "src/module.h"
 
-#define CMD(cmd) tft_command(cmd)
-#define DAT(dat) tft_data(dat)
-#define DAT_BULK(data, len) tft_bulk_data(data, len)
-
-#include "driver.h"
-
 DECL_MODULE(tft_display);
 
 #ifdef __cplusplus
