@@ -26,7 +26,7 @@ extern "C"
 
 #include "lvgl.h"
 
-extern void style_init(lv_display_t *display, lv_indev_t *indev);
+extern void style_init(lv_display_t *display);
 
 extern void style_startup();
 extern void style_idle();

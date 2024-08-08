@@ -409,8 +409,8 @@ void style_idle()
 	extern lv_obj_t *g_current_screen;
 	if(g_current_screen != screen)
 	{
-		lv_screen_load(screen);
 		g_current_screen = screen;
+		lv_screen_load(screen);
 	}
 
 	idle_screen_update();

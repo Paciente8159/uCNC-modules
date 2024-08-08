@@ -1,5 +1,5 @@
 /*
-	Name: lvgl.c
+	Name: lvgl.h
 	Description: Support module for LVGL
 
 	Copyright: Copyright (c) Patryk Mierzyński
@@ -16,10 +16,36 @@
 	See the GNU General Public License for more details.
 */
 
+#ifndef LVGL_SUPPORT_H
+#define LVGL_SUPPORT_H
+
+#ifdef __cplusplus
+extern "C"
+{
+#endif
+
+#include "src/module.h"
 #include "lvgl.h"
 
-DECL_MODULE(lvgl)
-{
+DECL_MODULE(lvgl_support);
+extern void lvgl_support_end_init();
 
+typedef struct _indev_list {
+	lv_indev_t *dev;
+	struct _indev_list *next;
+} indev_list_t;
+
+extern void lvgl_add_indev(indev_list_t *entry);
+#define LVGL_ADD_INDEV(dev) \
+	static indev_list_t dev##_list_entry = { dev, 0 }; \
+	lvgl_add_indev(dev##_list_entry)
+
+extern void lvgl_use_display(lv_display_t *disp);
+extern void lvgl_set_indev_group(lv_group_t *group);
+
+#ifdef __cplusplus
 }
+#endif
+
+#endif
 

@@ -42,8 +42,8 @@ void style_startup()
 	extern lv_obj_t *g_current_screen;
 	if(g_current_screen != screen)
 	{
-		lv_screen_load(screen);
 		g_current_screen = screen;
+		lv_screen_load(screen);
 	}
 }
 

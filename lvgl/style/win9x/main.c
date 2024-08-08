@@ -35,13 +35,11 @@ extern void style_create_movement_screen();
 
 win9x_styles g_styles;
 lv_obj_t* g_current_screen = 0;
-lv_indev_t *g_indev = 0;
 
-void style_init(lv_display_t *display, lv_indev_t *indev)
+void style_init(lv_display_t *display)
 {
 	lv_theme_t *theme = lv_theme_simple_init(display);
 	lv_display_set_theme(display, theme);
-	g_indev = indev;
 
 
 	lv_style_init(&g_styles.button);
@@ -71,7 +69,7 @@ void style_init(lv_display_t *display, lv_indev_t *indev)
 
 	style_create_startup_screen();
 	style_create_idle_screen();
-	style_create_movement_screen();
+	// style_create_movement_screen();
 }
 
 void win9x_two_color_border_draw(lv_event_t *event)
