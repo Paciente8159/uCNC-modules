@@ -27,28 +27,32 @@ extern "C"
 static const uint8_t CheckboxEmpty_9x9[] = { 28, 0, 99, 0, 65, 0, 128, 128, 128, 128, 128, 128, 65, 0, 99, 0, 28, 0 };
 static const uint8_t CheckboxChecked_9x9[] = { 28, 0, 99, 0, 65, 0, 156, 128, 156, 128, 156, 128, 65, 0, 99, 0, 28, 0 };
 
-const lv_img_dsc_t Img_CheckboxEmpty = {
+const lv_image_dsc_t Img_CheckboxEmpty = {
 	.header = {
+		.magic = LV_IMAGE_HEADER_MAGIC,
 		.cf = LV_COLOR_FORMAT_A1,
 		.w = 9,
 		.h = 9,
+		.stride = 2,
 	},
 	.data = CheckboxEmpty_9x9,
 	.data_size = sizeof(CheckboxEmpty_9x9),
 };
 
-const lv_img_dsc_t Img_CheckboxChecked = {
+const lv_image_dsc_t Img_CheckboxChecked = {
 	.header = {
+		.magic = LV_IMAGE_HEADER_MAGIC,
 		.cf = LV_COLOR_FORMAT_A1,
 		.w = 9,
 		.h = 9,
+		.stride = 2,
 	},
 	.data = CheckboxChecked_9x9,
 	.data_size = sizeof(CheckboxChecked_9x9),
 };
 #else
-extern const lv_img_dsc_t Img_CheckboxEmpty;
-extern const lv_img_dsc_t Img_CheckboxChecked;
+extern const lv_image_dsc_t Img_CheckboxEmpty;
+extern const lv_image_dsc_t Img_CheckboxChecked;
 #endif
 
 #ifdef __cplusplus

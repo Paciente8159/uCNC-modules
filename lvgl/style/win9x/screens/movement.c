@@ -21,14 +21,17 @@
 #ifdef GUI_STYLE_WIN9X
 
 #include "lvgl.h"
+#include "math.h"
+#include "src/cnc.h"
+#include "src/modules/system_menu.h"
+
 #include "../colors.h"
 #include "../styles.h"
 #include "../fonts/pixel.h"
 #include "../fonts/pixel_mono.h"
 #include "../bitmaps/checkbox.h"
-#include "src/cnc.h"
 #include "../elements.h"
-#include "math.h"
+#include "../../../lvgl_support.h"
 
 #define COORDINATE_DECIMAL_DIGITS 3
 #define COORDINATE_FRACTIONAL_DIGITS 3
@@ -223,6 +226,8 @@ static lv_obj_t *make_coordinate_box(lv_obj_t *parent, const char *label, coord_
 	return root;
 }
 
+static void movement_render(uint8_t flags);
+
 void style_create_movement_screen()
 {
 	screen = lv_obj_create(NULL);
@@ -230,7 +235,6 @@ void style_create_movement_screen()
 	lv_obj_set_style_text_font(screen, &font_pixel_bold_11pt, LV_PART_MAIN);
 
 	group = lv_group_create();
-	lv_group_set_default(group);
 
 	// TODO: Grab the strings from language file
 	{
@@ -266,11 +270,13 @@ void style_create_movement_screen()
 		lv_obj_set_style_bg_opa(row, LV_OPA_TRANSP, LV_PART_MAIN);
 		lv_obj_set_style_pad_column(row, 10, LV_PART_MAIN);
 
+		lv_group_set_default(group);
 	 	const char* opts_move[] = { "Rapid", "Linear" };
 		win9x_radio_list(row, "Movement type", opts_move, 2, &movement_type);
 
 		const char* opts_coord[] = { "Workspace", "Relative", "Machine" };
 		win9x_radio_list(row, "Coordinate type", opts_coord, 3, &coordinate_type);
+		lv_group_set_default(NULL);
 	}
 
 	{
@@ -307,10 +313,22 @@ void style_create_movement_screen()
 		lv_obj_set_flex_align(row, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START);
 
 		lv_obj_t *back = win9x_button(row, "Back");
+		lv_group_add_obj(group, back);
+		lv_obj_add_event_cb(back, lvgl_callback_back, LV_EVENT_PRESSED, NULL);
+
 		lv_obj_t *next = win9x_button(row, "Move");
+		lv_group_add_obj(group, next);
 	}
 
-	lv_group_set_default(NULL);
+	// Declare system menu screen
+	DECL_DYNAMIC_MENU(10, 1, movement_render, NULL);
+}
+
+static STYLE_LOAD_SCREEN_WITH_GROUP(movement);
+
+static void movement_render(uint8_t flags)
+{
+	style_movement();
 }
 
 #endif

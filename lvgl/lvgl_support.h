@@ -31,17 +31,26 @@ DECL_MODULE(lvgl_support);
 extern void lvgl_support_end_init();
 
 typedef struct _indev_list {
-	lv_indev_t *dev;
+	lv_indev_t *device;
 	struct _indev_list *next;
 } indev_list_t;
 
 extern void lvgl_add_indev(indev_list_t *entry);
 #define LVGL_ADD_INDEV(dev) \
-	static indev_list_t dev##_list_entry = { dev, 0 }; \
-	lvgl_add_indev(dev##_list_entry)
+	static indev_list_t dev##_list_entry = { 0, 0 }; \
+	dev##_list_entry.device = dev; \
+	lvgl_add_indev(&dev##_list_entry)
 
 extern void lvgl_use_display(lv_display_t *disp);
 extern void lvgl_set_indev_group(lv_group_t *group);
+
+typedef struct _cb_goto
+{
+	uint8_t menu_id;
+} cb_goto_arg_t;
+extern void lvgl_callback_goto(lv_event_t *event);
+
+extern void lvgl_callback_back(lv_event_t *event);
 
 #ifdef __cplusplus
 }

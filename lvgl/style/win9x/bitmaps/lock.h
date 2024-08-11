@@ -30,9 +30,11 @@ static const uint8_t Unlock_16x16[] = { 0, 0, 0, 0, 60, 0, 60, 0, 195, 0, 195, 0
 
 const lv_image_dsc_t Img_Locked = {
 	.header = {
+		.magic = LV_IMAGE_HEADER_MAGIC,
 		.cf = LV_COLOR_FORMAT_A1,
 		.w = 16,
 		.h = 16,
+		.stride = 2,
 	},
 	.data = Lock_16x16,
 	.data_size = sizeof(Lock_16x16),
@@ -40,9 +42,11 @@ const lv_image_dsc_t Img_Locked = {
 
 const lv_image_dsc_t Img_Unlocked = {
 	.header = {
+		.magic = LV_IMAGE_HEADER_MAGIC,
 		.cf = LV_COLOR_FORMAT_A1,
 		.w = 16,
 		.h = 16,
+		.stride = 2,
 	},
 	.data = Unlock_16x16,
 	.data_size = sizeof(Unlock_16x16),

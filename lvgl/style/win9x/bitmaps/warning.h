@@ -30,9 +30,11 @@ static const uint8_t WarningSign_14x15[] = {
 
 const lv_image_dsc_t Img_Warning = {
 	.header = {
+		.magic = LV_IMAGE_HEADER_MAGIC,
 		.cf = LV_COLOR_FORMAT_A1,
 		.w = 14,
 		.h = 15,
+		.stride = 2,
 	},
 	.data = WarningSign_14x15,
 	.data_size = sizeof(WarningSign_14x15),

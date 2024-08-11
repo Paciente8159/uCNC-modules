@@ -21,15 +21,20 @@
 #ifdef GUI_STYLE_WIN9X
 
 #include "lvgl.h"
-#include "../colors.h"
-#include "../styles.h"
-#include "../bitmaps/lock.h"
-#include "../bitmaps/warning.h"
-#include "../fonts/pixel.h"
-#include "../fonts/pixel_mono.h"
-
 #include "src/cnc.h"
 #include "src/modules/system_menu.h"
+
+#include "../colors.h"
+#include "../styles.h"
+#include "../elements.h"
+#include "../bitmaps/lock.h"
+#include "../bitmaps/warning.h"
+#include "../bitmaps/move.h"
+#include "../bitmaps/zero.h"
+#include "../bitmaps/menu.h"
+#include "../fonts/pixel.h"
+#include "../fonts/pixel_mono.h"
+#include "../../../lvgl_support.h"
 
 #ifndef MAX_MODAL_GROUPS
 #define MAX_MODAL_GROUPS 14
@@ -38,6 +43,7 @@
 static void get_alarm_string(char* dest);
 
 static lv_obj_t *screen;
+static lv_group_t *group;
 
 static struct _topbar {
 	lv_obj_t *state_text;
@@ -60,37 +66,58 @@ static const char* axis_labels[] = {
 
 static void update_topbar()
 {
+	static uint8_t old_state = -1;
 	uint8_t state = cnc_get_exec_state(EXEC_RESET_LOCKED);
-
-	lv_image_set_src(g_topbar.lock_icon, state ? &Img_Locked : &Img_Unlocked);
+	if(state != old_state)
+	{
+		lv_image_set_src(g_topbar.lock_icon, state ? &Img_Locked : &Img_Unlocked);
+		old_state = state;
+	}
 
 	uint8_t modes[MAX_MODAL_GROUPS];
 	uint16_t feed, spindle;
 	parser_get_modes(modes, &feed, &spindle);
 
-	char str[64];
-	sprintf(str, "G%d %s [%s] T%d",
-					modes[6],
-					modes[2] == 90 ? "Abs" : "Inc",
-					modes[4] == 21 ? "mm" : "inch",
-					modes[11]);
-
-	lv_label_set_text(g_topbar.state_text, str);
-	if(cnc_has_alarm())
+	static uint32_t old_modes = -1;
+	uint32_t new_modes = (modes[6]) | (modes[2] << 8) | (modes[4] << 16) | (modes[11] << 24);
+	if(old_modes != new_modes)
 	{
-		get_alarm_string(str);
-		lv_label_set_text(g_topbar.alarm_text, str);
+		char str[32];
+		sprintf(str, "G%d %s [%s] T%d",
+						modes[6],
+						modes[2] == 90 ? "Abs" : "Inc",
+						modes[4] == 21 ? "mm" : "inch",
+						modes[11]);
 
-		lv_obj_remove_flag(g_topbar.alarm_box, LV_OBJ_FLAG_HIDDEN);
+		lv_label_set_text(g_topbar.state_text, str);
+		old_modes = new_modes;
 	}
-	else
+
+	static uint8_t old_alarm = -1;
+	uint8_t new_alarm = cnc_get_alarm();
+	if(old_alarm != new_alarm)
 	{
-		lv_obj_add_flag(g_topbar.alarm_box, LV_OBJ_FLAG_HIDDEN);
+		char str[64];
+		if(cnc_has_alarm())
+		{
+			get_alarm_string(str);
+			lv_label_set_text(g_topbar.alarm_text, str);
+
+			lv_obj_remove_flag(g_topbar.alarm_box, LV_OBJ_FLAG_HIDDEN);
+		}
+		else
+		{
+			lv_obj_add_flag(g_topbar.alarm_box, LV_OBJ_FLAG_HIDDEN);
+		}
+		old_alarm = new_alarm;
 	}
 }
 
 static void update_coordinates()
 {
+	if(!cnc_get_exec_state(EXEC_RUN))
+		return;
+
 	float mpos[MAX(AXIS_COUNT, 3)];
 	int32_t steppos[STEPPER_COUNT];
 	itp_get_rt_position(steppos);
@@ -119,15 +146,31 @@ static void update_feed_spindle()
 	parser_get_modes(modes, &feed, &spindle);
 
 	char str[16];
-	sprintf(str, "%4d", feed);
-	lv_table_set_cell_value(g_state.feed_spindle_table, 0, 1, str);
-	sprintf(str, "%5d", spindle);
-	lv_table_set_cell_value(g_state.feed_spindle_table, 1, 1, str);
+
+	static uint16_t old_feed = -1, old_spindle = -1;
+	if(old_feed != feed)
+	{
+		sprintf(str, "%4d", feed);
+		lv_table_set_cell_value(g_state.feed_spindle_table, 0, 1, str);
+		old_feed = feed;
+	}
+
+	if(old_spindle != spindle)
+	{
+		sprintf(str, "%5d", spindle);
+		lv_table_set_cell_value(g_state.feed_spindle_table, 1, 1, str);
+		old_spindle = spindle;
+	}
 }
 
 static void update_state()
 {
+	static uint8_t old_state_2 = 0;
 	uint8_t state = cnc_get_exec_state(EXEC_ALLACTIVE);
+	if(state == old_state_2)
+		return;
+	old_state_2 = state;
+
 	uint8_t filter = 0x80;
 	while(!(state & filter) && filter)
 		filter >>= 1;
@@ -246,11 +289,37 @@ static void feed_box_event_cb(lv_event_t *event)
 	}
 }
 
+static lv_obj_t *side_button(lv_obj_t *parent, int32_t y, const void *img)
+{
+	lv_obj_t *btn = lv_button_create(parent);
+	lv_obj_set_pos(btn, 0, y);
+	lv_obj_set_size(btn, 50, 50);
+	lv_obj_add_style(btn, &g_styles.button, 0);
+	WIN9X_BORDER_PART_TWO(btn, shadow_dark);
+
+	lv_obj_t *btn_img = lv_image_create(btn);
+	lv_obj_center(btn_img);
+	lv_image_set_src(btn_img, img);
+	lv_obj_set_style_image_recolor(btn_img, charcoal, LV_PART_MAIN);
+
+	lv_obj_set_style_bg_color(btn, button_click, LV_PART_MAIN | LV_STATE_PRESSED);
+
+	lv_obj_set_style_outline_opa(btn, LV_OPA_COVER, LV_PART_MAIN | LV_STATE_FOCUSED);
+	lv_obj_set_style_outline_color(btn, col_black, LV_PART_MAIN | LV_STATE_FOCUSED);
+	lv_obj_set_style_outline_width(btn, 1, LV_PART_MAIN | LV_STATE_FOCUSED);
+
+	lv_group_add_obj(group, btn);
+
+	return btn;
+}
+
 void style_create_idle_screen()
 {
 	screen = lv_obj_create(NULL);
 	lv_obj_set_style_bg_color(screen, bg_base, LV_PART_MAIN);
 	lv_obj_set_style_text_font(screen, &font_pixel_bold_11pt, LV_PART_MAIN);
+
+	group = lv_group_create();
 
 	{
 		lv_obj_t *topbar = lv_obj_create(screen);
@@ -291,23 +360,15 @@ void style_create_idle_screen()
 	}
 
 	{
-		lv_obj_t *btn1 = lv_button_create(screen);
-		lv_obj_set_pos(btn1, 0, 30);
-		lv_obj_set_size(btn1, 50, 50);
-		lv_obj_add_style(btn1, &g_styles.button, 0);
-		WIN9X_BORDER_PART_TWO(btn1, shadow_dark);
-		
-		lv_obj_t *btn2 = lv_button_create(screen);
-		lv_obj_set_pos(btn2, 0, 115);
-		lv_obj_set_size(btn2, 50, 50);
-		lv_obj_add_style(btn2, &g_styles.button, 0);
-		WIN9X_BORDER_PART_TWO(btn2, shadow_dark);
+		lv_obj_t *btn1 = side_button(screen, 30, &Img_ZeroX);
 
-		lv_obj_t *btn3 = lv_button_create(screen);
-		lv_obj_set_pos(btn3, 0, 200);
-		lv_obj_set_size(btn3, 50, 50);
-		lv_obj_add_style(btn3, &g_styles.button, 0);
-		WIN9X_BORDER_PART_TWO(btn3, shadow_dark);
+		lv_obj_t *btn2 = side_button(screen, 115, &Img_Move);
+		static cb_goto_arg_t btn2_arg = { 10 };
+		lv_obj_add_event_cb(btn2, lvgl_callback_goto, LV_EVENT_PRESSED, &btn2_arg);
+
+		lv_obj_t *btn3 = side_button(screen, 200, &Img_Menu);
+		static cb_goto_arg_t btn3_arg = { 1 };
+		lv_obj_add_event_cb(btn3, lvgl_callback_goto, LV_EVENT_PRESSED, &btn3_arg);
 	}
 
 	{
@@ -394,9 +455,11 @@ void style_create_idle_screen()
 		g_state.state_label = label;
 		update_state();
 	}
+
+	system_menu_set_action_callback(0, NULL);
 }
 
-void idle_screen_update()
+static void idle_update()
 {
 	update_topbar();
 	update_coordinates();
@@ -404,17 +467,7 @@ void idle_screen_update()
 	update_state();
 }
 
-void style_idle()
-{
-	extern lv_obj_t *g_current_screen;
-	if(g_current_screen != screen)
-	{
-		g_current_screen = screen;
-		lv_screen_load(screen);
-	}
-
-	idle_screen_update();
-}
+STYLE_LOAD_SCREEN_UPDATE_WITH_GROUP(idle);
 
 void style_alarm()
 {

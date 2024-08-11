@@ -19,13 +19,23 @@
 #include "lvgl_support.h"
 #include "style/style.h"
 #include "src/modules/system_menu.h"
+#include "src/utils.h"
 
 static lv_display_t *display = 0;
 static indev_list_t *indev_list = 0;
+static lv_group_t *current_group = 0;
+static lv_group_t *action_translator = 0;
+
+DECL_BUFFER(uint8_t, lvgl_action_buffer, 16);
 
 void lvgl_use_display(lv_display_t *disp)
 {
 	display = disp;
+	lv_display_set_default(display);
+	for(indev_list_t *entry = indev_list; entry != 0; entry = entry->next)
+	{
+		lv_indev_set_display(entry->device, display);
+	}
 }
 
 void lvgl_add_indev(indev_list_t *entry)
@@ -43,10 +53,32 @@ void lvgl_add_indev(indev_list_t *entry)
 
 void lvgl_set_indev_group(lv_group_t *group)
 {
+	if(group == NULL)
+		group = action_translator;
 	for(indev_list_t *entry = indev_list; entry != 0; entry = entry->next)
 	{
-		lv_indev_set_group(entry->dev, group);
+		lv_indev_set_group(entry->device, group);
 	}
+	current_group = group;
+}
+
+static void action_translator_cb(lv_event_t *event)
+{
+	char key = lv_event_get_key(event);
+	uint8_t action = SYSTEM_MENU_ACTION_NONE;
+	if(key == LV_KEY_ENTER)
+	{
+		action = SYSTEM_MENU_ACTION_SELECT;
+	}
+
+	if(action != SYSTEM_MENU_ACTION_NONE)
+		BUFFER_ENQUEUE(lvgl_action_buffer, &action);
+}
+
+static void action_translator_edge_cb(lv_group_t *group, bool next)
+{
+	uint8_t action = next ? SYSTEM_MENU_ACTION_NEXT : SYSTEM_MENU_ACTION_PREV;
+	BUFFER_ENQUEUE(lvgl_action_buffer, &action);
 }
 
 /*** -------======= Event handlers =======------- ***/
@@ -59,7 +91,27 @@ bool lvgl_startup(void *args)
 
 bool lvgl_update(void *args)
 {
-	system_menu_action(SYSTEM_MENU_ACTION_NONE);
+	if(current_group == action_translator)
+	{
+		if(BUFFER_EMPTY(lvgl_action_buffer))
+		{
+			system_menu_action(SYSTEM_MENU_ACTION_NONE);
+		}
+		else
+		{
+			while(!BUFFER_EMPTY(lvgl_action_buffer))
+			{
+				uint8_t action;
+				BUFFER_DEQUEUE(lvgl_action_buffer, &action);
+				system_menu_action(action);
+			}
+		}
+	}
+	else if(current_group == NULL)
+	{
+		system_menu_action(SYSTEM_MENU_ACTION_NONE);
+	}
+
 	system_menu_render();
 
 	static uint32_t next_run_time = 0;
@@ -108,6 +160,14 @@ void lvgl_support_end_init()
 #warning "Main loop extensions not enabled. LVGL module will not function properly."
 #endif
 
+	BUFFER_INIT(uint8_t, lvgl_action_buffer, 16);
+
+	action_translator = lv_group_create();
+	lv_obj_t *full = lv_obj_create(NULL);
+	lv_group_add_obj(action_translator, full);
+	lv_group_set_edge_cb(action_translator, action_translator_edge_cb);
+	lv_obj_add_event_cb(full, action_translator_cb, LV_EVENT_KEY, NULL);
+
 	// Init system menu module
 	system_menu_init();
 
@@ -136,5 +196,157 @@ void system_menu_render_alarm()
 {
 	style_alarm();
 	lv_refr_now(display);
+}
+
+// TODO: This list menu thing is inefficient, make it efficient
+static lv_obj_t *list_menu = NULL;
+static uint8_t list_menu_id = 0;
+static uint8_t list_menu_flags = 0;
+static bool list_menu_rebuild = false;
+
+static int16_t list_menu_item_index;
+
+		// int16_t current_index;
+		// int8_t current_multiplier;
+void system_menu_render_header(const char *__s)
+{
+	if(g_system_menu.current_menu != list_menu_id || list_menu_flags != g_system_menu.flags)
+	{
+		// A different menu was loaded, we need to rebuild the screen.
+		if(list_menu != NULL)
+		{
+			// Delete old menu screen
+			lv_obj_delete(list_menu);
+		}
+
+		list_menu = lv_obj_create(NULL);
+		list_menu_id = g_system_menu.current_menu;
+		list_menu_flags = g_system_menu.flags;
+		list_menu_rebuild = true;
+		style_list_menu_header(list_menu, __s);
+	}
+	else
+	{
+		list_menu_rebuild = false;
+	}
+	list_menu_item_index = -1;
+}
+
+void system_menu_render_nav_back(bool is_hover)
+{
+	// style_list_menu_nav_back(list_menu, is_hover);
+}
+
+void system_menu_item_render_label(uint8_t render_flags, const char *label)
+{
+	++list_menu_item_index;
+	if(list_menu_rebuild)
+	{
+		style_list_menu_item_label(list_menu, label);
+	}
+	else
+	{
+		lv_obj_t *entry = style_list_menu_get_item(list_menu, list_menu_item_index);
+		lv_obj_t *labelob = style_list_menu_get_item_label(entry);
+		if(strcmp(lv_label_get_text(labelob), label))
+			lv_label_set_text(labelob, label);
+	}
+
+	lv_obj_t *entry = style_list_menu_get_item(list_menu, list_menu_item_index);
+	if((render_flags & SYSTEM_MENU_MODE_SELECT) && !lv_obj_has_state(entry, LV_STATE_FOCUSED))
+		lv_obj_add_state(entry, LV_STATE_FOCUSED);
+	else if(!(render_flags & SYSTEM_MENU_MODE_SELECT) && lv_obj_has_state(entry, LV_STATE_FOCUSED))
+		lv_obj_remove_state(entry, LV_STATE_FOCUSED);
+}
+
+void system_menu_item_render_arg(uint8_t render_flags, const char *label)
+{
+	if(list_menu_rebuild)
+	{
+		style_list_menu_item_value(list_menu, label);
+	}
+	else
+	{
+		lv_obj_t *entry = style_list_menu_get_item(list_menu, list_menu_item_index);
+		lv_obj_t *valueob = style_list_menu_get_item_value(entry);
+		if(valueob == NULL)
+			return;
+		if(strcmp(lv_label_get_text(valueob), label))
+			lv_label_set_text(valueob, label);
+	}
+}
+
+void system_menu_render_footer(void)
+{
+	style_list_menu_footer(list_menu);
+
+	lv_screen_load(list_menu);
+	lvgl_set_indev_group(NULL);
+}
+
+static uint8_t system_menu_get_item_count(uint8_t menu_id)
+{
+	uint8_t item_count = 0;
+	MENU_LOOP(g_system_menu.menu_entry, menu_page)
+	{
+		if (menu_page->menu_id == menu_id)
+		{
+			if (!(menu_page->items_index))
+			{
+				return item_count;
+			}
+			system_menu_index_t *item = menu_page->items_index;
+			item_count++;
+			while (item->next)
+			{
+				item = item->next;
+				item_count++;
+			}
+
+			return item_count;
+		}
+	}
+
+	// could not find
+	// return empty item
+	return item_count;
+}
+
+static void system_menu_goto(uint8_t id)
+{
+	g_system_menu.current_menu = id;
+	g_system_menu.current_index = 0;
+	g_system_menu.current_multiplier = 0;
+	g_system_menu.flags &= ~(SYSTEM_MENU_MODE_EDIT | SYSTEM_MENU_MODE_MODIFY);
+
+	if (id)
+	{
+		g_system_menu.total_items = system_menu_get_item_count(id);
+	}
+
+	// Operations to make system menu happy
+	g_system_menu.flags |= SYSTEM_MENU_MODE_REDRAW;
+	system_menu_action_timeout(SYSTEM_MENU_GO_IDLE_MS);
+}
+
+void lvgl_callback_goto(lv_event_t *event)
+{
+	cb_goto_arg_t *arg = (cb_goto_arg_t*) lv_event_get_user_data(event);
+	system_menu_goto(arg->menu_id);
+}
+
+void lvgl_callback_back(lv_event_t *event)
+{
+	MENU_LOOP(g_system_menu.menu_entry, menu)
+	{
+		if(menu->menu_id == g_system_menu.current_menu)
+		{
+			system_menu_goto(menu->parent_id);
+			return;
+		}
+	}
+
+	// If all else fails, go to idle screen
+	system_menu_goto(0);
 }
 

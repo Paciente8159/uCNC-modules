@@ -102,5 +102,19 @@ lv_obj_t *win9x_button(lv_obj_t *parent, const char *text)
 	return btn;
 }
 
+void win9x_two_color_border_draw(lv_event_t *event)
+{
+	lv_layer_t *layer = lv_event_get_layer(event);
+	lv_obj_t *target = lv_event_get_target_obj(event);
+
+	lv_draw_rect_dsc_t dsc = {};
+	dsc.bg_opa = LV_OPA_TRANSP;
+	dsc.border_color = *(lv_color_t*)lv_event_get_user_data(event);
+	dsc.border_width = lv_obj_get_style_border_width(target, LV_PART_MAIN);
+	dsc.border_opa = LV_OPA_COVER;
+	dsc.border_side = LV_BORDER_SIDE_RIGHT | LV_BORDER_SIDE_BOTTOM;
+	lv_draw_rect(layer, &dsc, &target->coords);
+}
+
 #endif
 

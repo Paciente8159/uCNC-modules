@@ -32,6 +32,16 @@ extern void style_startup();
 extern void style_idle();
 extern void style_popup(const char* text);
 extern void style_alarm();
+	
+extern void style_list_menu_header(lv_obj_t *screen, const char *header);
+extern void style_list_menu_item_label(lv_obj_t *screen, const char *label);
+extern void style_list_menu_item_value(lv_obj_t *screen, const char *label);
+extern void style_list_menu_nav_back(lv_obj_t *screen, bool is_hover);
+extern void style_list_menu_footer(lv_obj_t *screen);
+
+extern lv_obj_t *style_list_menu_get_item(lv_obj_t *screen, uint16_t index);
+extern lv_obj_t *style_list_menu_get_item_label(lv_obj_t *item_entry);
+extern lv_obj_t *style_list_menu_get_item_value(lv_obj_t *item_entry);
 
 #ifdef __cplusplus
 }

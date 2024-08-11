@@ -28,9 +28,11 @@ static const uint8_t Logo_120x120[] = {
 
 const lv_image_dsc_t Img_Logo = {
 	.header = {
+		.magic = LV_IMAGE_HEADER_MAGIC,
 		.cf = LV_COLOR_FORMAT_I2,
 		.w = 120,
 		.h = 120,
+		.stride = 30,
 	},
 	.data = Logo_120x120,
 	.data_size = sizeof(Logo_120x120),
