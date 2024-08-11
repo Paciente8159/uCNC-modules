@@ -17,6 +17,9 @@
 */
 
 #include "src/cnc.h"
+#if (UCNC_MODULE_VERSION < 10990 || UCNC_MODULE_VERSION > 99999)
+#error "This module is not compatible with the current version of µCNC"
+#endif
 
 #if defined(TFT_SPI_HARDWARE) || (defined(TFT_SPI_MOSI) && defined(TFT_SPI_CLK))
 
