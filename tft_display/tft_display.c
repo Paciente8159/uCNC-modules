@@ -39,7 +39,7 @@
 #endif
 
 #ifndef TFT_SPI_FREQ
-#define TFT_SPI_FREQ 20000000
+#define TFT_SPI_FREQ 1000000
 #endif
 
 #ifndef TFT_BUFFER_SIZE
@@ -76,7 +76,7 @@
  * This macro must delay code execution by atleast 1 SPI clock cycle, sometimes
  * if the clock is fast enough that delay is not needed.
  */
-#define TFT_CLK_SETTLE_DELAY() mcu_delay_us(1)
+#define TFT_CLK_SETTLE_DELAY() // mcu_delay_us(1)
 #endif
 
 #ifdef TFT_SPI_HARDWARE
@@ -239,6 +239,8 @@ DECL_MODULE(tft_display)
 
 #ifdef ENABLE_MAIN_LOOP_MODULES
 	ADD_EVENT_LISTENER(cnc_io_dotasks, tft_update);
+#else
+#warning "Main loop extensions are disabled. TFT display module will not work."
 #endif
 
 	lvgl_display = lv_display_create(TFT_DISPLAY_WIDTH, TFT_DISPLAY_HEIGHT);
