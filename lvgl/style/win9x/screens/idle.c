@@ -391,8 +391,8 @@ void style_create_idle_screen()
 		lv_table_set_column_width(table, 1, 108);
 		lv_table_set_column_width(table, 2, 108);
 		
-		lv_table_set_cell_value(table, 0, 1, "Work");
-		lv_table_set_cell_value(table, 0, 2, "Machine");
+		lv_table_set_cell_value(table, 0, 1, STR_COORD_WORKSPACE_SHORT);
+		lv_table_set_cell_value(table, 0, 2, STR_COORD_MACHINE);
 
 		for(int i = 0; i < 3; ++i)
 		{

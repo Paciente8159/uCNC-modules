@@ -17,6 +17,11 @@
 */
 
 #include "lvgl_support.h"
+
+#if (UCNC_MODULE_VERSION < 10990 || UCNC_MODULE_VERSION > 99999)
+#error "This module is not compatible with the current version of µCNC"
+#endif
+
 #include "style/style.h"
 #include "src/modules/system_menu.h"
 #include "src/utils.h"
@@ -189,7 +194,7 @@ void system_menu_render_idle(void)
 
 void system_menu_render_modal_popup(const char *__s)
 {
-	// style_popup(__s);
+	style_popup(__s);
 }
 
 void system_menu_render_alarm()
@@ -206,8 +211,6 @@ static bool list_menu_rebuild = false;
 
 static int16_t list_menu_item_index;
 
-		// int16_t current_index;
-		// int8_t current_multiplier;
 void system_menu_render_header(const char *__s)
 {
 	if(g_system_menu.current_menu != list_menu_id || list_menu_flags != g_system_menu.flags)
@@ -234,7 +237,18 @@ void system_menu_render_header(const char *__s)
 
 void system_menu_render_nav_back(bool is_hover)
 {
-	// style_list_menu_nav_back(list_menu, is_hover);
+	if(list_menu_rebuild)
+	{
+		style_list_menu_nav_back(list_menu, is_hover);
+	}
+	else
+	{
+		lv_obj_t *nav = style_list_menu_get_nav_back(list_menu);
+		if(is_hover && !lv_obj_has_state(nav, LV_STATE_FOCUSED))
+			lv_obj_add_state(nav, LV_STATE_FOCUSED);
+		else if(!is_hover && lv_obj_has_state(nav, LV_STATE_FOCUSED))
+			lv_obj_remove_state(nav, LV_STATE_FOCUSED);
+	}
 }
 
 void system_menu_item_render_label(uint8_t render_flags, const char *label)
@@ -278,55 +292,12 @@ void system_menu_item_render_arg(uint8_t render_flags, const char *label)
 
 void system_menu_render_footer(void)
 {
-	style_list_menu_footer(list_menu);
-
-	lv_screen_load(list_menu);
-	lvgl_set_indev_group(NULL);
-}
-
-static uint8_t system_menu_get_item_count(uint8_t menu_id)
-{
-	uint8_t item_count = 0;
-	MENU_LOOP(g_system_menu.menu_entry, menu_page)
+	if(list_menu_rebuild)
 	{
-		if (menu_page->menu_id == menu_id)
-		{
-			if (!(menu_page->items_index))
-			{
-				return item_count;
-			}
-			system_menu_index_t *item = menu_page->items_index;
-			item_count++;
-			while (item->next)
-			{
-				item = item->next;
-				item_count++;
-			}
-
-			return item_count;
-		}
+		style_list_menu_footer(list_menu);
 	}
 
-	// could not find
-	// return empty item
-	return item_count;
-}
-
-static void system_menu_goto(uint8_t id)
-{
-	g_system_menu.current_menu = id;
-	g_system_menu.current_index = 0;
-	g_system_menu.current_multiplier = 0;
-	g_system_menu.flags &= ~(SYSTEM_MENU_MODE_EDIT | SYSTEM_MENU_MODE_MODIFY);
-
-	if (id)
-	{
-		g_system_menu.total_items = system_menu_get_item_count(id);
-	}
-
-	// Operations to make system menu happy
-	g_system_menu.flags |= SYSTEM_MENU_MODE_REDRAW;
-	system_menu_action_timeout(SYSTEM_MENU_GO_IDLE_MS);
+	style_list_menu(list_menu);
 }
 
 void lvgl_callback_goto(lv_event_t *event)

@@ -23,7 +23,10 @@
 #include "lvgl.h"
 
 #include "../colors.h"
+#include "../styles.h"
 #include "../fonts/pixel.h"
+#include "../bitmaps/close.h"
+#include "../../../lvgl_support.h"
 
 static lv_obj_t *item_list;
 static lv_obj_t *last_item_entry;
@@ -53,7 +56,27 @@ void style_list_menu_header(lv_obj_t *screen, const char *header)
 
 void style_list_menu_nav_back(lv_obj_t *screen, bool is_hover)
 {
+	lv_obj_t *back = lv_obj_create(lv_obj_get_child(screen, 0));
+	lv_obj_add_style(back, &g_styles.button, LV_PART_MAIN);
+	lv_obj_set_size(back, 18, 18);
+	WIN9X_BORDER_PART_TWO(back, shadow_dark);
 
+	lv_obj_set_align(back, LV_ALIGN_RIGHT_MID);
+	lv_obj_set_pos(back, -2, 0);
+
+	lv_obj_set_style_outline_color(back, col_black, LV_PART_MAIN | LV_STATE_FOCUSED);
+	lv_obj_set_style_outline_width(back, 1, LV_PART_MAIN | LV_STATE_FOCUSED);
+
+	lv_obj_t *image = lv_image_create(back);
+	lv_obj_center(image);
+	lv_image_set_src(image, &Img_Close);
+	lv_obj_set_style_image_recolor(image, col_black, LV_PART_MAIN);
+}
+
+lv_obj_t *style_list_menu_get_nav_back(lv_obj_t *screen)
+{
+	lv_obj_t *topbar = lv_obj_get_child(screen, 0);
+	return lv_obj_get_child(topbar, 1);
 }
 
 void style_list_menu_item_label(lv_obj_t *screen, const char *label)
@@ -89,6 +112,17 @@ void style_list_menu_item_value(lv_obj_t *screen, const char *label)
 void style_list_menu_footer(lv_obj_t *screen)
 {
 
+}
+
+void style_list_menu(lv_obj_t *screen)
+{
+	extern lv_obj_t *g_current_screen;
+	if(g_current_screen != screen)
+	{
+		g_current_screen = screen;
+		lv_screen_load(screen);
+		lvgl_set_indev_group(NULL);
+	}
 }
 
 lv_obj_t *style_list_menu_get_item(lv_obj_t *screen, uint16_t index)

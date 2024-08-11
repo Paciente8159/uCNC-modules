@@ -39,9 +39,12 @@ extern void style_list_menu_item_value(lv_obj_t *screen, const char *label);
 extern void style_list_menu_nav_back(lv_obj_t *screen, bool is_hover);
 extern void style_list_menu_footer(lv_obj_t *screen);
 
+extern void style_list_menu(lv_obj_t *screen);
+
 extern lv_obj_t *style_list_menu_get_item(lv_obj_t *screen, uint16_t index);
 extern lv_obj_t *style_list_menu_get_item_label(lv_obj_t *item_entry);
 extern lv_obj_t *style_list_menu_get_item_value(lv_obj_t *item_entry);
+extern lv_obj_t *style_list_menu_get_nav_back(lv_obj_t *screen);
 
 #ifdef __cplusplus
 }

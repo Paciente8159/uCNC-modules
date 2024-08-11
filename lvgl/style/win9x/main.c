@@ -28,6 +28,7 @@
 #include "bitmaps/move.h"
 #include "bitmaps/zero.h"
 #include "bitmaps/menu.h"
+#include "bitmaps/close.h"
 
 #include "styles.h"
 #include "colors.h"
@@ -35,6 +36,7 @@
 extern void style_create_startup_screen();
 extern void style_create_idle_screen();
 extern void style_create_movement_screen();
+extern void style_create_popup_screen();
 
 win9x_styles g_styles;
 lv_obj_t* g_current_screen = 0;
@@ -73,6 +75,7 @@ void style_init(lv_display_t *display)
 	style_create_startup_screen();
 	style_create_idle_screen();
 	style_create_movement_screen();
+	style_create_popup_screen();
 }
 
 #endif

@@ -236,7 +236,6 @@ void style_create_movement_screen()
 
 	group = lv_group_create();
 
-	// TODO: Grab the strings from language file
 	{
 		lv_obj_t *topbar = lv_obj_create(screen);
 		lv_obj_set_style_bg_color(topbar, bg_title_bar, LV_PART_MAIN);
@@ -244,7 +243,10 @@ void style_create_movement_screen()
 		lv_obj_set_size(topbar, 480, 22);
 
 		lv_obj_t *header = lv_label_create(topbar);
-		lv_label_set_text(header, "Movement");
+
+		char str[32];
+		rom_strcpy(str, __rom__(STR_MOVEMENT));
+		lv_label_set_text(header, str);
 		lv_obj_set_align(header, LV_ALIGN_CENTER);
 	}
 
@@ -271,17 +273,17 @@ void style_create_movement_screen()
 		lv_obj_set_style_pad_column(row, 10, LV_PART_MAIN);
 
 		lv_group_set_default(group);
-	 	const char* opts_move[] = { "Rapid", "Linear" };
-		win9x_radio_list(row, "Movement type", opts_move, 2, &movement_type);
+	 	const char* opts_move[] = { STR_RAPID, STR_LINEAR };
+		win9x_radio_list(row, STR_MOVEMENT_TYPE, opts_move, 2, &movement_type);
 
-		const char* opts_coord[] = { "Workspace", "Relative", "Machine" };
-		win9x_radio_list(row, "Coordinate type", opts_coord, 3, &coordinate_type);
+		const char* opts_coord[] = { STR_COORD_WORKSPACE, STR_COORD_RELATIVE, STR_COORD_MACHINE };
+		win9x_radio_list(row, STR_COORDINATE_TYPE, opts_coord, 3, &coordinate_type);
 		lv_group_set_default(NULL);
 	}
 
 	{
 		lv_obj_t *header = lv_label_create(column);
-		lv_label_set_text(header, "Coordinates");
+		lv_label_set_text(header, STR_COORDINATES);
 		lv_obj_set_style_text_font(header, &font_pixel_14pt, LV_PART_MAIN);
 
 		lv_obj_t *row = lv_obj_create(column);
@@ -312,11 +314,11 @@ void style_create_movement_screen()
 		lv_obj_set_style_pad_column(row, 5, LV_PART_MAIN);
 		lv_obj_set_flex_align(row, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START);
 
-		lv_obj_t *back = win9x_button(row, "Back");
+		lv_obj_t *back = win9x_button(row, STR_BACK);
 		lv_group_add_obj(group, back);
 		lv_obj_add_event_cb(back, lvgl_callback_back, LV_EVENT_PRESSED, NULL);
 
-		lv_obj_t *next = win9x_button(row, "Move");
+		lv_obj_t *next = win9x_button(row, STR_MOVE);
 		lv_group_add_obj(group, next);
 	}
 
