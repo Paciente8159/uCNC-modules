@@ -49,11 +49,7 @@
 #define MMCSD_MAX_BUFFER_SIZE 512
 #endif
 
-#ifndef SD_CARD_USE_SW_SPI
-#define SD_CARD_USE_HW_SPI
-#endif
-
-#if (!defined(SD_CARD_USE_HW_SPI) || !defined(MCU_HAS_SPI))
+#if (SD_CARD_INTERFACE == SD_CARD_SW_SPI)
 #ifndef SD_SPI_CLK
 #define SD_SPI_CLK DOUT30
 #endif
@@ -67,20 +63,16 @@
 #define SD_SPI_CS SPI_CS
 #endif
 SOFTSPI(mmcsd_spi, 100000UL, 0, SD_SPI_SDO, SD_SPI_SDI, SD_SPI_CLK);
-#else
-#ifndef SD_SPI_CLK
-#define SD_SPI_CLK SPI_CLK
-#endif
-#ifndef SD_SPI_SDO
-#define SD_SPI_SDO SPI_SDO
-#endif
-#ifndef SD_SPI_SDI
-#define SD_SPI_SDI SPI_SDI
-#endif
+#elif (SD_CARD_INTERFACE == SD_CARD_HW_SPI)
 #ifndef SD_SPI_CS
 #define SD_SPI_CS SPI_CS
 #endif
-HARDSPI(mmcsd_spi, 100000UL, 0);
+HARDSPI(mmcsd_spi, 100000UL, 0, mcu_spi_port);
+#elif (SD_CARD_INTERFACE == SD_CARD_HW_SPI2)
+#ifndef SD_SPI_CS
+#define SD_SPI_CS SPI2_CS
+#endif
+HARDSPI(mmcsd_spi, 100000UL, 0, mcu_spi2_port);
 #endif
 
 #define SD_SPI_PORT (&mmcsd_spi)
@@ -106,11 +98,11 @@ FORCEINLINE static void mmcsd_spi_speed(bool highspeed)
 {
 	if (highspeed)
 	{
-		SD_SPI_PORT->spifreq = 18000000UL;
+		softspi_set_frequency(SD_SPI_PORT, 10000000UL);
 	}
 	else
 	{
-		SD_SPI_PORT->spifreq = 100000UL;
+		softspi_set_frequency(SD_SPI_PORT, 100000UL);
 	}
 }
 
@@ -267,10 +259,6 @@ DSTATUS disk_status(BYTE pdrv)
 	if (mmcsd_card.writeprotected)
 	{
 		return (STA_PROTECT);
-	}
-
-	if(softspi_isbusy(SD_SPI_PORT)){
-		return STA_BUS_BUSY;
 	}
 
 	return 0;
@@ -447,7 +435,7 @@ DRESULT disk_write(BYTE pdrv, const BYTE *buff, DWORD sector, UINT count)
 DSTATUS disk_initialize(BYTE pdrv)
 {
 	uint8_t cleanup __attribute__((__cleanup__(mmcsd_release))) = 1;
-	softspi_config_t conf = {0};
+	spi_config_t conf = {0};
 	softspi_config(SD_SPI_PORT, conf, 100000UL);
 	mcu_clear_output(SD_SPI_CS);
 
