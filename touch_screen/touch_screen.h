@@ -24,7 +24,14 @@ extern "C"
 #define TOUCH_SCREEN_SPI_FREQ 1000000UL
 #endif
 #ifndef TOUCH_SCREEN_SPI_PORT
-#define TOUCH_SCREEN_SPI_PORT &MCU_SPI
+#ifdef MCU_HAS_SPI2
+#define TOUCH_SCREEN_SPI_PORT mcu_spi2_port
+#elif MCU_HAS_SPI
+#define TOUCH_SCREEN_SPI_PORT mcu_spi_port
+#else
+#error "Touch screen requires an SPI HW port"
+#endif
+
 #endif
 #ifndef TOUCH_SCREEN_CS
 #define TOUCH_SCREEN_CS DOUT14

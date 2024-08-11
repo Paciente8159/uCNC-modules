@@ -3,10 +3,15 @@
 #include "touch_screen.h"
 #include <stdint.h>
 #include <stdbool.h>
+#include "../softspi.h"
 
 #ifdef __cplusplus
 extern "C"
 {
+#endif
+
+#ifdef TOUCH_SCREEN_SPI_PORT
+	HARDSPI(touch_spi, TOUCH_SCREEN_SPI_FREQ, 0, TOUCH_SCREEN_SPI_PORT);
 #endif
 
 // allow undefined pins to allow compilation without errors
@@ -30,7 +35,8 @@ extern "C"
 
 	void touch_screen_init(uint16_t width, uint16_t height)
 	{
-		softspi_config(TOUCH_SCREEN_SPI_PORT, 0, TOUCH_SCREEN_SPI_FREQ);
+		spi_config_t conf = {0};
+		softspi_config(&touch_spi, conf, TOUCH_SCREEN_SPI_FREQ);
 		touch_screen_width = width;
 		touch_screen_height = height;
 #if (TOUCH_SCREEN_MARGIN != 0)
@@ -45,12 +51,12 @@ extern "C"
 #endif
 
 		io_config_output(TOUCH_SCREEN_CS);
-		softspi_start(TOUCH_SCREEN_SPI_PORT);
+		softspi_start(&touch_spi);
 		io_clear_output(TOUCH_SCREEN_CS);
-		softspi_xmit(TOUCH_SCREEN_SPI_PORT, (TOUCH_SCREEN_READ_Y | TOUCH_SCREEN_SER_MODE));
-		softspi_xmit16(TOUCH_SCREEN_SPI_PORT, 0);
+		softspi_xmit(&touch_spi, (TOUCH_SCREEN_READ_Y | TOUCH_SCREEN_SER_MODE));
+		softspi_xmit16(&touch_spi, 0);
 		io_set_output(TOUCH_SCREEN_CS);
-		softspi_stop(TOUCH_SCREEN_SPI_PORT);
+		softspi_stop(&touch_spi);
 	}
 
 	void touch_screen_get_calibration(uint16_t *x1, uint16_t *y1, uint16_t *x2, uint16_t *y2)
@@ -82,11 +88,17 @@ extern "C"
 	{
 		uint16_t prev = 0xffff, cur = 0xffff;
 		uint8_t i = 0;
+		softspi_xmit(&touch_spi, ctrl);
 		do
 		{
 			prev = cur;
-			cur = softspi_xmit(TOUCH_SCREEN_SPI_PORT, 0);
-			cur = (cur << 4) | (softspi_xmit(TOUCH_SCREEN_SPI_PORT, ctrl) >> 4); // 16 clocks -> 12-bits (zero-padded at end)
+#ifdef TOUCH_SWAP_ADC_BYTES
+			cur = softspi_xmit(&touch_spi, 0);
+			cur = (cur << 4) | (softspi_xmit(&touch_spi, ctrl) >> 4); // 16 clocks -> 12-bits (zero-padded at end)
+#else
+		cur = softspi_xmit(&touch_spi, 0) >> 4;
+		cur |= (((uint16_t)softspi_xmit(&touch_spi, ctrl)) << 4); // 16 clocks -> 12-bits (zero-padded at end)
+#endif
 		} while ((prev != cur) && (++i < max_samples));
 		return cur;
 	}
@@ -95,17 +107,14 @@ extern "C"
 	{
 		// Implementation based on TI Technical Note http://www.ti.com/lit/an/sbaa036/sbaa036.pdf
 
-		softspi_start(TOUCH_SCREEN_SPI_PORT);
+		softspi_start(&touch_spi);
 		io_clear_output(TOUCH_SCREEN_CS);
-		softspi_xmit(TOUCH_SCREEN_SPI_PORT, (TOUCH_SCREEN_READ_X | TOUCH_SCREEN_DFR_MODE));
 		*adc_x = touch_screen_read_loop((TOUCH_SCREEN_READ_X | TOUCH_SCREEN_DFR_MODE), max_samples);
 		*adc_y = touch_screen_read_loop((TOUCH_SCREEN_READ_Y | TOUCH_SCREEN_DFR_MODE), max_samples);
-		softspi_xmit(TOUCH_SCREEN_SPI_PORT, 0);
-		softspi_xmit(TOUCH_SCREEN_SPI_PORT, (TOUCH_SCREEN_READ_Y | TOUCH_SCREEN_SER_MODE));
-		softspi_xmit(TOUCH_SCREEN_SPI_PORT, 0);
-		softspi_xmit(TOUCH_SCREEN_SPI_PORT, 0);
+		// flush
+		touch_screen_read_loop(TOUCH_SCREEN_READ_Y, 1);
 		io_set_output(TOUCH_SCREEN_CS);
-		softspi_stop(TOUCH_SCREEN_SPI_PORT);
+		softspi_stop(&touch_spi);
 	}
 
 	bool touch_screen_is_touching() { return (io_get_pinvalue(TOUCH_SCREEN_TOUCHED) < 1); }
@@ -122,13 +131,8 @@ extern "C"
 		touch_screen_get_adc(&adc_x, &adc_y, max_samples);
 
 		// Map to (un-rotated) display coordinates
-		#ifdef TOUCH_SWAP_AXIS
-				*x = CALC_X(touch_screen_width, (uint16_t)(touch_screen_xdiff * (adc_y - touch_screen_adc_ymin) / touch_screen_adc_ydiff + TOUCH_SCREEN_MARGIN));
-				*y = CALC_Y(touch_screen_height,(uint16_t) (touch_screen_ydiff * (adc_x - touch_screen_adc_xmin) / touch_screen_adc_xdiff + TOUCH_SCREEN_MARGIN));
-		#else
-			*x = CALC_X(touch_screen_width, (uint16_t)(touch_screen_xdiff * (adc_x - touch_screen_adc_xmin) / touch_screen_adc_xdiff + TOUCH_SCREEN_MARGIN));
-			*y = CALC_Y(touch_screen_height, (uint16_t)(touch_screen_ydiff * (adc_y - touch_screen_adc_ymin) / touch_screen_adc_ydiff + TOUCH_SCREEN_MARGIN));
-		#endif
+		*x = CALC_X(touch_screen_width, (uint16_t)(touch_screen_xdiff * (adc_x - touch_screen_adc_xmin) / touch_screen_adc_xdiff + TOUCH_SCREEN_MARGIN));
+		*y = CALC_Y(touch_screen_height, (uint16_t)(touch_screen_ydiff * (adc_y - touch_screen_adc_ymin) / touch_screen_adc_ydiff + TOUCH_SCREEN_MARGIN));
 	}
 
 #ifdef __cplusplus
