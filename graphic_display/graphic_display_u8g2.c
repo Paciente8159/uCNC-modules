@@ -17,7 +17,6 @@
 */
 
 #include "../../cnc.h"
-#ifndef GRAPHIC_DISPLAY_LIB
 
 #include <clib/u8g2.h>
 #include <clib/u8x8.h>
@@ -47,9 +46,7 @@ uint8_t u8x8_byte_ucnc_hw_spi(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int, void *
 		io_config_output(GRAPHIC_DISPLAY_SPI_MOSI);
 		io_config_output(GRAPHIC_DISPLAY_SPI_CS);
 #endif
-		softspi_config_t conf = {0};
-		conf.spiconfig.spi.mode = u8x8->display_info->spi_mode;
-		conf.spiconfig.spi.enable_dma = 1;
+		spi_config_t conf = {u8x8->display_info->spi_mode};
 		softspi_config((softspi_port_t *)graphic_port, conf, u8x8->display_info->sck_clock_hz);
 		break;
 	case U8X8_MSG_BYTE_SET_DC:
@@ -371,43 +368,87 @@ void __attribute__((weak)) gd_draw_string_inv(int16_t x0, int16_t y0, const char
 	{
 		u8g2_SetDrawColor(U8G2, 0);
 	}
-	u8g2_DrawStr(U8G2, x0, y0 + u8g2_GetAscent(U8G2) + 2, s);
+	u8g2_DrawStr(U8G2, x0, y0 + u8g2_GetAscent(U8G2) + 1, s);
 	if (invert)
 	{
 		u8g2_SetDrawColor(U8G2, 1);
 	}
 }
 
-void __attribute__((weak)) gd_draw_button(int16_t x0, int16_t y0, const char *s, int16_t minw, int16_t minh, bool invert, bool frameless)
+void __attribute__((weak)) gd_draw_button(int16_t x0, int16_t y0, const char *s, int16_t minw, int16_t minh, bool invert, uint8_t frametype, uint8_t text_pos)
 {
-	uint8_t mode = (!frameless) ? U8G2_BTN_BW1 : U8G2_BTN_BW0;
-	mode |= (!invert) ? 0 : U8G2_BTN_INV;
-	int16_t len = gd_str_width(s);
+	int16_t len = gd_str_width(s) + 4;
+	int16_t lh = gd_line_height();
 
 	if (minw < 0)
 	{
 		minw = ABS(minw);
-		x0 -= MAX(len + 5, minw);
+		x0 -= MAX(len, minw);
 	}
 
 	if (minh < 0)
 	{
 		minh = ABS(minh);
-		y0 -= MAX(minh, gd_line_height());
+		y0 -= MAX(minh, lh);
 	}
 
-	int16_t w = MAX(minw, len + 5);
-	int16_t h = MAX(minh, gd_line_height());
+	int16_t w = MAX(minw, len);
+	int16_t h = MAX(minh, lh);
 
-	if (invert)
+	gd_draw_rectangle_fill(x0, y0, w, h, !invert);
+	if (frametype & BUTTON_HOR_BARS)
 	{
-		gd_draw_rectangle_fill(x0, y0, w, h, !invert);
+		u8g2_DrawHLine(U8G2, x0, y0, w);
+		u8g2_DrawHLine(U8G2, x0, y0 + h, w);
 	}
-	if (!frameless)
+
+	if (frametype & BUTTON_VER_BARS)
 	{
-		gd_draw_rectangle(x0, y0, w, h);
+		u8g2_DrawVLine(U8G2, x0, y0, h);
+		u8g2_DrawVLine(U8G2, x0 + w, y0, h);
 	}
-	gd_draw_string_inv(x0 + 2, y0 + 1, s, invert);
+
+	switch (text_pos)
+	{
+	case TEXT_TOP_LEFT:
+		x0 += 2;
+		y0 += 1;
+		break;
+	case TEXT_TOP_CENTER:
+		x0 += ((w - len) >> 1) + 2;
+		y0 += 1;
+		break;
+	case TEXT_TOP_RIGHT:
+		x0 += w - len + 2;
+		y0 += 1;
+		break;
+	case TEXT_CENTER_LEFT:
+		x0 += 2;
+		y0 += 1;
+		break;
+	case TEXT_CENTER_CENTER:
+		x0 += ((w - len) >> 1) + 2;
+		y0 += ((h - lh) >> 1) + 1;
+		break;
+	case TEXT_CENTER_RIGHT:
+		x0 += w - len + 2;
+		y0 += ((h - lh) >> 1) + 1;
+		break;
+	case TEXT_BOTTOM_LEFT:
+		x0 += 2;
+		y0 += h - lh + 1;
+		break;
+	case TEXT_BOTTOM_CENTER:
+		x0 += ((w - len) >> 1) + 2;
+		y0 += h - lh + 1;
+		break;
+	case TEXT_BOTTOM_RIGHT:
+		x0 += w - len + 2;
+		y0 += h - lh + 1;
+		break;
+	}
+
+	gd_draw_string_inv(x0, y0, s, invert);
 }
 
 int16_t __attribute__((weak)) gd_str_width(const char *s)
@@ -476,18 +517,19 @@ DISPLAY_INIT(ssd1306_128x64_i2c)
 	u8g2_Setup_ssd1306_i2c_128x64_noname_f(U8G2, U8G2_R0, u8x8_byte_ucnc_hw_i2c, u8x8_gpio_and_delay_ucnc);
 }
 
+DECL_DISPLAY(ssd1306_128x64_i2c, 128, 64);
+
 DISPLAY_INIT(st7920_128x64_spi)
 {
 	u8g2_Setup_st7920_s_128x64_f(U8G2, U8G2_R0, u8x8_byte_ucnc_hw_spi, u8x8_gpio_and_delay_ucnc);
 }
+
+DECL_DISPLAY(st7920_128x64_spi, 128, 64);
 
 DISPLAY_INIT(virtual_sdl)
 {
 	u8g2_SetupBuffer_SDL_128x64(U8G2, U8G2_R0);
 }
 
-#endif
+DECL_DISPLAY(virtual_sdl, 128, 64);
 
-extern "C" DECL_DISPLAY(ssd1306_128x64_i2c, 128, 64);
-extern "C" DECL_DISPLAY(st7920_128x64_spi, 128, 64);
-extern "C" DECL_DISPLAY(virtual_sdl, 128, 64);
