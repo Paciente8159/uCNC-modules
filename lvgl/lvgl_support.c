@@ -108,6 +108,50 @@ static void action_translator_edge_cb(lv_group_t *group, bool next)
 	BUFFER_ENQUEUE(lvgl_action_buffer, &action);
 }
 
+#ifdef DECL_SERIAL_STREAM
+DECL_BUFFER(uint8_t, lvgl_stream_buffer, 64);
+static uint8_t lvgl_ss_getc(void)
+{
+	uint8_t c = 0;
+	BUFFER_DEQUEUE(lvgl_stream_buffer, &c);
+	return c;
+}
+
+uint8_t lvgl_ss_available(void)
+{
+	return BUFFER_READ_AVAILABLE(lvgl_stream_buffer);
+}
+
+void lvgl_ss_clear(void)
+{
+	BUFFER_CLEAR(lvgl_stream_buffer);
+}
+
+DECL_SERIAL_STREAM(lvgl_stream, lvgl_ss_getc, lvgl_ss_available, lvgl_ss_clear, NULL, NULL);
+
+uint8_t system_menu_send_cmd(const char *__s)
+{
+	// if machine is running rejects the command
+	if (cnc_get_exec_state(EXEC_RUN | EXEC_JOG) == EXEC_RUN)
+	{
+		return STATUS_SYSTEM_GC_LOCK;
+	}
+
+	uint8_t len = strlen(__s);
+	uint8_t w;
+
+	if (BUFFER_WRITE_AVAILABLE(lvgl_stream_buffer) < len)
+	{
+		return STATUS_STREAM_FAILED;
+	}
+
+	BUFFER_WRITE(lvgl_stream_buffer, (void *)__s, len, w);
+
+	return STATUS_OK;
+}
+
+#endif
+
 /*** -------======= Event handlers =======------- ***/
 #ifdef ENABLE_MAIN_LOOP_MODULES
 bool lvgl_startup(void *args)
@@ -174,6 +218,10 @@ DECL_MODULE(lvgl_support)
 	// Initialize LVGL
 	lv_init();
 
+	#ifdef DECL_SERIAL_STREAM
+		serial_stream_register(&lvgl_stream);
+#endif
+
 	// Set callbacks to system functions
 	lv_tick_set_cb(mcu_millis);
 	lv_delay_set_cb(cnc_delay_ms);
@@ -232,50 +280,6 @@ void system_menu_render_alarm()
 	style_alarm();
 	lv_refr_now(display);
 }
-
-#ifdef DECL_SERIAL_STREAM
-DECL_BUFFER(uint8_t, lvgl_stream_buffer, 64);
-static uint8_t lvgl_ss_getc(void)
-{
-	uint8_t c = 0;
-	BUFFER_DEQUEUE(lvgl_stream_buffer, &c);
-	return c;
-}
-
-uint8_t lvgl_ss_available(void)
-{
-	return BUFFER_READ_AVAILABLE(lvgl_stream_buffer);
-}
-
-void lvgl_ss_clear(void)
-{
-	BUFFER_CLEAR(lvgl_stream_buffer);
-}
-
-DECL_SERIAL_STREAM(lvgl_stream, lvgl_ss_getc, lvgl_ss_available, lvgl_ss_clear, NULL, NULL);
-
-uint8_t system_menu_send_cmd(const char *__s)
-{
-	// if machine is running rejects the command
-	if (cnc_get_exec_state(EXEC_RUN | EXEC_JOG) == EXEC_RUN)
-	{
-		return STATUS_SYSTEM_GC_LOCK;
-	}
-
-	uint8_t len = strlen(__s);
-	uint8_t w;
-
-	if (BUFFER_WRITE_AVAILABLE(lvgl_stream_buffer) < len)
-	{
-		return STATUS_STREAM_FAILED;
-	}
-
-	BUFFER_WRITE(lvgl_stream_buffer, (void *)__s, len, w);
-
-	return STATUS_OK;
-}
-
-#endif
 
 /* TODO: [14/08/2024]
  * Currently, list menus are rebuilt on menu id changes (required) and flag changes (might not be required every time).
