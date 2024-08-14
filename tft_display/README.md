@@ -8,7 +8,7 @@ This module adds support for using a tft display with the LVGL library to create
 
 ## Adding tft_display to µCNC
 
-To use the tft_display parser module follow these steps:
+To use the tft_display module follow these steps:
 
 1. Copy the `tft_display` directory and place it inside the `src/modules/` directory of µCNC
 2. Follow instructions to install the LVGL module.
