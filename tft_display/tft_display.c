@@ -21,7 +21,7 @@
 #error "This module is not compatible with the current version of µCNC"
 #endif
 
-#if defined(TFT_SPI_HARDWARE) || (defined(TFT_SPI_MOSI) && defined(TFT_SPI_CLK))
+#if defined(TFT_SPI_HARDWARE_PORT) || (defined(TFT_SPI_MOSI) && defined(TFT_SPI_CLK))
 
 #include "tft_display.h"
 #include "src/modules/softspi.h"
@@ -82,8 +82,8 @@
 #define TFT_CLK_SETTLE_DELAY() // mcu_delay_us(1)
 #endif
 
-#ifdef TFT_SPI_HARDWARE
-HARDSPI(tft_spi, TFT_SPI_FREQ, 0);
+#ifdef TFT_SPI_HARDWARE_PORT
+HARDSPI(tft_spi, TFT_SPI_FREQ, 0, TFT_SPI_HARDWARE_PORT);
 #else
 SOFTSPI(tft_spi, TFT_SPI_FREQ, 0, TFT_SPI_MOSI, UNDEF_PIN, TFT_SPI_CLK);
 #endif
