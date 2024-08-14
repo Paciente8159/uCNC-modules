@@ -185,11 +185,6 @@ void style_list_menu_item_value(lv_obj_t *screen, list_menu_item_arg_t *arg)
 	}
 }
 
-void style_list_menu_footer(lv_obj_t *screen)
-{
-
-}
-
 void style_list_menu(lv_obj_t *screen)
 {
 	extern lv_obj_t *g_current_screen;

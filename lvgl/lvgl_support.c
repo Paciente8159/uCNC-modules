@@ -295,3 +295,17 @@ void lvgl_callback_back(lv_event_t *event)
 	system_menu_goto(0);
 }
 
+/*** -------======= Weak function bindings =======------- ***/
+
+__attribute__((weak)) void style_init(lv_display_t *display) { }
+__attribute__((weak)) void style_startup() { }
+__attribute__((weak)) void style_idle() { }
+__attribute__((weak)) void style_popup(const char* text) { }
+__attribute__((weak)) void style_alarm() { }
+__attribute__((weak)) void style_list_menu_header(lv_obj_t *screen, const char *header) { }
+__attribute__((weak)) void style_list_menu_item_label(lv_obj_t *screen, list_menu_item_arg_t *arg) { }
+__attribute__((weak)) void style_list_menu_item_value(lv_obj_t *screen, list_menu_item_arg_t *arg) { }
+__attribute__((weak)) void style_list_menu_nav_back(lv_obj_t *screen, bool is_hover, bool rebuild) { }
+__attribute__((weak)) void style_list_menu_footer(lv_obj_t *screen) { }
+__attribute__((weak)) void style_list_menu(lv_obj_t *screen) { }
+
