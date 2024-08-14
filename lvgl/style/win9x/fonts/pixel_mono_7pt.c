@@ -16,7 +16,7 @@
 	See the GNU General Public License for more details.
 */
 
-#include "../../config.h"
+#include "../config.h"
 
 #ifdef GUI_STYLE_WIN9X
 

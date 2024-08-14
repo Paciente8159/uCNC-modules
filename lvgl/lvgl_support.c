@@ -71,13 +71,35 @@ static void action_translator_cb(lv_event_t *event)
 {
 	char key = lv_event_get_key(event);
 	uint8_t action = SYSTEM_MENU_ACTION_NONE;
-	if(key == LV_KEY_ENTER)
+
+	switch(key)
 	{
-		action = SYSTEM_MENU_ACTION_SELECT;
+		case LV_KEY_ENTER:
+			action = SYSTEM_MENU_ACTION_SELECT;
+			break;
+		case LV_KEY_LEFT:
+			action = SYSTEM_MENU_ACTION_PREV;
+			break;
+		case LV_KEY_RIGHT:
+			action = SYSTEM_MENU_ACTION_NEXT;
+			break;
+		case '0':
+		case '1':
+		case '2':
+		case '3':
+		case '4':
+		case '5':
+		case '6':
+		case '7':
+		case '8':
+		case '9':
+			action = SYSTEM_MENU_ACTION_CHAR_INPUT(key);
+			break;
+		default:
+			return;
 	}
 
-	if(action != SYSTEM_MENU_ACTION_NONE)
-		BUFFER_ENQUEUE(lvgl_action_buffer, &action);
+	BUFFER_ENQUEUE(lvgl_action_buffer, &action);
 }
 
 static void action_translator_edge_cb(lv_group_t *group, bool next)
@@ -96,6 +118,8 @@ bool lvgl_startup(void *args)
 
 bool lvgl_update(void *args)
 {
+	bool has_popup = g_system_menu.flags & SYSTEM_MENU_MODE_MODAL_POPUP;
+
 	if(current_group == action_translator)
 	{
 		if(BUFFER_EMPTY(lvgl_action_buffer))
@@ -115,6 +139,12 @@ bool lvgl_update(void *args)
 	else if(current_group == NULL)
 	{
 		system_menu_action(SYSTEM_MENU_ACTION_NONE);
+	}
+
+	if(has_popup && !(g_system_menu.flags & SYSTEM_MENU_MODE_MODAL_POPUP))
+	{
+		// Popup disappeared
+		style_remove_popup();
 	}
 
 	system_menu_render();
@@ -202,6 +232,51 @@ void system_menu_render_alarm()
 	style_alarm();
 	lv_refr_now(display);
 }
+
+#ifdef DECL_SERIAL_STREAM
+DECL_BUFFER(uint8_t, lvgl_stream_buffer, 64);
+static uint8_t lvgl_ss_getc(void)
+{
+	uint8_t c = 0;
+	BUFFER_DEQUEUE(lvgl_stream_buffer, &c);
+	return c;
+}
+
+uint8_t lvgl_ss_available(void)
+{
+	return BUFFER_READ_AVAILABLE(lvgl_stream_buffer);
+}
+
+void lvgl_ss_clear(void)
+{
+	BUFFER_CLEAR(lvgl_stream_buffer);
+}
+
+DECL_SERIAL_STREAM(lvgl_stream, lvgl_ss_getc, lvgl_ss_available, lvgl_ss_clear, NULL, NULL);
+
+uint8_t system_menu_send_cmd(const char *__s)
+{
+	// if machine is running rejects the command
+	if (cnc_get_exec_state(EXEC_RUN | EXEC_JOG) == EXEC_RUN)
+	{
+		return STATUS_SYSTEM_GC_LOCK;
+	}
+
+	uint8_t len = strlen(__s);
+	uint8_t w;
+
+	if (BUFFER_WRITE_AVAILABLE(lvgl_stream_buffer) < len)
+	{
+		return STATUS_STREAM_FAILED;
+	}
+
+	BUFFER_WRITE(lvgl_stream_buffer, (void *)__s, len, w);
+
+	return STATUS_OK;
+}
+
+#endif
+
 /* TODO: [14/08/2024]
  * Currently, list menus are rebuilt on menu id changes (required) and flag changes (might not be required every time).
  * It might be beneficial to have a style function signal when a complete menu rebuild is required on flag changes to
@@ -301,6 +376,7 @@ __attribute__((weak)) void style_init(lv_display_t *display) { }
 __attribute__((weak)) void style_startup() { }
 __attribute__((weak)) void style_idle() { }
 __attribute__((weak)) void style_popup(const char* text) { }
+__attribute__((weak)) void style_remove_popup() { }
 __attribute__((weak)) void style_alarm() { }
 __attribute__((weak)) void style_list_menu_header(lv_obj_t *screen, const char *header) { }
 __attribute__((weak)) void style_list_menu_item_label(lv_obj_t *screen, list_menu_item_arg_t *arg) { }

@@ -32,6 +32,7 @@ extern void style_init(lv_display_t *display);
 extern void style_startup();
 extern void style_idle();
 extern void style_popup(const char* text);
+extern void style_remove_popup();
 extern void style_alarm();
 
 typedef struct _style_item_arg

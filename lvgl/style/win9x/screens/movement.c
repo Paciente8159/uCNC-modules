@@ -16,9 +16,9 @@
 	See the GNU General Public License for more details.
 */
 
-#include "../../config.h"
+#include "../config.h"
 
-#ifdef GUI_STYLE_WIN9X
+#if defined(GUI_STYLE_WIN9X) && MOVEMENT_MENU
 
 #include "lvgl.h"
 #include "math.h"
@@ -55,6 +55,7 @@ typedef struct _cb_state
 	int multiplier;
 } coord_box_state_t;
 
+static char axis[] = { 'X', 'Y', 'Z' };
 static coord_box_state_t coordinates[3];
 
 static float coord_box_value(const coord_box_state_t *state)
@@ -226,6 +227,52 @@ static lv_obj_t *make_coordinate_box(lv_obj_t *parent, const char *label, coord_
 	return root;
 }
 
+static void move_to_coord(lv_event_t *event)
+{
+	char buffer[64];
+	char *ptr = buffer;
+	*ptr++ = '$';
+	*ptr++ = 'J';
+	*ptr++ = '=';
+	*ptr++ = 'G';
+
+	switch(coordinate_type)
+	{
+		case 0:
+			*ptr++ = '9';
+			*ptr++ = '0';
+			break;
+		case 1:
+			*ptr++ = '9';
+			*ptr++ = '1';
+			break;
+		case 2:
+			*ptr++ = '5';
+			*ptr++ = '3';
+			break;
+	}
+
+	// Append axis which were modified
+	for(uint8_t i = 0; i < 3; ++i)
+	{
+		if(!coordinates[i].edited)
+			continue;
+		*ptr++ = axis[i];
+		int dec = coordinates[i].sign ? -coordinates[i].decimal : coordinates[i].decimal;
+		sprintf(ptr, "%d.%03d", dec, coordinates[i].fractional);
+
+		while(*ptr++);
+		--ptr;
+	}
+
+	// Finish the command and send it out
+	*ptr++ = '\r';
+	*ptr++ = 0;
+	system_menu_send_cmd(ptr);
+
+	system_menu_goto(0);
+}
+
 static void movement_render(uint8_t flags);
 
 void style_create_movement_screen()
@@ -318,8 +365,9 @@ void style_create_movement_screen()
 		lv_group_add_obj(group, back);
 		lv_obj_add_event_cb(back, lvgl_callback_back, LV_EVENT_PRESSED, NULL);
 
-		lv_obj_t *next = win9x_button(row, STR_MOVE);
-		lv_group_add_obj(group, next);
+		lv_obj_t *move = win9x_button(row, STR_MOVE);
+		lv_group_add_obj(group, move);
+		lv_obj_add_event_cb(move, move_to_coord, LV_EVENT_PRESSED, NULL);
 	}
 
 	// Declare system menu screen

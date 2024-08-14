@@ -16,7 +16,7 @@
 	See the GNU General Public License for more details.
 */
 
-#include "../../config.h"
+#include "../config.h"
 
 #ifdef GUI_STYLE_WIN9X
 
@@ -44,6 +44,9 @@ static void get_alarm_string(char* dest);
 
 static lv_obj_t *screen;
 static lv_group_t *group;
+static lv_group_t *zero_btn_group;
+
+static lv_obj_t *side_buttons_blocks[2];
 
 static struct _topbar {
 	lv_obj_t *state_text;
@@ -289,7 +292,7 @@ static void feed_box_event_cb(lv_event_t *event)
 	}
 }
 
-static lv_obj_t *side_button(lv_obj_t *parent, int32_t y, const void *img)
+static lv_obj_t *side_button(lv_obj_t *parent, int32_t y, const void *img, lv_group_t *group)
 {
 	lv_obj_t *btn = lv_button_create(parent);
 	lv_obj_set_pos(btn, 0, y);
@@ -302,8 +305,6 @@ static lv_obj_t *side_button(lv_obj_t *parent, int32_t y, const void *img)
 	lv_image_set_src(btn_img, img);
 	lv_obj_set_style_image_recolor(btn_img, charcoal, LV_PART_MAIN);
 
-	lv_obj_set_style_bg_color(btn, button_click, LV_PART_MAIN | LV_STATE_PRESSED);
-
 	lv_obj_set_style_outline_opa(btn, LV_OPA_COVER, LV_PART_MAIN | LV_STATE_FOCUSED);
 	lv_obj_set_style_outline_color(btn, col_black, LV_PART_MAIN | LV_STATE_FOCUSED);
 	lv_obj_set_style_outline_width(btn, 1, LV_PART_MAIN | LV_STATE_FOCUSED);
@@ -313,6 +314,54 @@ static lv_obj_t *side_button(lv_obj_t *parent, int32_t y, const void *img)
 	return btn;
 }
 
+static void side_buttons_zero(lv_event_t *event)
+{
+	lv_obj_remove_flag(side_buttons_blocks[1], LV_OBJ_FLAG_HIDDEN);
+	lv_obj_add_flag(side_buttons_blocks[0], LV_OBJ_FLAG_HIDDEN);
+	lvgl_set_indev_group(zero_btn_group);
+}
+
+static void side_buttons_back(lv_event_t *event)
+{
+	lv_obj_remove_flag(side_buttons_blocks[0], LV_OBJ_FLAG_HIDDEN);
+	lv_obj_add_flag(side_buttons_blocks[1], LV_OBJ_FLAG_HIDDEN);
+	lvgl_set_indev_group(group);
+}
+
+static void zero_axis(lv_event_t *event)
+{
+	uint8_t axis = *(uint8_t*)lv_event_get_user_data(event);
+
+	char cmd[] = "G10 L20 P0 ?0\r";
+	switch(axis)
+	{
+		case 0:
+			cmd[11] = 'X';
+			break;
+		case 1:
+			cmd[11] = 'Y';
+			break;
+		case 2:
+			cmd[11] = 'Z';
+			break;
+		default:
+			break;
+	}
+
+	if(cmd[11] != '?')
+	{
+		// Valid axis selected
+		if(system_menu_send_cmd(cmd) != STATUS_OK)
+		{
+			char buffer[32];
+			rom_strcpy((char *)buffer, __romstr__(STR_CMD_NOTSENT));
+			system_menu_show_modal_popup(SYSTEM_MENU_MODAL_POPUP_MS, buffer);
+		}
+	}
+
+	side_buttons_back(event);
+}
+
 void style_create_idle_screen()
 {
 	screen = lv_obj_create(NULL);
@@ -320,6 +369,7 @@ void style_create_idle_screen()
 	lv_obj_set_style_text_font(screen, &font_pixel_bold_11pt, LV_PART_MAIN);
 
 	group = lv_group_create();
+	zero_btn_group = lv_group_create();
 
 	{
 		lv_obj_t *topbar = lv_obj_create(screen);
@@ -360,15 +410,56 @@ void style_create_idle_screen()
 	}
 
 	{
-		lv_obj_t *btn1 = side_button(screen, 30, &Img_ZeroX);
+		{
+			lv_obj_t *buttons_def = lv_obj_create(screen);
+			lv_obj_set_style_bg_opa(buttons_def, LV_OPA_TRANSP, LV_PART_MAIN);
+			lv_obj_set_size(buttons_def, LV_SIZE_CONTENT + 1, LV_SIZE_CONTENT + 1);
 
-		lv_obj_t *btn2 = side_button(screen, 115, &Img_Move);
-		static cb_goto_arg_t btn2_arg = { 10 };
-		lv_obj_add_event_cb(btn2, lvgl_callback_goto, LV_EVENT_PRESSED, &btn2_arg);
+			lv_obj_t *btn1 = side_button(buttons_def,  30, &Img_ZeroX, group);
+			lv_obj_add_event_cb(btn1, side_buttons_zero, LV_EVENT_PRESSED, NULL);
 
-		lv_obj_t *btn3 = side_button(screen, 200, &Img_Menu);
-		static cb_goto_arg_t btn3_arg = { 1 };
-		lv_obj_add_event_cb(btn3, lvgl_callback_goto, LV_EVENT_PRESSED, &btn3_arg);
+			lv_obj_t *btn2 = side_button(buttons_def, 115, &Img_Move, group);
+#if MOVEMENT_MENU
+			static cb_goto_arg_t btn2_arg = { 10 };
+#else
+			static cb_goto_arg_t btn2_arg = { 7 };
+#endif
+			lv_obj_add_event_cb(btn2, lvgl_callback_goto, LV_EVENT_PRESSED, &btn2_arg);
+
+			lv_obj_t *btn3 = side_button(buttons_def, 200, &Img_Menu, group);
+			static cb_goto_arg_t btn3_arg = { 1 };
+			lv_obj_add_event_cb(btn3, lvgl_callback_goto, LV_EVENT_PRESSED, &btn3_arg);
+
+			side_buttons_blocks[0] = buttons_def;
+		}
+
+		{
+			lv_obj_t *buttons_zero = lv_obj_create(screen);
+			lv_obj_set_style_bg_opa(buttons_zero, LV_OPA_TRANSP, LV_PART_MAIN);
+			lv_obj_set_size(buttons_zero, LV_SIZE_CONTENT + 1, LV_SIZE_CONTENT + 1);
+			lv_obj_add_flag(buttons_zero, LV_OBJ_FLAG_HIDDEN);
+
+			lv_obj_t *btn1 = side_button(buttons_zero,  30, &Img_ZeroX, zero_btn_group);
+			static uint8_t x = 0;
+			lv_obj_add_event_cb(btn1, zero_axis, LV_EVENT_PRESSED, &x);
+
+			lv_obj_t *btn2 = side_button(buttons_zero, 115, &Img_ZeroY, zero_btn_group);
+			static uint8_t y = 1;
+			lv_obj_add_event_cb(btn2, zero_axis, LV_EVENT_PRESSED, &y);
+
+			lv_obj_t *btn3 = side_button(buttons_zero, 200, &Img_ZeroZ, zero_btn_group);
+			static uint8_t z = 2;
+			lv_obj_add_event_cb(btn3, zero_axis, LV_EVENT_PRESSED, &z);
+
+			lv_obj_t *back = win9x_button(buttons_zero, "Back");
+			lv_obj_set_width(back, 50);
+			lv_obj_set_pos(back, 0, 285);
+			lv_group_add_obj(zero_btn_group, back);
+			lv_obj_add_event_cb(back, side_buttons_back, LV_EVENT_PRESSED, NULL);
+
+			lv_group_focus_obj(btn1);
+			side_buttons_blocks[1] = buttons_zero;
+		}
 	}
 
 	{

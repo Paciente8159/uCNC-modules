@@ -97,8 +97,6 @@ lv_obj_t *win9x_button(lv_obj_t *parent, const char *text)
 	lv_obj_set_style_outline_color(btn, col_black, LV_PART_MAIN | LV_STATE_FOCUSED);
 	lv_obj_set_style_outline_width(btn, 1, LV_PART_MAIN | LV_STATE_FOCUSED);
 
-	lv_obj_set_style_bg_color(btn, button_click, LV_PART_MAIN | LV_STATE_PRESSED);
-
 	return btn;
 }
 

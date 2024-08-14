@@ -15,7 +15,7 @@
 	Also without the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 	See the GNU General Public License for more details.
 */
-#include "../config.h"
+#include "config.h"
 
 #ifdef GUI_STYLE_WIN9X
 
@@ -36,7 +36,6 @@
 extern void style_create_startup_screen();
 extern void style_create_idle_screen();
 extern void style_create_movement_screen();
-extern void style_create_popup_screen();
 
 win9x_styles g_styles;
 lv_obj_t* g_current_screen = 0;
@@ -74,8 +73,9 @@ void style_init(lv_display_t *display)
 
 	style_create_startup_screen();
 	style_create_idle_screen();
+#if MOVEMENT_MENU
 	style_create_movement_screen();
-	style_create_popup_screen();
+#endif
 }
 
 #endif

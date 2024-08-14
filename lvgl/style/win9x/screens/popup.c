@@ -16,8 +16,7 @@
 	See the GNU General Public License for more details.
 */
 
-#include "../../config.h"
-#include "core/lv_obj.h"
+#include "../config.h"
 
 #ifdef GUI_STYLE_WIN9X
 
@@ -31,15 +30,11 @@
 #include "../fonts/pixel.h"
 #include "../../../lvgl_support.h"
 
-static lv_obj_t *screen;
-static lv_obj_t *text_object;
+static lv_obj_t *last_popup = NULL;
 
-void style_create_popup_screen()
+void style_popup(const char *text)
 {
-	screen = lv_obj_create(NULL);
-	lv_obj_set_style_bg_color(screen, col_black, LV_PART_MAIN);
-
-	lv_obj_t *box = lv_obj_create(screen);
+	lv_obj_t *box = lv_obj_create(lv_layer_top());
 	lv_obj_set_size(box, LV_PCT(50), LV_SIZE_CONTENT);
 	lv_obj_center(box);
 
@@ -69,16 +64,19 @@ void style_create_popup_screen()
 	lv_obj_set_style_pad_all(body, 7, LV_PART_MAIN);
 	lv_obj_set_size(body, LV_PCT(100), LV_SIZE_CONTENT);
 
-	text_object = lv_label_create(body);
+	lv_obj_t *text_object = lv_label_create(body);
+	lv_label_set_text(text_object, text);
+
+	last_popup = box;
 }
 
-void style_popup(const char *text)
+void style_remove_popup()
 {
-	extern lv_obj_t *g_current_screen;
-	g_current_screen = screen;
-	lv_screen_load(screen);
-	lv_label_set_text(text_object, text);
-	lvgl_set_indev_group(NULL);
+	if(last_popup != NULL)
+	{
+		lv_obj_delete(last_popup);
+		last_popup = NULL;
+	}
 }
 
 #endif
