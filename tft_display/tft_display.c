@@ -83,9 +83,9 @@
 #endif
 
 #ifdef TFT_SPI_HARDWARE_PORT
-HARDSPI(tft_spi, TFT_SPI_FREQ, 0, TFT_SPI_HARDWARE_PORT);
+static HARDSPI(tft_spi, TFT_SPI_FREQ, 0, TFT_SPI_HARDWARE_PORT);
 #else
-SOFTSPI(tft_spi, TFT_SPI_FREQ, 0, TFT_SPI_MOSI, UNDEF_PIN, TFT_SPI_CLK);
+static SOFTSPI(tft_spi, TFT_SPI_FREQ, 0, TFT_SPI_MOSI, UNDEF_PIN, TFT_SPI_CLK);
 #endif
 
 #define CMD(cmd) tft_command(cmd)
@@ -168,10 +168,8 @@ static void *tx_pixels;
 #ifdef ENABLE_MAIN_LOOP_MODULES
 bool tft_update(void *arg)
 {
-	static bool running = false;
-	if(pending_tx && !running)
+	if(pending_tx)
 	{
-		running = true;
 		tft_start();
 
 		// Set columns
@@ -191,12 +189,11 @@ bool tft_update(void *arg)
 
 		// Notify library of flush completion
 		pending_tx = false;
-		running = false;
 	}
 	return EVENT_CONTINUE;
 }
 
-CREATE_EVENT_LISTENER_WITHLOCK(cnc_io_dotasks, tft_update, LISTENER_HWSPI_LOCK);
+CREATE_EVENT_LISTENER_WITHLOCK(cnc_dotasks, tft_update, LISTENER_HWSPI_LOCK);
 #endif
 
 static void lvgl_flush_cb(lv_display_t *display, const lv_area_t *area, uint8_t *pixel_map)
@@ -241,7 +238,7 @@ DECL_MODULE(tft_display)
 	tft_stop();
 
 #ifdef ENABLE_MAIN_LOOP_MODULES
-	ADD_EVENT_LISTENER(cnc_io_dotasks, tft_update);
+	ADD_EVENT_LISTENER(cnc_dotasks, tft_update);
 #else
 #warning "Main loop extensions are disabled. TFT display module will not work."
 #endif
