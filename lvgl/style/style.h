@@ -25,6 +25,7 @@ extern "C"
 #endif
 
 #include "lvgl.h"
+#include "src/modules/system_menu.h"
 
 extern void style_init(lv_display_t *display);
 
@@ -32,19 +33,22 @@ extern void style_startup();
 extern void style_idle();
 extern void style_popup(const char* text);
 extern void style_alarm();
-	
+
+typedef struct _style_item_arg
+{
+	const char *text;
+	uint8_t render_flags;
+	uint16_t item_index;
+	bool must_rebuild;
+} list_menu_item_arg_t;
+
 extern void style_list_menu_header(lv_obj_t *screen, const char *header);
-extern void style_list_menu_item_label(lv_obj_t *screen, const char *label);
-extern void style_list_menu_item_value(lv_obj_t *screen, const char *label);
-extern void style_list_menu_nav_back(lv_obj_t *screen, bool is_hover);
+extern void style_list_menu_item_label(lv_obj_t *screen, list_menu_item_arg_t *arg);
+extern void style_list_menu_item_value(lv_obj_t *screen, list_menu_item_arg_t *arg);
+extern void style_list_menu_nav_back(lv_obj_t *screen, bool is_hover, bool rebuild);
 extern void style_list_menu_footer(lv_obj_t *screen);
 
 extern void style_list_menu(lv_obj_t *screen);
-
-extern lv_obj_t *style_list_menu_get_item(lv_obj_t *screen, uint16_t index);
-extern lv_obj_t *style_list_menu_get_item_label(lv_obj_t *item_entry);
-extern lv_obj_t *style_list_menu_get_item_value(lv_obj_t *item_entry);
-extern lv_obj_t *style_list_menu_get_nav_back(lv_obj_t *screen);
 
 #ifdef __cplusplus
 }

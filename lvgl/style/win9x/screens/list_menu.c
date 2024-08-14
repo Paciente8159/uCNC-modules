@@ -21,11 +21,14 @@
 #ifdef GUI_STYLE_WIN9X
 
 #include "lvgl.h"
+#include "src/modules/system_menu.h"
 
 #include "../colors.h"
 #include "../styles.h"
 #include "../fonts/pixel.h"
+#include "../fonts/pixel_mono.h"
 #include "../bitmaps/close.h"
+#include "../../style.h"
 #include "../../../lvgl_support.h"
 
 static lv_obj_t *item_list;
@@ -54,58 +57,131 @@ void style_list_menu_header(lv_obj_t *screen, const char *header)
 	lv_obj_set_style_text_color(item_list, col_black, LV_PART_MAIN);
 }
 
-void style_list_menu_nav_back(lv_obj_t *screen, bool is_hover)
+void style_list_menu_nav_back(lv_obj_t *screen, bool is_hover, bool rebuild)
 {
-	lv_obj_t *back = lv_obj_create(lv_obj_get_child(screen, 0));
-	lv_obj_add_style(back, &g_styles.button, LV_PART_MAIN);
-	lv_obj_set_size(back, 18, 18);
-	WIN9X_BORDER_PART_TWO(back, shadow_dark);
-
-	lv_obj_set_align(back, LV_ALIGN_RIGHT_MID);
-	lv_obj_set_pos(back, -2, 0);
-
-	lv_obj_set_style_outline_color(back, col_black, LV_PART_MAIN | LV_STATE_FOCUSED);
-	lv_obj_set_style_outline_width(back, 1, LV_PART_MAIN | LV_STATE_FOCUSED);
-
-	lv_obj_t *image = lv_image_create(back);
-	lv_obj_center(image);
-	lv_image_set_src(image, &Img_Close);
-	lv_obj_set_style_image_recolor(image, col_black, LV_PART_MAIN);
-}
-
-lv_obj_t *style_list_menu_get_nav_back(lv_obj_t *screen)
-{
-	lv_obj_t *topbar = lv_obj_get_child(screen, 0);
-	return lv_obj_get_child(topbar, 1);
-}
-
-void style_list_menu_item_label(lv_obj_t *screen, const char *label)
-{
-	last_item_entry = lv_obj_create(item_list);
-	lv_obj_set_size(last_item_entry, LV_PCT(100), LV_SIZE_CONTENT);
-	lv_obj_set_style_pad_ver(last_item_entry, 2, LV_PART_MAIN);
-	lv_obj_set_style_pad_hor(last_item_entry, 10, LV_PART_MAIN);
-
-	lv_color_t bg_col = bg_base;
-	if(lv_obj_get_index(last_item_entry) % 2 == 0)
+	lv_obj_t *back;
+	if(rebuild)
 	{
-		bg_col = bg_box;
+		back = lv_obj_create(lv_obj_get_child(screen, 0));
+		lv_obj_add_style(back, &g_styles.button, LV_PART_MAIN);
+		lv_obj_set_size(back, 18, 18);
+		WIN9X_BORDER_PART_TWO(back, shadow_dark);
+
+		lv_obj_set_align(back, LV_ALIGN_RIGHT_MID);
+		lv_obj_set_pos(back, -2, 0);
+
+		lv_obj_set_style_bg_color(back, select_highlight, LV_PART_MAIN | LV_STATE_FOCUSED);
+
+		lv_obj_t *image = lv_image_create(back);
+		lv_obj_center(image);
+		lv_image_set_src(image, &Img_Close);
+		lv_obj_set_style_image_recolor(image, col_black, LV_PART_MAIN);
 	}
-	lv_obj_set_style_bg_color(last_item_entry, bg_col, LV_PART_MAIN);
-	lv_obj_set_style_bg_color(last_item_entry, select_highlight, LV_PART_MAIN | LV_STATE_FOCUSED);
-	
-	lv_obj_t *labelob = lv_label_create(last_item_entry);
-	lv_label_set_text(labelob, label);
-	lv_obj_set_pos(labelob, 0, 0);
+	else
+	{
+		lv_obj_t *topbar = lv_obj_get_child(screen, 0);
+		back = lv_obj_get_child(topbar, 1);
+	}
+
+	if(is_hover && !lv_obj_has_state(back, LV_STATE_FOCUSED))
+		lv_obj_add_state(back, LV_STATE_FOCUSED);
+	else if(!is_hover && lv_obj_has_state(back, LV_STATE_FOCUSED))
+		lv_obj_remove_state(back, LV_STATE_FOCUSED);
 }
 
-void style_list_menu_item_value(lv_obj_t *screen, const char *label)
+void style_list_menu_item_label(lv_obj_t *screen, list_menu_item_arg_t *arg)
 {
-	if(label != NULL)
+	lv_obj_t *entry, *label;
+	if(arg->must_rebuild)
 	{
-		lv_obj_t *valueob = lv_label_create(last_item_entry);
-		lv_label_set_text(valueob, label);
-		lv_obj_set_pos(valueob, 150, 0);
+		last_item_entry = lv_obj_create(item_list);
+
+		lv_obj_set_size(last_item_entry, LV_PCT(100), LV_SIZE_CONTENT);
+		lv_obj_set_style_pad_ver(last_item_entry, 2, LV_PART_MAIN);
+		lv_obj_set_style_pad_hor(last_item_entry, 10, LV_PART_MAIN);
+
+		lv_color_t bg_col = bg_base;
+		if(lv_obj_get_index(last_item_entry) % 2 == 0)
+		{
+			bg_col = bg_box;
+		}
+		lv_obj_set_style_bg_color(last_item_entry, bg_col, LV_PART_MAIN);
+		lv_obj_set_style_bg_color(last_item_entry, select_highlight, LV_PART_MAIN | LV_STATE_FOCUSED);
+
+		label = lv_label_create(last_item_entry);
+		lv_obj_set_align(label, LV_ALIGN_LEFT_MID);
+		lv_obj_set_pos(label, 0, 0);
+
+		entry = last_item_entry;
+	}
+	else
+	{
+		entry = lv_obj_get_child(item_list, arg->item_index);
+		label = lv_obj_get_child(entry, 0);
+	}
+	
+	if(strcmp(lv_label_get_text(label), arg->text))
+	{
+		// Set text if changed
+		lv_label_set_text(label, arg->text);
+	}
+
+	if((arg->render_flags & SYSTEM_MENU_MODE_SELECT) && !lv_obj_has_state(entry, LV_STATE_FOCUSED))
+		lv_obj_add_state(entry, LV_STATE_FOCUSED);
+	else if(!(arg->render_flags & SYSTEM_MENU_MODE_SELECT) && lv_obj_has_state(entry, LV_STATE_FOCUSED))
+		lv_obj_remove_state(entry, LV_STATE_FOCUSED);
+}
+
+void style_list_menu_item_value(lv_obj_t *screen, list_menu_item_arg_t *arg)
+{
+	lv_obj_t *value, *cursor;
+	if(arg->must_rebuild)
+	{
+		value = lv_label_create(last_item_entry);
+		lv_obj_set_pos(value, 150, 0);
+
+		if(arg->render_flags & SYSTEM_MENU_MODE_EDIT)
+		{
+			lv_obj_set_style_text_font(value, &font_pixel_mono_14pt, LV_PART_MAIN);
+
+			cursor = lv_obj_create(last_item_entry);
+			lv_obj_set_size(cursor, 12, 2);
+			lv_obj_set_style_bg_color(cursor, col_black, LV_PART_MAIN);
+		}
+	}
+	else
+	{
+		lv_obj_t *entry = lv_obj_get_child(item_list, arg->item_index);
+		value = lv_obj_get_child(entry, 1);
+		cursor = lv_obj_get_child(entry, 2);
+	}
+
+	if(strcmp(lv_label_get_text(value), arg->text))
+	{
+		// Set text if changed
+		lv_label_set_text(value, arg->text);
+	}
+
+	if(arg->render_flags & SYSTEM_MENU_MODE_EDIT)
+	{
+		const system_menu_item_t *item = system_menu_get_current_item();
+		uint8_t vartype = (uint8_t)VARG_CONST(item->action_arg);
+
+		uint8_t text_len = strlen(arg->text);
+		int8_t mult = g_system_menu.current_multiplier;
+		if(mult >= 0)
+		{
+			if(vartype == VAR_TYPE_FLOAT && mult >= 3)
+				mult += 1;
+			int8_t offset = text_len - mult - 1;
+			lv_obj_set_pos(cursor, 150 + offset * 12, 20);
+
+			lv_obj_remove_flag(cursor, LV_OBJ_FLAG_HIDDEN);
+		}
+		else
+		{
+			lv_obj_add_flag(cursor, LV_OBJ_FLAG_HIDDEN);
+		}
 	}
 }
 
@@ -123,22 +199,6 @@ void style_list_menu(lv_obj_t *screen)
 		lv_screen_load(screen);
 		lvgl_set_indev_group(NULL);
 	}
-}
-
-lv_obj_t *style_list_menu_get_item(lv_obj_t *screen, uint16_t index)
-{
-	lv_obj_t *list = lv_obj_get_child(screen, 1);
-	return lv_obj_get_child(list, index);
-}
-
-lv_obj_t *style_list_menu_get_item_label(lv_obj_t *item_entry)
-{
-	return lv_obj_get_child(item_entry, 0);
-}
-
-lv_obj_t *style_list_menu_get_item_value(lv_obj_t *item_entry)
-{
-	return lv_obj_get_child(item_entry, 1);
 }
 
 #endif

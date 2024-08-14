@@ -202,29 +202,34 @@ void system_menu_render_alarm()
 	style_alarm();
 	lv_refr_now(display);
 }
-
-// TODO: This list menu thing is inefficient, make it efficient
+/* TODO: [14/08/2024]
+ * Currently, list menus are rebuilt on menu id changes (required) and flag changes (might not be required every time).
+ * It might be beneficial to have a style function signal when a complete menu rebuild is required on flag changes to
+ * improve performance and reuse the already built menus.
+ */
 static lv_obj_t *list_menu = NULL;
 static uint8_t list_menu_id = 0;
 static uint8_t list_menu_flags = 0;
 static bool list_menu_rebuild = false;
 
 static int16_t list_menu_item_index;
+static list_menu_item_arg_t list_menu_arg;
 
 void system_menu_render_header(const char *__s)
 {
-	if(g_system_menu.current_menu != list_menu_id || list_menu_flags != g_system_menu.flags)
+	uint8_t flags = g_system_menu.flags & (SYSTEM_MENU_MODE_SELECT | SYSTEM_MENU_MODE_EDIT | SYSTEM_MENU_MODE_MODIFY | SYSTEM_MENU_MODE_SIMPLE_EDIT);
+	if(g_system_menu.current_menu != list_menu_id || list_menu_flags != flags)
 	{
 		// A different menu was loaded, we need to rebuild the screen.
 		if(list_menu != NULL)
 		{
 			// Delete old menu screen
-			lv_obj_delete(list_menu);
+			lv_obj_delete_async(list_menu);
 		}
 
 		list_menu = lv_obj_create(NULL);
 		list_menu_id = g_system_menu.current_menu;
-		list_menu_flags = g_system_menu.flags;
+		list_menu_flags = flags;
 		list_menu_rebuild = true;
 		style_list_menu_header(list_menu, __s);
 	}
@@ -232,62 +237,30 @@ void system_menu_render_header(const char *__s)
 	{
 		list_menu_rebuild = false;
 	}
-	list_menu_item_index = -1;
+	list_menu_item_index = 0;
+	list_menu_arg.must_rebuild = list_menu_rebuild;
 }
 
 void system_menu_render_nav_back(bool is_hover)
 {
-	if(list_menu_rebuild)
-	{
-		style_list_menu_nav_back(list_menu, is_hover);
-	}
-	else
-	{
-		lv_obj_t *nav = style_list_menu_get_nav_back(list_menu);
-		if(is_hover && !lv_obj_has_state(nav, LV_STATE_FOCUSED))
-			lv_obj_add_state(nav, LV_STATE_FOCUSED);
-		else if(!is_hover && lv_obj_has_state(nav, LV_STATE_FOCUSED))
-			lv_obj_remove_state(nav, LV_STATE_FOCUSED);
-	}
+	style_list_menu_nav_back(list_menu, is_hover, list_menu_rebuild);
 }
 
 void system_menu_item_render_label(uint8_t render_flags, const char *label)
 {
-	++list_menu_item_index;
-	if(list_menu_rebuild)
-	{
-		style_list_menu_item_label(list_menu, label);
-	}
-	else
-	{
-		lv_obj_t *entry = style_list_menu_get_item(list_menu, list_menu_item_index);
-		lv_obj_t *labelob = style_list_menu_get_item_label(entry);
-		if(strcmp(lv_label_get_text(labelob), label))
-			lv_label_set_text(labelob, label);
-	}
-
-	lv_obj_t *entry = style_list_menu_get_item(list_menu, list_menu_item_index);
-	if((render_flags & SYSTEM_MENU_MODE_SELECT) && !lv_obj_has_state(entry, LV_STATE_FOCUSED))
-		lv_obj_add_state(entry, LV_STATE_FOCUSED);
-	else if(!(render_flags & SYSTEM_MENU_MODE_SELECT) && lv_obj_has_state(entry, LV_STATE_FOCUSED))
-		lv_obj_remove_state(entry, LV_STATE_FOCUSED);
+	list_menu_arg.text = label;
+	list_menu_arg.render_flags = render_flags;
+	list_menu_arg.item_index = list_menu_item_index++;
+	style_list_menu_item_label(list_menu, &list_menu_arg);
 }
 
 void system_menu_item_render_arg(uint8_t render_flags, const char *label)
 {
-	if(list_menu_rebuild)
-	{
-		style_list_menu_item_value(list_menu, label);
-	}
-	else
-	{
-		lv_obj_t *entry = style_list_menu_get_item(list_menu, list_menu_item_index);
-		lv_obj_t *valueob = style_list_menu_get_item_value(entry);
-		if(valueob == NULL)
-			return;
-		if(strcmp(lv_label_get_text(valueob), label))
-			lv_label_set_text(valueob, label);
-	}
+	if(label == NULL)
+		return;
+	list_menu_arg.text = label;
+	list_menu_arg.render_flags = render_flags;
+	style_list_menu_item_value(list_menu, &list_menu_arg);
 }
 
 void system_menu_render_footer(void)
@@ -297,6 +270,7 @@ void system_menu_render_footer(void)
 		style_list_menu_footer(list_menu);
 	}
 
+	// Make the style load the screen to make sure it knows of it.
 	style_list_menu(list_menu);
 }
 
