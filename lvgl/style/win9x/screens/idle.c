@@ -118,12 +118,10 @@ static void update_topbar()
 
 static void update_coordinates()
 {
-	if(!cnc_get_exec_state(EXEC_RUN))
-		return;
-
-	float mpos[MAX(AXIS_COUNT, 3)];
 	int32_t steppos[STEPPER_COUNT];
 	itp_get_rt_position(steppos);
+
+	float mpos[MAX(AXIS_COUNT, 3)];
 	kinematics_apply_forward(steppos, mpos);
 	kinematics_apply_reverse_transform(mpos);
 
@@ -168,7 +166,7 @@ static void update_feed_spindle()
 
 static void update_state()
 {
-	static uint8_t old_state_2 = 0;
+	static uint8_t old_state_2 = -1;
 	uint8_t state = cnc_get_exec_state(EXEC_ALLACTIVE);
 	if(state == old_state_2)
 		return;
@@ -422,12 +420,12 @@ void style_create_idle_screen()
 #if MOVEMENT_MENU
 			static cb_goto_arg_t btn2_arg = { 10 };
 #else
-			static cb_goto_arg_t btn2_arg = { 7 };
+			static cb_goto_arg_t btn2_arg = { SYSTEM_MENU_ID_JOG };
 #endif
 			lv_obj_add_event_cb(btn2, lvgl_callback_goto, LV_EVENT_PRESSED, &btn2_arg);
 
 			lv_obj_t *btn3 = side_button(buttons_def, 200, &Img_Menu, group);
-			static cb_goto_arg_t btn3_arg = { 1 };
+			static cb_goto_arg_t btn3_arg = { SYSTEM_MENU_ID_MAIN_MENU };
 			lv_obj_add_event_cb(btn3, lvgl_callback_goto, LV_EVENT_PRESSED, &btn3_arg);
 
 			side_buttons_blocks[0] = buttons_def;

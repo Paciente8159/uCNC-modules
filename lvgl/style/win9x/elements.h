@@ -66,12 +66,39 @@ extern void lvgl_set_indev_group(lv_group_t*); \
 	} \
 }
 
+#define STYLE_LOAD_SCREEN_WITH_GROUP_ENTER(screen_name) \
+void style_##screen_name() { \
+	extern lv_obj_t *g_current_screen; \
+	if(g_current_screen != screen) \
+	{ \
+		g_current_screen = screen; \
+		enter(); \
+		lv_screen_load(screen); \
+extern void lvgl_set_indev_group(lv_group_t*); \
+		lvgl_set_indev_group(group); \
+	} \
+}
+
 #define STYLE_LOAD_SCREEN_UPDATE_WITH_GROUP(screen_name) \
 void style_##screen_name() { \
 	extern lv_obj_t *g_current_screen; \
 	if(g_current_screen != screen) \
 	{ \
 		g_current_screen = screen; \
+		lv_screen_load(screen); \
+extern void lvgl_set_indev_group(lv_group_t*); \
+		lvgl_set_indev_group(group); \
+	} \
+	screen_name##_update(); \
+}
+
+#define STYLE_LOAD_SCREEN_UPDATE_WITH_GROUP_ENTER(screen_name) \
+void style_##screen_name() { \
+	extern lv_obj_t *g_current_screen; \
+	if(g_current_screen != screen) \
+	{ \
+		g_current_screen = screen; \
+		enter(); \
 		lv_screen_load(screen); \
 extern void lvgl_set_indev_group(lv_group_t*); \
 		lvgl_set_indev_group(group); \

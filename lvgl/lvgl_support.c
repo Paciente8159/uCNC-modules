@@ -56,8 +56,9 @@ void lvgl_add_indev(indev_list_t *entry)
 	last->next = entry;
 }
 
-void lvgl_set_indev_group(lv_group_t *group)
+static void timer_set_group(lv_timer_t *timer)
 {
+	lv_group_t *group = (lv_group_t*)lv_timer_get_user_data(timer);
 	if(group == NULL)
 		group = action_translator;
 	for(indev_list_t *entry = indev_list; entry != 0; entry = entry->next)
@@ -65,6 +66,13 @@ void lvgl_set_indev_group(lv_group_t *group)
 		lv_indev_set_group(entry->device, group);
 	}
 	current_group = group;
+}
+
+void lvgl_set_indev_group(lv_group_t *group)
+{
+	// Delay group change to prevent encoder from pressing buttons in the new group.
+	lv_timer_t *timer = lv_timer_create(timer_set_group, 250, group);
+	lv_timer_set_repeat_count(timer, 1);
 }
 
 static void action_translator_cb(lv_event_t *event)
@@ -183,6 +191,15 @@ bool lvgl_update(void *args)
 	else if(current_group == NULL)
 	{
 		system_menu_action(SYSTEM_MENU_ACTION_NONE);
+	}
+	else
+	{
+		// Make sure to update the menu every once in a while
+		if(g_system_menu.action_timeout < mcu_millis())
+		{
+			g_system_menu.flags = SYSTEM_MENU_MODE_REDRAW;
+			system_menu_action_timeout(SYSTEM_MENU_REDRAW_IDLE_MS);
+		}
 	}
 
 	if(has_popup && !(g_system_menu.flags & SYSTEM_MENU_MODE_MODAL_POPUP))

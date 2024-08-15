@@ -36,13 +36,17 @@
 #define COORDINATE_DECIMAL_DIGITS 3
 #define COORDINATE_FRACTIONAL_DIGITS 3
 
+#define FEED_DIGITS 5
+
 #define COORD_BOX_SIZE ((COORDINATE_DECIMAL_DIGITS + COORDINATE_FRACTIONAL_DIGITS + 2) * 15)
 
 static lv_obj_t *screen;
 static lv_group_t *group;
 
-static uint8_t movement_type = 0;
 static uint8_t coordinate_type = 0;
+
+static lv_obj_t *feed_box;
+static uint16_t feed = 0;
 
 typedef struct _cb_state
 {
@@ -53,6 +57,7 @@ typedef struct _cb_state
 	uint32_t reserved:10;
 
 	int multiplier;
+	lv_obj_t *object;
 } coord_box_state_t;
 
 static char axis[] = { 'X', 'Y', 'Z' };
@@ -100,6 +105,26 @@ static void coordbox_table_cb(lv_event_t *event)
 	}
 }
 
+static void feed_table_cb(lv_event_t *event)
+{
+	lv_draw_task_t *draw_task = lv_event_get_draw_task(event);
+	lv_draw_dsc_base_t *base_dsc = (lv_draw_dsc_base_t*)draw_task->draw_dsc;
+
+	if(base_dsc->part == LV_PART_ITEMS)
+	{
+    uint32_t col = base_dsc->id2;
+
+		lv_draw_border_dsc_t *border_draw_dsc = lv_draw_task_get_border_dsc(draw_task);
+		if(border_draw_dsc)
+		{
+			if(col == 0)
+			{
+				border_draw_dsc->side = LV_BORDER_SIDE_NONE;
+			}
+		}
+	}
+}
+
 static void set_coordinate_value(lv_obj_t *coordbox, float value)
 {
 	lv_obj_t *table = lv_obj_get_child(coordbox, 1);
@@ -116,11 +141,27 @@ static void set_coordinate_value(lv_obj_t *coordbox, float value)
 	}
 }
 
+static void set_feed_value(uint16_t value)
+{
+	lv_obj_t *table = lv_obj_get_child(feed_box, 1);
+
+	char str[10];
+	sprintf(str, "%5d", value);
+
+	for(int i = 0; i < FEED_DIGITS; ++i)
+	{
+		char c[2];
+		c[0] = str[i];
+		c[1] = 0;
+		lv_table_set_cell_value(table, 0, i, c);
+	}
+}
+
 static void clear_coordinate(lv_obj_t *coordbox)
 {
 	lv_obj_t *table = lv_obj_get_child(coordbox, 1);
 
-	for(int i = 0; i < 8; ++i)
+	for(int i = 0; i < COORDINATE_DECIMAL_DIGITS + COORDINATE_FRACTIONAL_DIGITS + 2; ++i)
 	{
 		lv_table_set_cell_value(table, 0, i, "");
 	}
@@ -175,7 +216,26 @@ static void coord_input_cb(lv_event_t *event)
 		state->multiplier = -1;
 	}
 
+	// Prevent the encoder from getting "stuck"
+	lv_group_set_editing(group, false);
 	set_coordinate_value(root, coord_box_value(state));
+}
+
+static void feed_input_cb(lv_event_t *event)
+{
+	char c = lv_event_get_key(event);
+	if(c >= '0' && c <= '9')
+	{
+		feed = (feed * 10 + (c - '0')) % 100000;
+	}
+	else if(c == '\b')
+	{
+		feed *= 0.1;
+	}
+
+	// Prevent the encoder from getting "stuck"
+	lv_group_set_editing(group, false);
+	set_feed_value(feed);
 }
 
 static lv_obj_t *make_coordinate_box(lv_obj_t *parent, const char *label, coord_box_state_t *state)
@@ -224,7 +284,65 @@ static lv_obj_t *make_coordinate_box(lv_obj_t *parent, const char *label, coord_
 
 	lv_group_add_obj(group, root);
 
+	state->object = root;
 	return root;
+}
+
+static lv_obj_t *make_feed_box(lv_obj_t *parent)
+{
+	lv_obj_t *root = lv_obj_create(parent);
+	lv_obj_set_size(root, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+	lv_obj_set_style_bg_opa(root, LV_OPA_TRANSP, LV_PART_MAIN);
+	lv_obj_set_style_text_font(root, &font_pixel_mono_14pt, LV_PART_MAIN);
+
+	lv_obj_set_style_bg_opa(root, LV_OPA_COVER, LV_PART_MAIN | LV_STATE_FOCUSED);
+	lv_obj_set_style_bg_color(root, select_highlight, LV_PART_MAIN | LV_STATE_FOCUSED);
+	lv_obj_set_style_pad_all(root, 2, LV_PART_MAIN);
+
+	lv_obj_t *labelob = lv_label_create(root);
+	lv_label_set_text(labelob, STR_FEED);
+	lv_obj_set_pos(labelob, 0, 2 + 4);
+
+	lv_obj_t *table = lv_table_create(root);
+	lv_obj_set_pos(table, 80, 0);
+	lv_obj_add_style(table, &g_styles.container, LV_PART_MAIN);
+	WIN9X_BORDER_PART_TWO(table, shadow_light);
+
+	for(int i = 0; i < FEED_DIGITS; ++i)
+		lv_table_set_column_width(table, i, 18);
+
+	lv_obj_set_style_pad_left(table, 2, LV_PART_ITEMS);
+	lv_obj_set_style_pad_top(table, 4, LV_PART_ITEMS);
+	lv_obj_set_style_border_side(table, LV_BORDER_SIDE_LEFT, LV_PART_ITEMS);
+	lv_obj_set_style_border_width(table, 1, LV_PART_ITEMS);
+	lv_obj_set_style_border_color(table, separator, LV_PART_ITEMS);
+	lv_obj_set_style_text_align(table, LV_TEXT_ALIGN_CENTER, LV_PART_ITEMS);
+	lv_obj_set_style_bg_opa(table, LV_OPA_TRANSP, LV_PART_ITEMS);
+
+	lv_obj_add_event_cb(table, feed_table_cb, LV_EVENT_DRAW_TASK_ADDED, NULL);
+	lv_obj_add_flag(table, LV_OBJ_FLAG_SEND_DRAW_TASK_EVENTS | LV_OBJ_FLAG_EVENT_BUBBLE);
+	lv_obj_remove_flag(table, LV_OBJ_FLAG_CLICKABLE | LV_OBJ_FLAG_CLICK_FOCUSABLE);
+
+	lv_obj_add_event_cb(root, feed_input_cb, LV_EVENT_KEY, NULL);
+	lv_obj_add_flag(root, LV_OBJ_FLAG_CLICKABLE | LV_OBJ_FLAG_CLICK_FOCUSABLE);
+
+	lv_group_add_obj(group, root);
+
+	feed_box = root;
+	return root;
+}
+
+static void reset_form()
+{
+	for(uint8_t i = 0; i < 3; ++i)
+	{
+		clear_coordinate(coordinates[i].object);
+		coordinates[i].edited = 0;
+		coordinates[i].sign = 0;
+		coordinates[i].decimal = 0;
+		coordinates[i].fractional = 0;
+		coordinates[i].multiplier = 0;
+	}
 }
 
 static void move_to_coord(lv_event_t *event)
@@ -265,12 +383,12 @@ static void move_to_coord(lv_event_t *event)
 		--ptr;
 	}
 
-	// Finish the command and send it out
-	*ptr++ = '\r';
-	*ptr++ = 0;
-	system_menu_send_cmd(ptr);
+	// Append feed rate and finish the command
+	sprintf(ptr, "F%d\r", feed);
 
-	system_menu_goto(0);
+	system_menu_send_cmd(buffer);
+
+	system_menu_goto(SYSTEM_MENU_ID_IDLE);
 }
 
 static void movement_render(uint8_t flags);
@@ -320,12 +438,13 @@ void style_create_movement_screen()
 		lv_obj_set_style_pad_column(row, 10, LV_PART_MAIN);
 
 		lv_group_set_default(group);
-	 	const char* opts_move[] = { STR_RAPID, STR_LINEAR };
-		win9x_radio_list(row, STR_MOVEMENT_TYPE, opts_move, 2, &movement_type);
-
 		const char* opts_coord[] = { STR_COORD_WORKSPACE, STR_COORD_RELATIVE, STR_COORD_MACHINE };
 		win9x_radio_list(row, STR_COORDINATE_TYPE, opts_coord, 3, &coordinate_type);
 		lv_group_set_default(NULL);
+
+		make_feed_box(row);
+		feed = 100;
+		set_feed_value(100);
 	}
 
 	{
@@ -374,7 +493,12 @@ void style_create_movement_screen()
 	DECL_DYNAMIC_MENU(10, 1, movement_render, NULL);
 }
 
-static STYLE_LOAD_SCREEN_WITH_GROUP(movement);
+static void enter()
+{
+	reset_form();
+}
+
+static STYLE_LOAD_SCREEN_WITH_GROUP_ENTER(movement);
 
 static void movement_render(uint8_t flags)
 {
