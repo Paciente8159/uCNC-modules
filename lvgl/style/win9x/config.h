@@ -29,7 +29,7 @@ extern "C"
 
 // Enable a menu for moving into specific coordinates
 // This requires a working numeric keypad.
-#define MOVEMENT_MENU 1
+#define MOVEMENT_MENU 0
 
 #ifdef __cplusplus
 }
