@@ -31,30 +31,30 @@
 // Clear/set IO pin
 #define TFT_SELECT() io_clear_output(TFT_CS)
 #define TFT_RELEASE() io_set_output(TFT_CS)
-#else
+#else // !TFT_CS
 // Do nothing
 #define TFT_SELECT()
 #define TFT_RELEASE()
-#endif
+#endif // TFT_CS
 
 #ifndef TFT_RS
 #define TFT_RS DOUT1
-#endif
+#endif // TFT_RS
 
 #ifndef TFT_SPI_FREQ
 #define TFT_SPI_FREQ 1000000
-#endif
+#endif // TFT_SPI_FREQ
 
 #ifndef TFT_BUFFER_SIZE
 #define TFT_BUFFER_SIZE (32 * 1024)
-#endif
+#endif // TFT_BUFFER_SIZE
 
 #ifndef TFT_SYNC_CS
 // Makes sure the driver pulses the chip select line before
 // every transfer, this can be used to synchronize the
 // receiver in case of lost clocks.
 #define TFT_SYNC_CS 1
-#endif
+#endif // TFT_SYNC_CS
 
 #ifndef TFT_CLK_SETTLE_DELAY
 /**
@@ -80,13 +80,13 @@
  * if the clock is fast enough that delay is not needed.
  */
 #define TFT_CLK_SETTLE_DELAY() // mcu_delay_us(1)
-#endif
+#endif // TFT_CLK_SETTLE_DELAY
 
 #ifdef TFT_SPI_HARDWARE_PORT
 static HARDSPI(tft_spi, TFT_SPI_FREQ, 0, TFT_SPI_HARDWARE_PORT);
-#else
+#else // !TFT_SPI_HARDWARE_PORT
 static SOFTSPI(tft_spi, TFT_SPI_FREQ, 0, TFT_SPI_MOSI, UNDEF_PIN, TFT_SPI_CLK);
-#endif
+#endif // TFT_SPI_HARDWARE_PORT
 
 #define CMD(cmd) tft_command(cmd)
 #define DAT(dat) tft_data(dat)
@@ -94,19 +94,74 @@ static SOFTSPI(tft_spi, TFT_SPI_FREQ, 0, TFT_SPI_MOSI, UNDEF_PIN, TFT_SPI_CLK);
 
 #include "driver.h"
 
+// Make sure only one builtin driver is enabled
+#if TFT_LV_DRIVER
+#include "src/modules/lvgl/lv_conf.h"
+#define __DRIVER_SUM (LV_USE_ST7735 + LV_USE_ST7789 + LV_USE_ST7796 + LV_USE_ILI9341)
+#if __DRIVER_SUM > 1
+#error "Cannot have more than one native LVGL driver enabled"
+#elif __DRIVER_SUM == 0
+#error "No driver enabled in lv_conf.h with TFT_LV_DRIVER defined"
+#endif // __DRIVER_SUM
+
+#ifndef TFT_DISPLAY_ROTATION
+#define TFT_DISPLAY_ROTATION LV_DISPLAY_ROTATION_0
+#endif
+
+#ifndef TFT_DISPLAY_FLAGS
+#define TFT_DISPLAY_FLAGS 0
+#endif
+
+#ifndef LV_USE_ST7735
+#define LV_USE_ST7735		0
+#endif
+#ifndef LV_USE_ST7789
+#define LV_USE_ST7789		0
+#endif
+#ifndef LV_USE_ST7796
+#define LV_USE_ST7796		0
+#endif
+#ifndef LV_USE_ILI9341
+#define LV_USE_ILI9341		0
+#endif
+
+#if LV_USE_ST7735
+#include "drivers/display/st7735/lv_st7735.h"
+#define LV_DISPLAY_CREATE() lv_st7735_create(TFT_DISPLAY_WIDTH, TFT_DISPLAY_HEIGHT, TFT_DISPLAY_FLAGS, lvgl_cmd_cb, lvgl_pixel_cb)
+#elif LV_USE_ST7789
+#include "drivers/display/st7789/lv_st7789.h"
+#define LV_DISPLAY_CREATE() lv_st7789_create(TFT_DISPLAY_WIDTH, TFT_DISPLAY_HEIGHT, TFT_DISPLAY_FLAGS, lvgl_cmd_cb, lvgl_pixel_cb)
+#elif LV_USE_ST7796
+#include "drivers/display/st7796/lv_st7796.h"
+#define LV_DISPLAY_CREATE() lv_st7796_create(TFT_DISPLAY_WIDTH, TFT_DISPLAY_HEIGHT, TFT_DISPLAY_FLAGS, lvgl_cmd_cb, lvgl_pixel_cb)
+#elif LV_USE_ILI9341
+#include "drivers/display/ili9341/lv_ili9341.h"
+#define LV_DISPLAY_CREATE() lv_ili9341_create(TFT_DISPLAY_WIDTH, TFT_DISPLAY_HEIGHT, TFT_DISPLAY_FLAGS, lvgl_cmd_cb, lvgl_pixel_cb)
+#else
+#error "Unknown driver selected"
+#endif // LV_USE_?
+
+#ifdef TFT_SPI_HARDWARE_PORT
+#define TFT_SPI_LOCK LISTENER_HWSPI_LOCK
+#else // !TFT_SPI_HARDWARE_PORT
+#define TFT_SPI_LOCK LISTENER_SWSPI_LOCK
+#endif // TFT_SPI_HARDWARE_PORT
+
+#endif // TFT_LV_DRIVER
+
 static void tft_start()
 {
 	softspi_start(&tft_spi);
 #if !TFT_SYNC_CS
 	TFT_SELECT();
-#endif
+#endif // !TFT_SYNC_CS
 }
 
 static void tft_stop()
 {
 #if !TFT_SYNC_CS
 	TFT_RELEASE();
-#endif
+#endif // !TFT_SYNC_CS
 	softspi_stop(&tft_spi);
 }
 
@@ -114,53 +169,55 @@ static void tft_command(uint8_t cmd)
 {
 #if TFT_SYNC_CS
 	TFT_SELECT();
-#endif
+#endif // TFT_SYNC_CS
 	io_clear_output(TFT_RS);
 
 #ifdef TFT_ALWAYS_16BIT
 	softspi_xmit(&tft_spi, 0);
-#endif
+#endif // TFT_ALWAYS_16BIT
 	softspi_xmit(&tft_spi, cmd);
 
 	TFT_CLK_SETTLE_DELAY();
 	io_set_output(TFT_RS);
 #if TFT_SYNC_CS
 	TFT_RELEASE();
-#endif
+#endif // TFT_SYNC_CS
 }
 
 static void tft_data(uint8_t data)
 {
 #if TFT_SYNC_CS
 	TFT_SELECT();
-#endif
+#endif // TFT_SYNC_CS
 
 #ifdef TFT_ALWAYS_16BIT
 	softspi_xmit(&tft_spi, 0);
-#endif
+#endif // TFT_ALWAYS_16BIT
 	softspi_xmit(&tft_spi, data);
 
 	TFT_CLK_SETTLE_DELAY();
 #if TFT_SYNC_CS
 	TFT_RELEASE();
-#endif
+#endif // TFT_SYNC_CS
 }
 
 static void tft_bulk_data(const uint8_t *data, uint16_t len)
 {
 #if TFT_SYNC_CS
 	TFT_SELECT();
-#endif
+#endif // TFT_SYNC_CS
 
 	softspi_bulk_xmit(&tft_spi, data, 0, len);
 	
 	TFT_CLK_SETTLE_DELAY();
 #if TFT_SYNC_CS
 	TFT_RELEASE();
-#endif
+#endif // TFT_SYNC_CS
 }
 
 static lv_display_t *lvgl_display = 0;
+
+#if !TFT_LV_DRIVER
 static bool pending_tx = false;
 static lv_area_t tx_area;
 static void *tx_pixels;
@@ -194,7 +251,7 @@ bool tft_update(void *arg)
 }
 
 CREATE_EVENT_LISTENER_WITHLOCK(cnc_dotasks, tft_update, LISTENER_HWSPI_LOCK);
-#endif
+#endif // ENABLE_MAIN_LOOP_MODULES
 
 static void lvgl_flush_cb(lv_display_t *display, const lv_area_t *area, uint8_t *pixel_map)
 {
@@ -203,7 +260,7 @@ static void lvgl_flush_cb(lv_display_t *display, const lv_area_t *area, uint8_t 
 	uint32_t w = area->x2 - area->x1 + 1;
 	uint32_t h = area->y2 - area->y1 + 1;
 	lv_draw_sw_rgb565_swap(pixel_map, w * h);
-#endif
+#endif // LV_COLOR_16_SWAP
 
 	tx_area = *area;
 	tx_pixels = pixel_map;
@@ -215,6 +272,42 @@ static void lvgl_flush_wait_cb(lv_display_t *display)
 	while(pending_tx)
 		cnc_dotasks();
 }
+#else // TFT_LV_DRIVER
+static void lvgl_cmd_cb(lv_display_t *display, const uint8_t *cmd, size_t cmd_size, const uint8_t *param, size_t param_size)
+{
+	// LVGL module doesn't have a lock on its event so we have to check for it here.
+	while(CHECKFLAG(g_module_lockguard, TFT_SPI_LOCK))
+		cnc_dotasks();
+	tft_start();
+
+	// Send all commands in the buffer.
+	while(cmd_size-- > 0)
+		tft_command(*cmd++);
+
+	// Send all parameters in the buffer.
+	while(param_size-- > 0)
+		tft_data(*param++);
+
+	tft_stop();
+}
+
+static void lvgl_pixel_cb(lv_display_t *display, const uint8_t *cmd, size_t cmd_size, const uint8_t *param, size_t param_size)
+{
+	// LVGL module doesn't have a lock on its event so we have to check for it here.
+	while(CHECKFLAG(g_module_lockguard, TFT_SPI_LOCK))
+		cnc_dotasks();
+	tft_start();
+
+	// Send all commands in the buffer.
+	while(cmd_size-- > 0)
+		tft_command(*cmd++);
+
+	// Perform a bulk transfer of data.
+	tft_bulk_data(param, param_size);
+
+	tft_stop();
+}
+#endif // !TFT_LV_DRIVER
 
 static uint8_t lvgl_display_buffer[TFT_BUFFER_SIZE];
 
@@ -227,6 +320,7 @@ DECL_MODULE(tft_display)
 	conf.enable_dma = 1;
 	softspi_config(&tft_spi, conf, TFT_SPI_FREQ);
 
+#if !TFT_LV_DRIVER
 	// Prepare for communication with the display
 	tft_start();
 
@@ -239,19 +333,23 @@ DECL_MODULE(tft_display)
 
 #ifdef ENABLE_MAIN_LOOP_MODULES
 	ADD_EVENT_LISTENER(cnc_dotasks, tft_update);
-#else
+#else // !ENABLE_MAIN_LOOP_MODULES
 #warning "Main loop extensions are disabled. TFT display module will not work."
-#endif
+#endif // ENABLE_MAIN_LOOP_MODULES
 
 	lvgl_display = lv_display_create(TFT_DISPLAY_WIDTH, TFT_DISPLAY_HEIGHT);
 	lv_display_set_flush_cb(lvgl_display , lvgl_flush_cb);
 	lv_display_set_flush_wait_cb(lvgl_display, lvgl_flush_wait_cb);
-	lv_display_set_buffers(lvgl_display, lvgl_display_buffer, 0, TFT_BUFFER_SIZE, LV_DISPLAY_RENDER_MODE_PARTIAL);
 	lv_display_set_color_format(lvgl_display, LV_COLOR_FORMAT_RGB565);
+#else // TFT_LV_DRIVER
+	lvgl_display = LV_DISPLAY_CREATE();
+	lv_display_set_rotation(lvgl_display, TFT_DISPLAY_ROTATION);
+#endif // !TFT_LV_DRIVER
 
 	// Send the object to LVGL support module
+	lv_display_set_buffers(lvgl_display, lvgl_display_buffer, 0, TFT_BUFFER_SIZE, LV_DISPLAY_RENDER_MODE_PARTIAL);
 	lvgl_use_display(lvgl_display);
 }
 
-#endif
+#endif // defined(TFT_SPI_HARDWARE_PORT) || (defined(TFT_SPI_MOSI) && defined(TFT_SPI_CLK))
 
