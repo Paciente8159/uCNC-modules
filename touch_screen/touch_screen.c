@@ -11,26 +11,10 @@ extern "C"
 #endif
 
 /**
- *
- * can also be done via hardware SPI and I2C ports of µCNC
- * but is not needed
- *
- * */
-#if (TOUCH_SCREEN_INTERFACE == TOUCH_SCREEN_SW_SPI)
-// temporary result of reading non existing read pin
-#define io0_get_input 0
-#define io0_config_input
-SOFTSPI(touch_spi, 1000000UL, 0, TOUCH_SCREEN_SPI_MOSI, TOUCH_SCREEN_SPI_MISO, TOUCH_SCREEN_SPI_CLOCK)
-// delete temporary definition
-#undef io0_get_input
-#undef io0_config_input
-#define TOUCH_SCREEN_BUS_LOCK LISTENER_SWSPI_LOCK
-#elif (TOUCH_SCREEN_INTERFACE == TOUCH_SCREEN_HW_SPI)
-HARDSPI(touch_spi, TOUCH_SCREEN_SPI_FREQ, 0, mcu_spi_port);
-#define TOUCH_SCREEN_BUS_LOCK LISTENER_HWSPI_LOCK
-#elif (TOUCH_SCREEN_INTERFACE == TOUCH_SCREEN_HW_SPI2)
-HARDSPI(touch_spi, TOUCH_SCREEN_SPI_FREQ, 0, mcu_spi2_port);
-#define TOUCH_SCREEN_BUS_LOCK LISTENER_HWSPI2_LOCK
+ * SPI bus
+ */
+#ifndef TOUCH_SCREEN_SPI_FREQ
+#define TOUCH_SCREEN_SPI_FREQ 1000000UL
 #endif
 
 	// Global variables
@@ -42,13 +26,19 @@ HARDSPI(touch_spi, TOUCH_SCREEN_SPI_FREQ, 0, mcu_spi2_port);
 	static int16_t touch_screen_adc_ymin;
 	static float touch_screen_adc_xdiff;
 	static float touch_screen_adc_ydiff;
+	static softspi_port_t *touch_spi;
+	static uint8_t touch_cs_pin;
+	static uint8_t touch_penirq_pin;
 
-	void touch_screen_init(uint16_t width, uint16_t height)
+	void touch_screen_init(softspi_port_t *spiport, uint16_t width, uint16_t height, uint8_t cs_pin, uint8_t penirq_pin)
 	{
 		spi_config_t conf = {0};
-		softspi_config(&touch_spi, conf, TOUCH_SCREEN_SPI_FREQ);
+		touch_spi = spiport;
+		softspi_config(touch_spi, conf, TOUCH_SCREEN_SPI_FREQ);
 		touch_screen_width = width;
 		touch_screen_height = height;
+		touch_cs_pin = cs_pin;
+		touch_penirq_pin = penirq_pin;
 #if (TOUCH_SCREEN_MARGIN != 0)
 		float wratio = (float)TOUCH_SCREEN_ADC_MAX / (float)width;
 		float hratio = (float)TOUCH_SCREEN_ADC_MAX / (float)height;
@@ -60,13 +50,12 @@ HARDSPI(touch_spi, TOUCH_SCREEN_SPI_FREQ, 0, mcu_spi2_port);
 	touch_screen_set_calibration(0, 0, TOUCH_SCREEN_ADC_MAX, TOUCH_SCREEN_ADC_MAX);
 #endif
 
-		io_config_output(TOUCH_SCREEN_SPI_CS);
-		softspi_start(&touch_spi);
-		io_clear_output(TOUCH_SCREEN_SPI_CS);
-		softspi_xmit(&touch_spi, (TOUCH_SCREEN_READ_Y | TOUCH_SCREEN_SER_MODE));
-		softspi_xmit16(&touch_spi, 0);
-		io_set_output(TOUCH_SCREEN_SPI_CS);
-		softspi_stop(&touch_spi);
+		softspi_start(touch_spi);
+		io_set_pinvalue(touch_cs_pin, false);
+		softspi_xmit(touch_spi, (TOUCH_SCREEN_READ_Y | TOUCH_SCREEN_SER_MODE));
+		softspi_xmit16(touch_spi, 0);
+		io_set_pinvalue(touch_cs_pin, true);
+		softspi_stop(touch_spi);
 	}
 
 	void touch_screen_get_calibration(uint16_t *x1, uint16_t *y1, uint16_t *x2, uint16_t *y2)
@@ -98,18 +87,18 @@ HARDSPI(touch_spi, TOUCH_SCREEN_SPI_FREQ, 0, mcu_spi2_port);
 	{
 		uint16_t prev = 0xffff, cur = 0xffff;
 		uint8_t i = 0;
-		softspi_xmit(&touch_spi, ctrl);
+		softspi_xmit(touch_spi, ctrl);
 		do
 		{
 			prev = cur;
 #ifdef TOUCH_SWAP_ADC_BYTES
-			cur = softspi_xmit(&touch_spi, 0);
-			cur = (cur << 4) | (softspi_xmit(&touch_spi, ctrl) >> 4); // 16 clocks -> 12-bits (zero-padded at end)
+			cur = softspi_xmit(touch_spi, 0);
+			cur = (cur << 4) | (softspi_xmit(touch_spi, ctrl) >> 4); // 16 clocks -> 12-bits (zero-padded at end)
 #else
-		cur = softspi_xmit(&touch_spi, 0) >> 4;
-		cur |= (((uint16_t)softspi_xmit(&touch_spi, ctrl)) << 4); // 16 clocks -> 12-bits (zero-padded at end)
+		cur = softspi_xmit(touch_spi, 0) >> 4;
+		cur |= (((uint16_t)softspi_xmit(touch_spi, ctrl)) << 4); // 16 clocks -> 12-bits (zero-padded at end)
 #endif
-		} while ((prev != cur) && (++i < max_samples));
+		} while ((prev != cur) && max_samples--);
 		return cur;
 	}
 
@@ -117,17 +106,18 @@ HARDSPI(touch_spi, TOUCH_SCREEN_SPI_FREQ, 0, mcu_spi2_port);
 	{
 		// Implementation based on TI Technical Note http://www.ti.com/lit/an/sbaa036/sbaa036.pdf
 
-		softspi_start(&touch_spi);
-		io_clear_output(TOUCH_SCREEN_SPI_CS);
+		softspi_start(touch_spi);
+		io_set_pinvalue(touch_cs_pin, false);
 		*adc_x = touch_screen_read_loop((TOUCH_SCREEN_READ_X | TOUCH_SCREEN_DFR_MODE), max_samples);
 		*adc_y = touch_screen_read_loop((TOUCH_SCREEN_READ_Y | TOUCH_SCREEN_DFR_MODE), max_samples);
 		// flush
-		touch_screen_read_loop(TOUCH_SCREEN_READ_Y, 1);
-		io_set_output(TOUCH_SCREEN_SPI_CS);
-		softspi_stop(&touch_spi);
+		softspi_xmit(touch_spi, (TOUCH_SCREEN_READ_Y | TOUCH_SCREEN_SER_MODE));
+		softspi_xmit16(touch_spi, 0);
+		io_set_pinvalue(touch_cs_pin, true);
+		softspi_stop(touch_spi);
 	}
 
-	bool touch_screen_is_touching() { return (io_get_pinvalue(TOUCH_SCREEN_TOUCHED) < 1); }
+	bool touch_screen_is_touching() { return (io_get_pinvalue(touch_penirq_pin) < 1); }
 
 	void touch_screen_get_position(uint16_t *x, uint16_t *y, uint8_t max_samples)
 	{
