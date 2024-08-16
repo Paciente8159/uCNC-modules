@@ -85,6 +85,12 @@ and a register select pin. Here are all the configuration options of this module
 
 // Might be needed for some configurations. Please see tft_display.c for more info
 #define TFT_CLK_SETTLE_DELAY() mcu_delay_us(1)
+
+//you can also enable touch support by defining the touch CS and touch detect pins
+// this requires you to to include the touch_screen module inside the modules directory
+#define TFT_TOUCH_CS DOUT35
+#define TFT_TOUCH_DETECT DIN35
+#define TOUCH_ROTATION TOUCH_ROTATION_0
 ```
 
 6. Make sure to define `ENABLE_MAIN_LOOP_MODULES` inside `cnc_config.h`
