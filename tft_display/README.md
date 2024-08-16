@@ -52,8 +52,8 @@ static FORCEINLINE void load_modules(void)
 5. Configure communication port for the TFT display. The bare minimum are defining an SPI port (hardware or software) and
 and a register select pin. Here are all the configuration options of this module:
 ```c
-// Define the hardware SPI port to use
-#define TFT_SPI_HARDWARE_PORT mcu_spi_port
+// Define the hardware SPI port (1 or 2) to use
+#define TFT_SPI_HARDWARE_PORT 1
 
 // If these are defined software emulated SPI is used.
 // Only clock and data out pins are needed.
