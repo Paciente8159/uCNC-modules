@@ -17,8 +17,8 @@
 	See the	GNU General Public License for more details.
 */
 
-#include "../../cnc.h"
-#include "../file_system.h"
+#include "src/cnc.h"
+#include "src/modules/file_system.h"
 #include "sd_messages.h"
 #include <stdint.h>
 #include <stdbool.h>
@@ -38,7 +38,7 @@
 #define SD_FAT_FS PETIT_FAT_FS
 #endif
 
-#if (UCNC_MODULE_VERSION < 10980 || UCNC_MODULE_VERSION > 99999)
+#if (UCNC_MODULE_VERSION < 11000 || UCNC_MODULE_VERSION > 99999)
 #error "This module is not compatible with the current version of µCNC"
 #endif
 

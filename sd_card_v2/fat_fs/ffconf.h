@@ -1,4 +1,4 @@
-#include "../../../cnc.h"
+#include "src/cnc.h"
 
 #ifndef FS_MAX_PATH_LEN
 #define FS_MAX_PATH_LEN 128

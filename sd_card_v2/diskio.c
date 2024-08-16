@@ -17,8 +17,8 @@
 	See the	GNU General Public License for more details.
 */
 
-#include "../../cnc.h"
-#include "../softspi.h"
+#include "src/cnc.h"
+#include "src/modules/softspi.h"
 #include "mmcsd.h"
 #include <stdint.h>
 #include <stdbool.h>
