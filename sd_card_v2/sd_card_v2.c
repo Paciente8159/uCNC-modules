@@ -17,8 +17,8 @@
 	See the	GNU General Public License for more details.
 */
 
-#include "../../cnc.h"
-#include "../file_system.h"
+#include "src/cnc.h"
+#include "src/modules/file_system.h"
 #include "sd_messages.h"
 #include <stdint.h>
 #include <stdbool.h>
@@ -38,7 +38,7 @@
 #define SD_FAT_FS PETIT_FAT_FS
 #endif
 
-#if (UCNC_MODULE_VERSION < 10880 || UCNC_MODULE_VERSION > 99999)
+#if (UCNC_MODULE_VERSION < 11000 || UCNC_MODULE_VERSION > 99999)
 #error "This module is not compatible with the current version of µCNC"
 #endif
 
@@ -170,6 +170,14 @@ static FORCEINLINE FRESULT sd_mkdir(const char *path) { return f_mkdir(path); }
 #endif
 
 #include "diskio.h"
+
+#if (SD_CARD_INTERFACE == SD_CARD_SW_SPI)
+#define SD_CARD_BUS_LOCK LISTENER_SWSPI_LOCK
+#elif (SD_CARD_INTERFACE == SD_CARD_HW_SPI)
+#define SD_CARD_BUS_LOCK LISTENER_HWSPI_LOCK
+#elif (SD_CARD_INTERFACE == SD_CARD_HW_SPI2)
+#define SD_CARD_BUS_LOCK LISTENER_HWSPI2_LOCK
+#endif
 
 enum SD_CARD_STATUS
 {
@@ -452,7 +460,7 @@ bool sd_card_dotasks(void *args)
 	return EVENT_CONTINUE;
 }
 
-CREATE_EVENT_LISTENER(cnc_dotasks, sd_card_dotasks);
+CREATE_EVENT_LISTENER_WITHLOCK(cnc_dotasks, sd_card_dotasks, SD_CARD_BUS_LOCK);
 
 #endif
 
@@ -491,7 +499,7 @@ bool sd_settings_load(void *args)
 	return result;
 }
 
-CREATE_EVENT_LISTENER(settings_load, sd_settings_load);
+CREATE_EVENT_LISTENER_WITHLOCK(settings_load, sd_settings_load, SD_CARD_BUS_LOCK);
 
 bool sd_settings_save(void *args)
 // OVERRIDE_EVENT_HANDLER(settings_save)
@@ -523,7 +531,7 @@ bool sd_settings_save(void *args)
 	return result;
 }
 
-CREATE_EVENT_LISTENER(settings_save, sd_settings_save);
+CREATE_EVENT_LISTENER_WITHLOCK(settings_save, sd_settings_save, SD_CARD_BUS_LOCK);
 
 bool sd_settings_erase(void *args)
 // OVERRIDE_EVENT_HANDLER(settings_erase)
@@ -547,7 +555,7 @@ bool sd_settings_erase(void *args)
 	return result;
 }
 
-CREATE_EVENT_LISTENER(settings_erase, sd_settings_erase);
+CREATE_EVENT_LISTENER_WITHLOCK(settings_erase, sd_settings_erase, SD_CARD_BUS_LOCK);
 #endif
 
 #ifdef ENABLE_PARSER_MODULES
@@ -581,7 +589,7 @@ bool sd_card_cmd_parser(void *args)
 	return EVENT_CONTINUE;
 }
 
-CREATE_EVENT_LISTENER(grbl_cmd, sd_card_cmd_parser);
+CREATE_EVENT_LISTENER_WITHLOCK(grbl_cmd, sd_card_cmd_parser, SD_CARD_BUS_LOCK);
 #endif
 
 DECL_MODULE(sd_card_v2)
