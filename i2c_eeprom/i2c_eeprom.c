@@ -38,6 +38,25 @@
 #define I2C_EEPROM_RW_TIMEOUT 200
 #endif
 
+#ifndef I2C_EEPROM_SIZE
+#define I2C_EEPROM_SIZE 0x8000
+#endif
+
+#ifndef I2C_EEPROM_OFFSET
+#define I2C_EEPROM_OFFSET 0
+#endif
+
+#ifndef I2C_EEPROM_PAGE_SIZE
+#define I2C_EEPROM_PAGE_SIZE 32
+#endif
+
+// the maximum usable size
+// this depends on the size of the setting you need
+// depending on the setting the EEPROM can do ware rotation to extend EEPROM life time
+#ifndef I2C_EEPROM_SETTINGS_SIZE
+#define I2C_EEPROM_SETTINGS_SIZE 0x1000
+#endif
+
 #if (I2C_EEPROM_INTERFACE == SW_I2C)
 #ifndef I2C_EEPROM_I2C_CLOCK
 #define I2C_EEPROM_I2C_CLOCK DIN30
@@ -52,18 +71,66 @@ SOFTI2C(eeprom_bus, 400000, I2C_EEPROM_I2C_CLOCK, I2C_EEPROM_I2C_DATA);
 #endif
 
 #ifdef ENABLE_SETTINGS_MODULES
+
+static uint8_t i2c_eeprom_read(uint16_t address, uint8_t *data, uint16_t len)
+{
+	uint8_t address_bytes[2] = {(uint8_t)((address >> 8) & 0xFF),
+															(address & 0xFF)};
+
+	if (softi2c_send(EEPROM_BUS, I2C_EEPROM_ADDRESS, address_bytes, 2, true, I2C_EEPROM_RW_TIMEOUT) == I2C_OK)
+	{
+		return softi2c_receive(EEPROM_BUS, I2C_EEPROM_ADDRESS, data, len, I2C_EEPROM_RW_TIMEOUT);
+	}
+
+	return I2C_NOTOK;
+}
+
+static uint8_t i2c_eeprom_write(uint16_t address, uint8_t *data, uint16_t len)
+{
+	// address byte aligned to the eeprom page size
+	uint16_t write_address = (address & ~(I2C_EEPROM_PAGE_SIZE - 1));
+	while (len)
+	{
+		uint8_t buffer[I2C_EEPROM_PAGE_SIZE];
+		uint8_t write_offset = (address - write_address);
+		uint16_t write_len = MIN(I2C_EEPROM_PAGE_SIZE - write_offset, len);
+
+		// loads a page of eeprom to memory and compares it to the data to check if it's dirty or not
+		i2c_eeprom_read(write_address, buffer, write_len);
+		len -= write_len;
+		write_address += write_offset;
+		uint8_t *ptr = &buffer[write_offset];
+		while (write_len)
+		{
+			if (*ptr != *data)
+			{
+				uint8_t eepromdata[3] = {(uint8_t)((write_address >> 8) & 0xFF),
+																 (write_address & 0xFF), *data};
+				if (softi2c_send(EEPROM_BUS, I2C_EEPROM_ADDRESS, eepromdata, 3, true, I2C_EEPROM_RW_TIMEOUT) != I2C_OK)
+				{
+					return I2C_NOTOK;
+				}
+			}
+			ptr++;
+			data++;
+			write_len--;
+			write_address++;
+		}
+	}
+
+	return I2C_NOTOK;
+}
+
 bool i2c_eeprom_settings_load(void *args)
 {
 	settings_args_t *p = args;
 
-	if (softi2c_send(EEPROM_BUS, I2C_EEPROM_ADDRESS, (uint8_t *)p->address, 2, false, I2C_EEPROM_RW_TIMEOUT) != I2C_OK)
+	if (i2c_eeprom_read(p->address, (uint8_t *)p->data, p->size) != I2C_OK)
 	{
+		protocol_send_feedback(__romstr__("External EEPROM read error"));
 		return EVENT_CONTINUE;
 	}
-	if (softi2c_receive(EEPROM_BUS, I2C_EEPROM_ADDRESS, (uint8_t *)p->data, p->size, I2C_EEPROM_RW_TIMEOUT) != I2C_OK)
-	{
-		return EVENT_CONTINUE;
-	}
+
 	// read eeprom
 	return EVENT_HANDLED;
 }
@@ -74,6 +141,11 @@ bool i2c_eeprom_settings_save(void *args)
 {
 	settings_args_t *p = args;
 
+	if (i2c_eeprom_write(p->address, (uint8_t *)p->data, p->size) != I2C_OK)
+	{
+		protocol_send_feedback(__romstr__("External EEPROM write error"));
+		return EVENT_CONTINUE;
+	}
 
 	// write eeprom
 	return EVENT_HANDLED;
@@ -83,6 +155,15 @@ CREATE_EVENT_LISTENER(settings_save, i2c_eeprom_settings_save);
 
 bool i2c_eeprom_settings_erase(void *args)
 {
+	settings_args_t *p = args;
+
+	memset(p->data, 0, p->size);
+
+	if (i2c_eeprom_write(p->address, (uint8_t *)p->data, p->size) != I2C_OK)
+	{
+		return EVENT_CONTINUE;
+	}
+
 	// erase eeprom
 	return EVENT_HANDLED;
 }
@@ -93,6 +174,16 @@ CREATE_EVENT_LISTENER(settings_erase, i2c_eeprom_settings_erase);
 DECL_MODULE(i2c_eeprom)
 {
 	softi2c_config(EEPROM_BUS, 400000);
+
+	// test eeprom
+	uint8_t data;
+	if (i2c_eeprom_read(I2C_EEPROM_OFFSET, &data, 1) != I2C_OK)
+	{
+		// error prevents initialization
+		protocol_send_feedback(__romstr__("External EEPROM initialization error"));
+		return;
+	}
+
 #ifdef ENABLE_SETTINGS_MODULES
 	ADD_EVENT_LISTENER(settings_load, i2c_eeprom_settings_load);
 	ADD_EVENT_LISTENER(settings_save, i2c_eeprom_settings_save);
