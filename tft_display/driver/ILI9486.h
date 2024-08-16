@@ -21,14 +21,6 @@
 
 #include <stdint.h>
 
-#define TFT_RESET() { \
-	cnc_delay_ms(5); \
-	CMD(0x01); \
-	cnc_delay_ms(120); \
-	CMD(0x11); \
-	cnc_delay_ms(120); \
-}
-
 #ifdef TFT_ALWAYS_16BIT
 #define TFT_PGM { 0, 0x0F, 0, 0x1F, 0, 0x1C, 0, 0x0C, 0, 0x0F, 0, 0x08, 0, 0x48, 0, 0x98, 0, 0x37, 0, 0x0A, 0, 0x13, 0, 0x04, 0, 0x11, 0, 0x0D, 0, 0x00 }
 #define TFT_NGM { 0, 0x0F, 0, 0x32, 0, 0x2E, 0, 0x0B, 0, 0x0D, 0, 0x05, 0, 0x47, 0, 0x75, 0, 0x37, 0, 0x06, 0, 0x10, 0, 0x03, 0, 0x24, 0, 0x20, 0, 0x00 }
@@ -54,7 +46,12 @@
  *	https://www.waveshare.com/w/upload/7/78/ILI9486_Datasheet.pdf
  */
 #define TFT_INIT() { \
-	TFT_RESET(); \
+	/* Software reset */ \
+	cnc_delay_ms(5); \
+	CMD(0x01); \
+	cnc_delay_ms(120); \
+	CMD(0x11); \
+	cnc_delay_ms(120); \
 	/* Set pixel format to 16bpp */ \
 	CMD(0x3A); \
 	DAT(0x55); \

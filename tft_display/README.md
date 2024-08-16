@@ -27,6 +27,7 @@ static FORCEINLINE void load_modules(void)
 }
 ```
 4. Select the appropriate driver for your display inside `driver.h` and configure it as needed.
+	Make sure that you only ever include one driver at a time.
 	You can also choose to enable a builtin display driver inside `lv_conf.h`, LVGL natively
 	supports ST7735, ST7789, ST7796 and ILI9341 driver chips:
 ```c
@@ -48,6 +49,7 @@ static FORCEINLINE void load_modules(void)
 // Use LVGL driver
 #define TFT_LV_DRIVER 1
 ```
+	Remember to remove any other included drivers when using LVGL drivers.
 
 5. Configure communication port for the TFT display. The bare minimum are defining an SPI port (hardware or software) and
 and a register select pin. Here are all the configuration options of this module:
@@ -65,6 +67,12 @@ and a register select pin. Here are all the configuration options of this module
 
 // Chip select pin for the display.
 #define TFT_CS DOUT3
+
+// Define a hardware reset pin for the LCD.
+#define TFT_RESET UNDEF_PIN
+
+// Define a pin to control the LCD backlight
+#define TFT_BACKLIGHT UNDEF_PIN
 
 // SPI frequency used for communicating with the display.
 #define TFT_SPI_FREQ 1000000

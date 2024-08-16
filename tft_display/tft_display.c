@@ -27,7 +27,7 @@
 #include "src/modules/softspi.h"
 #include "src/modules/lvgl/lvgl_support.h"
 
-#ifdef TFT_CS
+#if defined(TFT_CS) && ASSERT_PIN(TFT_CS)
 // Clear/set IO pin
 #define TFT_SELECT() io_clear_output(TFT_CS)
 #define TFT_RELEASE() io_set_output(TFT_CS)
@@ -40,6 +40,14 @@
 #ifndef TFT_RS
 #define TFT_RS DOUT1
 #endif // TFT_RS
+
+#ifndef TFT_RESET
+#define TFT_RESET UNDEF_PIN
+#endif
+
+#ifndef TFT_BACKLIGHT
+#define TFT_BACKLIGHT UNDEF_PIN
+#endif
 
 #ifndef TFT_SPI_FREQ
 #define TFT_SPI_FREQ 1000000
@@ -153,6 +161,9 @@ static SOFTSPI(tft_spi, TFT_SPI_FREQ, 0, TFT_SPI_MOSI, UNDEF_PIN, TFT_SPI_CLK);
 
 #endif // TFT_LV_DRIVER
 
+static lv_display_t *lvgl_display = 0;
+
+#if !TFT_LV_DRIVER
 static void tft_start()
 {
 	softspi_start(&tft_spi);
@@ -219,9 +230,6 @@ static void tft_bulk_data(const uint8_t *data, uint16_t len)
 #endif // TFT_SYNC_CS
 }
 
-static lv_display_t *lvgl_display = 0;
-
-#if !TFT_LV_DRIVER
 static bool pending_tx = false;
 static lv_area_t tx_area;
 static void *tx_pixels;
@@ -282,34 +290,61 @@ static void lvgl_cmd_cb(lv_display_t *display, const uint8_t *cmd, size_t cmd_si
 	// LVGL module doesn't have a lock on its event so we have to check for it here.
 	while(CHECKFLAG(g_module_lockguard, TFT_SPI_LOCK))
 		cnc_dotasks();
-	tft_start();
 
-	// Send all commands in the buffer.
-	while(cmd_size-- > 0)
-		tft_command(*cmd++);
+	LV_UNUSED(display);
+	tft_spi.spiconfig.enable_dma = 0;
+	softspi_start(&tft_spi);
 
-	// Send all parameters in the buffer.
-	while(param_size-- > 0)
-		tft_data(*param++);
+	/* DCX low (command) */
+	io_clear_output(TFT_RS);
+	/* CS low */
+	TFT_SELECT();
+	/* send command */
+	softspi_bulk_xmit(&tft_spi, cmd, NULL, (uint16_t)cmd_size);
 
-	tft_stop();
+	/* DCX high (data) */
+	io_set_output(TFT_RS);
+	/* send parameters */
+	softspi_bulk_xmit(&tft_spi, param, NULL, (uint16_t)param_size);
+	/* CS high */
+	TFT_RELEASE();
+
+	softspi_stop(&tft_spi);
+	lv_display_flush_ready(display);
 }
 
-static void lvgl_pixel_cb(lv_display_t *display, const uint8_t *cmd, size_t cmd_size, const uint8_t *param, size_t param_size)
+static void lvgl_pixel_cb(lv_display_t *display, const uint8_t *cmd, size_t cmd_size, uint8_t *param, size_t param_size)
 {
 	// LVGL module doesn't have a lock on its event so we have to check for it here.
 	while(CHECKFLAG(g_module_lockguard, TFT_SPI_LOCK))
 		cnc_dotasks();
-	tft_start();
 
-	// Send all commands in the buffer.
-	while(cmd_size-- > 0)
-		tft_command(*cmd++);
+	LV_UNUSED(display);
+	tft_spi.spiconfig.enable_dma = 0;
+	softspi_start(&tft_spi);
+	/* DCX low (command) */
+	io_clear_output(TFT_RS);
+	/* CS low */
+	TFT_SELECT();
+	/* send command */
+	softspi_bulk_xmit(&tft_spi, cmd, NULL, (uint16_t)cmd_size);
+	softspi_stop(&tft_spi);
 
-	// Perform a bulk transfer of data.
-	tft_bulk_data(param, param_size);
+	tft_spi.spiconfig.enable_dma = 1;
+	/* DCX high (data) */
+	io_set_output(TFT_RS);
+	softspi_start(&tft_spi);
+#if LV_COLOR_16_SWAP
+	// fix color swap
+	lv_draw_sw_rgb565_swap(param, param_size / 2);
+#endif
+	/* send pixel data */
+	softspi_bulk_xmit(&tft_spi, param, NULL, (uint16_t)param_size);
+	/* CS high */
+	TFT_RELEASE();
+	softspi_stop(&tft_spi);
 
-	tft_stop();
+	lv_display_flush_ready(display);
 }
 #endif // !TFT_LV_DRIVER
 
@@ -319,6 +354,14 @@ DECL_MODULE(tft_display)
 {
 	TFT_RELEASE();
 	io_set_output(TFT_RS);
+
+#if ASSERT_PIN(TFT_RESET)
+	// Perform hardware reset
+	io_clear_output(TFT_RESET);
+	cnc_delay_ms(20);
+	io_set_output(TFT_RESET);
+	cnc_delay_ms(150);
+#endif
 
 	spi_config_t conf = { 0 };
 	conf.enable_dma = 1;
@@ -351,6 +394,10 @@ lv_display_t *lvgl_create_display()
 	lvgl_display = LV_DISPLAY_CREATE();
 	lv_display_set_rotation(lvgl_display, TFT_DISPLAY_ROTATION);
 #endif // !TFT_LV_DRIVER
+
+#if ASSERT_PIN(TFT_BACKLIGHT)
+	io_set_output(TFT_BACKLIGHT);
+#endif
 
 	// Send the object to LVGL support module
 	lv_display_set_buffers(lvgl_display, lvgl_display_buffer, 0, TFT_BUFFER_SIZE, LV_DISPLAY_RENDER_MODE_PARTIAL);
