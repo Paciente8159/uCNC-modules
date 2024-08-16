@@ -254,7 +254,7 @@ bool tft_update(void *arg)
 	return EVENT_CONTINUE;
 }
 
-CREATE_EVENT_LISTENER_WITHLOCK(cnc_dotasks, tft_update, TFT_SPI_LOCK);
+CREATE_EVENT_LISTENER_WITHLOCK(cnc_io_dotasks, tft_update, TFT_SPI_LOCK);
 #endif // ENABLE_MAIN_LOOP_MODULES
 
 static void lvgl_flush_cb(lv_display_t *display, const lv_area_t *area, uint8_t *pixel_map)
@@ -338,7 +338,7 @@ lv_display_t *lvgl_create_display()
 	// End communication
 	tft_stop();
 #ifdef ENABLE_MAIN_LOOP_MODULES
-	ADD_EVENT_LISTENER(cnc_dotasks, tft_update);
+	ADD_EVENT_LISTENER(cnc_io_dotasks, tft_update);
 #else // !ENABLE_MAIN_LOOP_MODULES
 #warning "Main loop extensions are disabled. TFT display module will not work."
 #endif // ENABLE_MAIN_LOOP_MODULES
