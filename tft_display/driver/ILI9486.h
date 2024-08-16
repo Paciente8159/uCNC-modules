@@ -19,8 +19,6 @@
 #ifndef TFT_DISPLAY_DRIVER_ILI9486_H
 #define TFT_DISPLAY_DRIVER_ILI9486_H
 
-#include <stdint.h>
-
 #ifdef TFT_ALWAYS_16BIT
 #define TFT_PGM { 0, 0x0F, 0, 0x1F, 0, 0x1C, 0, 0x0C, 0, 0x0F, 0, 0x08, 0, 0x48, 0, 0x98, 0, 0x37, 0, 0x0A, 0, 0x13, 0, 0x04, 0, 0x11, 0, 0x0D, 0, 0x00 }
 #define TFT_NGM { 0, 0x0F, 0, 0x32, 0, 0x2E, 0, 0x0B, 0, 0x0D, 0, 0x05, 0, 0x47, 0, 0x75, 0, 0x37, 0, 0x06, 0, 0x10, 0, 0x03, 0, 0x24, 0, 0x20, 0, 0x00 }
@@ -107,10 +105,6 @@
 
 // Memory write
 #define TFT_MEMWR() CMD(0x2C);
-
-
-
-/* Definitions required by the graphics library */
 
 #if (TFT_MEMCTL_VALUE & TFT_MEMCTL_ROTATE_90)
 #define TFT_DISPLAY_WIDTH 480

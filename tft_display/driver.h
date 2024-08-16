@@ -30,17 +30,17 @@ extern "C"
 
 
 // Use LVGL driver
-#define TFT_LV_DRIVER 1
+// #define TFT_LV_DRIVER 1
 
 // Specify display resolution
-#define TFT_DISPLAY_WIDTH 320
-#define TFT_DISPLAY_HEIGHT 240
+// #define TFT_DISPLAY_WIDTH 320
+// #define TFT_DISPLAY_HEIGHT 240
 
 // Set display rotation
-#define TFT_DISPLAY_ROTATION LV_DISPLAY_ROTATION_0
+// #define TFT_DISPLAY_ROTATION LV_DISPLAY_ROTATION_0
 
 // Set other optional flags
-#define TFT_DISPLAY_FLAGS 0
+// #define TFT_DISPLAY_FLAGS 0
 
 #ifdef __cplusplus
 }
