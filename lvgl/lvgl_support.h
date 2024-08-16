@@ -28,7 +28,6 @@ extern "C"
 #include "lvgl.h"
 
 DECL_MODULE(lvgl_support);
-extern void lvgl_support_end_init();
 
 typedef struct _indev_list {
 	lv_indev_t *device;
@@ -41,7 +40,6 @@ extern void lvgl_add_indev(indev_list_t *entry);
 	dev##_list_entry.device = dev; \
 	lvgl_add_indev(&dev##_list_entry)
 
-extern void lvgl_use_display(lv_display_t *disp);
 extern void lvgl_set_indev_group(lv_group_t *group);
 
 typedef struct _cb_goto

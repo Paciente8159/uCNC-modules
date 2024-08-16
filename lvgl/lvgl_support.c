@@ -33,16 +33,6 @@ static lv_group_t *action_translator = 0;
 
 DECL_BUFFER(uint8_t, lvgl_action_buffer, 16);
 
-void lvgl_use_display(lv_display_t *disp)
-{
-	display = disp;
-	lv_display_set_default(display);
-	for(indev_list_t *entry = indev_list; entry != 0; entry = entry->next)
-	{
-		lv_indev_set_display(entry->device, display);
-	}
-}
-
 void lvgl_add_indev(indev_list_t *entry)
 {
 	if(indev_list == 0)
@@ -50,6 +40,8 @@ void lvgl_add_indev(indev_list_t *entry)
 		indev_list = entry;
 		return;
 	}
+
+	lv_indev_set_display(entry->device, display);
 
 	indev_list_t *last = indev_list;
 	while(last->next != 0) last = last->next;
@@ -228,29 +220,27 @@ CREATE_EVENT_LISTENER(cnc_alarm, lvgl_update);
 
 #endif
 
-static bool initialized = false;
+__attribute__((weak)) lv_display_t *lvgl_create_display()
+{
+	return 0;
+}
 
 DECL_MODULE(lvgl_support)
 {
 	// Initialize LVGL
 	lv_init();
 
-	#ifdef DECL_SERIAL_STREAM
-		serial_stream_register(&lvgl_stream);
+#ifdef DECL_SERIAL_STREAM
+	serial_stream_register(&lvgl_stream);
 #endif
 
 	// Set callbacks to system functions
 	lv_tick_set_cb(mcu_millis);
 	lv_delay_set_cb(cnc_delay_ms);
 
-	initialized = true;
-}
-
-// This is called after display/input modules were initialized
-void lvgl_support_end_init()
-{
-	if(!initialized)
-		return;
+	// Create a display
+	display = lvgl_create_display();
+	lv_display_set_default(display);
 
 #ifdef ENABLE_MAIN_LOOP_MODULES
 	ADD_EVENT_LISTENER(cnc_reset, lvgl_startup);

@@ -15,14 +15,12 @@ To use the lvgl module follow these steps:
 ```c
 static FORCEINLINE void load_modules(void)
 {
+	/* Display module goes here... */
+
 	// Load LVGL module
 	LOAD_MODULE(lvgl_support);
 
 	/* Other modules go here... */
-
-	// Finish LVGL init
-	// Place at the end of the function
-	lvgl_support_end_init();
 }
 ```
 3. Install display and input modules as needed.
