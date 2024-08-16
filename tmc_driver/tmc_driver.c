@@ -16,9 +16,9 @@
 	See the	GNU General Public License for more details.
 */
 
-#include "../../cnc.h"
-#include "../softuart.h"
-#include "../softspi.h"
+#include "src/cnc.h"
+#include "src/modules/softuart.h"
+#include "src/modules/softspi.h"
 #include "tmc.h"
 #include "tmc_driver.h"
 #include <stdint.h>
@@ -34,112 +34,107 @@
 
 // driver communications read/write
 // UART
-#define TMC1_STEPPER_RW(CHANNEL)                                                                                   \
-	static void tmc##CHANNEL##_rw(uint8_t *data, uint8_t wlen, uint8_t rlen)                                       \
-	{                                                                                                              \
-		stepper##CHANNEL##_select();                                                                               \
-		__ATOMIC__                                                                                                 \
-		{                                                                                                          \
-			io_config_output(STEPPER##CHANNEL##_UART_TX);                                                          \
-			io_set_output(STEPPER##CHANNEL##_UART_TX);                                                             \
-			for (uint8_t i = 0; i < wlen; i++)                                                                     \
-			{                                                                                                      \
-				softuart_putc(&tmc##CHANNEL##_uart, data[i]);                                                      \
-			}                                                                                                      \
-			io_config_input(STEPPER##CHANNEL##_UART_TX);                                                           \
-			for (uint8_t i = 0; i < rlen; i++)                                                                     \
-			{                                                                                                      \
+#define TMC1_STEPPER_RW(CHANNEL)                                                                      \
+	static void tmc##CHANNEL##_rw(uint8_t *data, uint8_t wlen, uint8_t rlen)                            \
+	{                                                                                                   \
+		stepper##CHANNEL##_select();                                                                      \
+		__ATOMIC__                                                                                        \
+		{                                                                                                 \
+			io_config_output(STEPPER##CHANNEL##_UART_TX);                                                   \
+			io_set_output(STEPPER##CHANNEL##_UART_TX);                                                      \
+			for (uint8_t i = 0; i < wlen; i++)                                                              \
+			{                                                                                               \
+				softuart_putc(&tmc##CHANNEL##_uart, data[i]);                                                 \
+			}                                                                                               \
+			io_config_input(STEPPER##CHANNEL##_UART_TX);                                                    \
+			for (uint8_t i = 0; i < rlen; i++)                                                              \
+			{                                                                                               \
 				data[i] = softuart_getc(&tmc##CHANNEL##_uart, TMC_UART_TIMEOUT(STEPPER##CHANNEL##_BAUDRATE)); \
-			}                                                                                                      \
-			io_config_output(STEPPER##CHANNEL##_UART_TX);                                                          \
-		}                                                                                                          \
-		stepper##CHANNEL##_deselect();                                                                             \
-		cnc_delay_ms(TMC_UART_TIMEOUT(STEPPER##CHANNEL##_BAUDRATE));                                          \
+			}                                                                                               \
+			io_config_output(STEPPER##CHANNEL##_UART_TX);                                                   \
+		}                                                                                                 \
+		stepper##CHANNEL##_deselect();                                                                    \
+		cnc_delay_ms(TMC_UART_TIMEOUT(STEPPER##CHANNEL##_BAUDRATE));                                      \
 	}
 // SPI
-#define TMC2_STEPPER_RW(CHANNEL)                                             \
+#define TMCSPI_STEPPER_RW(CHANNEL)                                           \
 	static void tmc##CHANNEL##_rw(uint8_t *data, uint8_t wlen, uint8_t rlen) \
 	{                                                                        \
-		io_clear_output(STEPPER##CHANNEL##_SPI_CS);                          \
-		__ATOMIC__                                                           \
-		{                                                                    \
-			for (uint8_t i = 0; i < wlen; i++)                               \
-			{                                                                \
-				data[i] = softspi_xmit(&tmc##CHANNEL##_spi, data[i]);        \
-			}                                                                \
-		}                                                                    \
-		io_set_output(STEPPER##CHANNEL##_SPI_CS);                            \
+		io_clear_output(STEPPER##CHANNEL##_SPI_CS);                            \
+		__ATOMIC__                                                             \
+		{                                                                      \
+			for (uint8_t i = 0; i < wlen; i++)                                   \
+			{                                                                    \
+				data[i] = softspi_xmit(&tmc##CHANNEL##_spi, data[i]);              \
+			}                                                                    \
+		}                                                                      \
+		io_set_output(STEPPER##CHANNEL##_SPI_CS);                              \
 	}
 
 // driver communications read/write
 // ONEWIRE
-#define TMC3_STEPPER_RW(CHANNEL)                                                                                   \
-	static void tmc##CHANNEL##_rw(uint8_t *data, uint8_t wlen, uint8_t rlen)                                       \
-	{                                                                                                              \
-		stepper##CHANNEL##_select();                                                                               \
-		__ATOMIC__                                                                                                 \
-		{                                                                                                          \
-			io_config_input(STEPPER##CHANNEL##_UART_RX);                                                           \
-			io_config_pullup(STEPPER##CHANNEL##_UART_RX);                                                          \
-			for (uint8_t i = 0; i < wlen; i++)                                                                     \
-			{                                                                                                      \
-				softuart_putc(&tmc##CHANNEL##_uart, data[i]);                                                      \
-			}                                                                                                      \
-			for (uint8_t i = 0; i < rlen; i++)                                                                     \
-			{                                                                                                      \
+#define TMC3_STEPPER_RW(CHANNEL)                                                                      \
+	static void tmc##CHANNEL##_rw(uint8_t *data, uint8_t wlen, uint8_t rlen)                            \
+	{                                                                                                   \
+		stepper##CHANNEL##_select();                                                                      \
+		__ATOMIC__                                                                                        \
+		{                                                                                                 \
+			io_config_input(STEPPER##CHANNEL##_UART_RX);                                                    \
+			io_config_pullup(STEPPER##CHANNEL##_UART_RX);                                                   \
+			for (uint8_t i = 0; i < wlen; i++)                                                              \
+			{                                                                                               \
+				softuart_putc(&tmc##CHANNEL##_uart, data[i]);                                                 \
+			}                                                                                               \
+			for (uint8_t i = 0; i < rlen; i++)                                                              \
+			{                                                                                               \
 				data[i] = softuart_getc(&tmc##CHANNEL##_uart, TMC_UART_TIMEOUT(STEPPER##CHANNEL##_BAUDRATE)); \
-			}                                                                                                      \
-		}                                                                                                          \
-		stepper##CHANNEL##_deselect();                                                                             \
-		cnc_delay_ms(TMC_UART_TIMEOUT(STEPPER##CHANNEL##_BAUDRATE));                                          \
+			}                                                                                               \
+		}                                                                                                 \
+		stepper##CHANNEL##_deselect();                                                                    \
+		cnc_delay_ms(TMC_UART_TIMEOUT(STEPPER##CHANNEL##_BAUDRATE));                                      \
 	}
 // UART2 HW
-#define TMC4_STEPPER_RW(CHANNEL)                                             \
+#define TMC4_STEPPER_RW(CHANNEL)                                           \
 	static void tmc##CHANNEL##_rw(uint8_t *data, uint8_t wlen, uint8_t rlen) \
 	{                                                                        \
-		stepper##CHANNEL##_select();                                         \
-		__ATOMIC__                                                           \
-		{                                                                    \
-			for (uint8_t i = 0; i < wlen; i++)                               \
-			{                                                                \
-				softuart_putc(NULL, data[i]);                                \
-			}                                                                \
-			for (uint8_t i = 0; i < rlen; i++)                               \
-			{                                                                \
-				data[i] = softuart_getc(NULL, TMC_UART_TIMEOUT(BAUDRATE2));  \
-			}                                                                \
-		}                                                                    \
-		stepper##CHANNEL##_deselect();                                       \
-		cnc_delay_ms(TMC_UART_TIMEOUT(BAUDRATE2));                           \
+		stepper##CHANNEL##_select();                                           \
+		__ATOMIC__                                                             \
+		{                                                                      \
+			for (uint8_t i = 0; i < wlen; i++)                                   \
+			{                                                                    \
+				softuart_putc(NULL, data[i]);                                      \
+			}                                                                    \
+			for (uint8_t i = 0; i < rlen; i++)                                   \
+			{                                                                    \
+				data[i] = softuart_getc(NULL, TMC_UART_TIMEOUT(BAUDRATE2));        \
+			}                                                                    \
+		}                                                                      \
+		stepper##CHANNEL##_deselect();                                         \
+		cnc_delay_ms(TMC_UART_TIMEOUT(BAUDRATE2));                             \
 	}
+
+// SPI
+#define TMC2_STEPPER_RW(CHANNEL) TMCSPI_STEPPER_RW(CHANNEL)
 // SPI HW
-#define TMC5_STEPPER_RW(CHANNEL)                                             \
-	static void tmc##CHANNEL##_rw(uint8_t *data, uint8_t wlen, uint8_t rlen) \
-	{                                                                        \
-		io_clear_output(STEPPER##CHANNEL##_SPI_CS);                          \
-		__ATOMIC__                                                           \
-		{                                                                    \
-			for (uint8_t i = 0; i < wlen; i++)                               \
-			{                                                                \
-				data[i] = softspi_xmit(NULL, data[i]);                       \
-			}                                                                \
-		}                                                                    \
-		io_set_output(STEPPER##CHANNEL##_SPI_CS);                            \
-	}
+#define TMC5_STEPPER_RW(CHANNEL) TMCSPI_STEPPER_RW(CHANNEL)
+// SPI2 HW
+#define TMC6_STEPPER_RW(CHANNEL) TMCSPI_STEPPER_RW(CHANNEL)
+
 #define _TMC_STEPPER_RW(TYPE, CHANNEL) TMC##TYPE##_STEPPER_RW(CHANNEL)
 
 // driver communications declarations
 // UART
 #define TMC1_STEPPER_DECL(CHANNEL) SOFTUART(tmc##CHANNEL##_uart, STEPPER##CHANNEL##_BAUDRATE, STEPPER##CHANNEL##_UART_TX, STEPPER##CHANNEL##_UART_RX);
 // SPI
-#define TMC2_STEPPER_DECL(CHANNEL) SOFTSPI(tmc##CHANNEL_spi, 1000000UL, 0, STEPPER##CHANNEL##_SPI_DO, STEPPER##CHANNEL##_SPI_DI, STEPPER##CHANNEL##_SPI_CLK);
+#define TMC2_STEPPER_DECL(CHANNEL) SOFTSPI(tmc##CHANNEL##_spi, 1000000UL, 0, STEPPER##CHANNEL##_SPI_DO, STEPPER##CHANNEL##_SPI_DI, STEPPER##CHANNEL##_SPI_CLK);
 // ONEWIRE
 #define TMC3_STEPPER_DECL(CHANNEL) ONEWIRE(tmc##CHANNEL##_uart, STEPPER##CHANNEL##_BAUDRATE, STEPPER##CHANNEL##_UART_RX);
 // UART2_HW
 #define TMC4_STEPPER_DECL(CHANNEL)
 // SPI_HW
-#define TMC5_STEPPER_DECL(CHANNEL)
-
+#define TMC5_STEPPER_DECL(CHANNEL) HARDSPI(tmc##CHANNEL##_spi, 1000000UL, 0, mcu_spi_port);
+// SPI2_HW
+#define TMC6_STEPPER_DECL(CHANNEL) HARDSPI(tmc##CHANNEL##_spi, 1000000UL, 0, mcu_spi2_port);
 
 #define _TMC_STEPPER_DECL(TYPE, CHANNEL) TMC##TYPE##_STEPPER_DECL(CHANNEL) TMC##TYPE##_STEPPER_RW(CHANNEL)
 #define TMC_STEPPER_DECL(TYPE, CHANNEL) _TMC_STEPPER_DECL(TYPE, CHANNEL)
