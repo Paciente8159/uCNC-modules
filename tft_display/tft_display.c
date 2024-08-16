@@ -83,9 +83,19 @@
 #endif // TFT_CLK_SETTLE_DELAY
 
 #ifdef TFT_SPI_HARDWARE_PORT
-static HARDSPI(tft_spi, TFT_SPI_FREQ, 0, TFT_SPI_HARDWARE_PORT);
+
+#if TFT_SPI_HARDWARE_PORT == 1
+#define TFT_SPI_PORT_OBJ mcu_spi_port
+#define TFT_SPI_LOCK LISTENER_HWSPI_LOCK
+#elif TFT_SPI_HARDWARE_PORT == 2
+#define TFT_SPI_PORT_OBJ mcu_spi2_port
+#define TFT_SPI_LOCK LISTENER_HWSPI2_LOCK
+#endif // TFT_SPI_HARDWARE_PORT == ?
+
+static HARDSPI(tft_spi, TFT_SPI_FREQ, 0, TFT_SPI_PORT_OBJ);
 #else // !TFT_SPI_HARDWARE_PORT
 static SOFTSPI(tft_spi, TFT_SPI_FREQ, 0, TFT_SPI_MOSI, UNDEF_PIN, TFT_SPI_CLK);
+#define TFT_SPI_LOCK LISTENER_SWSPI_LOCK
 #endif // TFT_SPI_HARDWARE_PORT
 
 #define CMD(cmd) tft_command(cmd)
@@ -140,12 +150,6 @@ static SOFTSPI(tft_spi, TFT_SPI_FREQ, 0, TFT_SPI_MOSI, UNDEF_PIN, TFT_SPI_CLK);
 #else
 #error "Unknown driver selected"
 #endif // LV_USE_?
-
-#ifdef TFT_SPI_HARDWARE_PORT
-#define TFT_SPI_LOCK LISTENER_HWSPI_LOCK
-#else // !TFT_SPI_HARDWARE_PORT
-#define TFT_SPI_LOCK LISTENER_SWSPI_LOCK
-#endif // TFT_SPI_HARDWARE_PORT
 
 #endif // TFT_LV_DRIVER
 
@@ -250,7 +254,7 @@ bool tft_update(void *arg)
 	return EVENT_CONTINUE;
 }
 
-CREATE_EVENT_LISTENER_WITHLOCK(cnc_dotasks, tft_update, LISTENER_HWSPI_LOCK);
+CREATE_EVENT_LISTENER_WITHLOCK(cnc_dotasks, tft_update, TFT_SPI_LOCK);
 #endif // ENABLE_MAIN_LOOP_MODULES
 
 static void lvgl_flush_cb(lv_display_t *display, const lv_area_t *area, uint8_t *pixel_map)
@@ -319,7 +323,10 @@ DECL_MODULE(tft_display)
 	spi_config_t conf = { 0 };
 	conf.enable_dma = 1;
 	softspi_config(&tft_spi, conf, TFT_SPI_FREQ);
+}
 
+lv_display_t *lvgl_create_display()
+{
 #if !TFT_LV_DRIVER
 	// Prepare for communication with the display
 	tft_start();
@@ -330,7 +337,6 @@ DECL_MODULE(tft_display)
 
 	// End communication
 	tft_stop();
-
 #ifdef ENABLE_MAIN_LOOP_MODULES
 	ADD_EVENT_LISTENER(cnc_dotasks, tft_update);
 #else // !ENABLE_MAIN_LOOP_MODULES
@@ -348,7 +354,7 @@ DECL_MODULE(tft_display)
 
 	// Send the object to LVGL support module
 	lv_display_set_buffers(lvgl_display, lvgl_display_buffer, 0, TFT_BUFFER_SIZE, LV_DISPLAY_RENDER_MODE_PARTIAL);
-	lvgl_use_display(lvgl_display);
+	return lvgl_display;
 }
 
 #endif // defined(TFT_SPI_HARDWARE_PORT) || (defined(TFT_SPI_MOSI) && defined(TFT_SPI_CLK))

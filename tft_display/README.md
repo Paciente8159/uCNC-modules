@@ -15,19 +15,15 @@ To use the tft_display module follow these steps:
 3. Add initialization code for modules inside the `load_modules()` function:
 ```c
 static FORCEINLINE void load_modules(void)
-{
-	// Load LVGL module
-	LOAD_MODULE(lvgl_support);
-	
+{	
 	// Load TFT module
-	// Must be placed after LVGL
+	// Must be placed before LVGL
 	LOAD_MODULE(tft_display);
 
-	/* Other modules go here... */
+	// Load LVGL module
+	LOAD_MODULE(lvgl_support);
 
-	// Finish LVGL init
-	// Place at the end of the function
-	lvgl_support_end_init();
+	/* Other modules go here... */
 }
 ```
 4. Select the appropriate driver for your display inside `driver.h` and configure it as needed.
