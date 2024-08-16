@@ -25,7 +25,7 @@ extern "C"
 #endif
 
 // #include "../system_menu.h"
-#include "../../cnc_hal_config_helper.h"
+#include "src/cnc_hal_config_helper.h"
 #include <stdint.h>
 #include <stdbool.h>
 
@@ -36,11 +36,11 @@ extern "C"
 #define GRAPHIC_DISPLAY_HW_I2C 16
 
 #ifndef GRAPHIC_DISPLAY_INTERFACE
-#define GRAPHIC_DISPLAY_INTERFACE GRAPHIC_DISPLAY_HW_SPI
+#define GRAPHIC_DISPLAY_INTERFACE GRAPHIC_DISPLAY_SW_SPI
 #endif
 
 #ifndef GRAPHIC_DISPLAY_DRIVER
-#define GRAPHIC_DISPLAY_DRIVER st7796_480x320_spi
+#define GRAPHIC_DISPLAY_DRIVER st7920_128x64_spi
 #endif
 
 #if (GRAPHIC_DISPLAY_INTERFACE == GRAPHIC_DISPLAY_SW_SPI)
@@ -53,9 +53,6 @@ extern "C"
 #endif
 #ifndef GRAPHIC_DISPLAY_SPI_MOSI
 #define GRAPHIC_DISPLAY_SPI_MOSI GRAPHIC_DISPLAY_SPI_DATA
-#endif
-#ifndef GRAPHIC_DISPLAY_SPI_MISO
-#define GRAPHIC_DISPLAY_SPI_MISO DIN7
 #endif
 #endif
 #ifndef GRAPHIC_DISPLAY_SPI_CS

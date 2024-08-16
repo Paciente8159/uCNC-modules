@@ -16,7 +16,7 @@
 	See the	GNU General Public License for more details.
 */
 
-#include "../../cnc.h"
+#include "src/cnc.h"
 
 #include "graphic_display.h"
 
@@ -24,9 +24,9 @@
 #include <stdbool.h>
 #include <string.h>
 #include <math.h>
-#include "../system_menu.h"
+#include "src/modules/system_menu.h"
 
-#if (UCNC_MODULE_VERSION < 10801 || UCNC_MODULE_VERSION > 99999)
+#if (UCNC_MODULE_VERSION < 11000 || UCNC_MODULE_VERSION > 99999)
 #error "This module is not compatible with the current version of µCNC"
 #endif
 
@@ -70,31 +70,31 @@ static uint8_t graphic_display_str_line_len(const char *__s);
  *
  * */
 #if (GRAPHIC_DISPLAY_INTERFACE & (GRAPHIC_DISPLAY_SW_SPI | GRAPHIC_DISPLAY_HW_SPI | GRAPHIC_DISPLAY_HW_SP2))
-#include "../softspi.h"
+#include "src/modules/softspi.h"
 #if (GRAPHIC_DISPLAY_INTERFACE == GRAPHIC_DISPLAY_SW_SPI)
 // temporary result of reading non existing read pin
 #define io0_get_input 0
 #define io0_config_input
-SOFTSPI(graphic_spi, 1000000UL, 0, GRAPHIC_DISPLAY_SPI_MOSI, GRAPHIC_DISPLAY_SPI_MISO, GRAPHIC_DISPLAY_SPI_CLOCK)
+SOFTSPI(graphic_display_spi, 1000000UL, 0, GRAPHIC_DISPLAY_SPI_MOSI, UNDEF_PIN, GRAPHIC_DISPLAY_SPI_CLOCK)
 // delete temporary definition
 #undef io0_get_input
 #undef io0_config_input
 #define GRAPHIC_BUS_LOCK LISTENER_SWSPI_LOCK
 #elif (GRAPHIC_DISPLAY_INTERFACE == GRAPHIC_DISPLAY_HW_SPI)
-HARDSPI(graphic_spi, 1000000UL, 0, mcu_spi_port);
+HARDSPI(graphic_display_spi, 1000000UL, 0, mcu_spi_port);
 #define GRAPHIC_BUS_LOCK LISTENER_HWSPI_LOCK
 #elif (GRAPHIC_DISPLAY_INTERFACE == GRAPHIC_DISPLAY_HW_SPI2)
-HARDSPI(graphic_spi, 1000000UL, 0, mcu_spi2_port);
+HARDSPI(graphic_display_spi, 1000000UL, 0, mcu_spi2_port);
 #define GRAPHIC_BUS_LOCK LISTENER_HWSPI2_LOCK
 #endif
-#define graphic_display_port ((void *)&graphic_spi)
+#define graphic_display_port ((void *)&graphic_display_spi)
 #endif
 
 #if (GRAPHIC_DISPLAY_INTERFACE & (GRAPHIC_DISPLAY_SW_I2C | GRAPHIC_DISPLAY_HW_I2C))
-#include "../softi2c.h"
+#include "src/modules/softi2c.h"
 #if (GRAPHIC_DISPLAY_INTERFACE == GRAPHIC_DISPLAY_SW_I2C)
-SOFTI2C(graphic_i2c, 100000UL, GRAPHIC_DISPLAY_I2C_CLOCK, GRAPHIC_DISPLAY_I2C_DATA)
-#define graphic_display_port ((void *)&graphic_i2c)
+SOFTI2C(graphic_display_i2c, 100000UL, GRAPHIC_DISPLAY_I2C_CLOCK, GRAPHIC_DISPLAY_I2C_DATA)
+#define graphic_display_port ((void *)&graphic_display_i2c)
 #define GRAPHIC_BUS_LOCK LISTENER_SWI2C_LOCK
 #else
 #define graphic_display_port NULL
@@ -365,7 +365,7 @@ DECL_MODULE(graphic_display)
 {
 #if (GRAPHIC_DISPLAY_INTERFACE == GRAPHIC_DISPLAY_HW_SPI)
 	// if available enable DMA
-	graphic_spi.spiconfig.enable_dma = 1;
+	graphic_display_spi.spiconfig.enable_dma = 1;
 #endif
 	DISPLAY_PTR_INIT(display_driver, GRAPHIC_DISPLAY_DRIVER);
 	gd_init(display_driver, graphic_display_port);

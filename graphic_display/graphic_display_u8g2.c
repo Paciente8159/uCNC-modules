@@ -16,14 +16,14 @@
 	See the	GNU General Public License for more details.
 */
 
-#include "../../cnc.h"
+#include "src/cnc.h"
 
 #include <clib/u8g2.h>
 #include <clib/u8x8.h>
 #include "graphic_display.h"
-#include "../softspi.h"
-#include "../softi2c.h"
-#include "../system_menu.h"
+#include "src/modules/softspi.h"
+#include "src/modules/softi2c.h"
+#include "src/modules/system_menu.h"
 
 static u8g2_t graphiclcd_u8g2;
 #define U8G2 ((u8g2_t *)&graphiclcd_u8g2)
