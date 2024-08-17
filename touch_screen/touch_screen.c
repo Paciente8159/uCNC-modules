@@ -27,10 +27,11 @@ extern "C"
 	static float touch_screen_adc_xdiff;
 	static float touch_screen_adc_ydiff;
 	static softspi_port_t *touch_spi;
+	static uint8_t touch_screen_flags;
 	static uint8_t touch_cs_pin;
 	static uint8_t touch_penirq_pin;
 
-	void touch_screen_init(softspi_port_t *spiport, uint16_t width, uint16_t height, uint8_t cs_pin, uint8_t penirq_pin)
+	void touch_screen_init(softspi_port_t *spiport, uint16_t width, uint16_t height, uint8_t flags, uint8_t cs_pin, uint8_t penirq_pin)
 	{
 		spi_config_t conf = {0};
 		touch_spi = spiport;
@@ -39,6 +40,7 @@ extern "C"
 		touch_screen_height = height;
 		touch_cs_pin = cs_pin;
 		touch_penirq_pin = penirq_pin;
+		touch_screen_flags = flags;
 #if (TOUCH_SCREEN_MARGIN != 0)
 		float wratio = (float)TOUCH_SCREEN_ADC_MAX / (float)width;
 		float hratio = (float)TOUCH_SCREEN_ADC_MAX / (float)height;
@@ -131,8 +133,27 @@ extern "C"
 		touch_screen_get_adc(&adc_x, &adc_y, max_samples);
 
 		// Map to (un-rotated) display coordinates
-		*x = CALC_X(touch_screen_width, (uint16_t)(touch_screen_xdiff * (adc_x - touch_screen_adc_xmin) / touch_screen_adc_xdiff + TOUCH_SCREEN_MARGIN));
-		*y = CALC_Y(touch_screen_height, (uint16_t)(touch_screen_ydiff * (adc_y - touch_screen_adc_ymin) / touch_screen_adc_ydiff + TOUCH_SCREEN_MARGIN));
+		uint16_t w = (uint16_t)(touch_screen_xdiff * (adc_x - touch_screen_adc_xmin) / touch_screen_adc_xdiff + TOUCH_SCREEN_MARGIN);
+		uint16_t h = (uint16_t)(touch_screen_ydiff * (adc_y - touch_screen_adc_ymin) / touch_screen_adc_ydiff + TOUCH_SCREEN_MARGIN);
+		switch (touch_screen_flags & ~TOUCH_INVERT_Y)
+		{
+		case TOUCH_ROTATION_0:
+			*x = w;
+			*y = (!(touch_screen_flags & TOUCH_INVERT_Y)) ? h : (touch_screen_height - h);
+			break;
+		case TOUCH_ROTATION_90:
+			*x = touch_screen_height - h;
+			*y = (!(touch_screen_flags & TOUCH_INVERT_Y)) ? w : (touch_screen_width - w);
+			break;
+		case TOUCH_ROTATION_180:
+			*x = touch_screen_width - w;
+			*y = (!(touch_screen_flags & TOUCH_INVERT_Y)) ? (touch_screen_height - h) : h;
+			break;
+		case TOUCH_ROTATION_270:
+			*x = h;
+			*y = (!(touch_screen_flags & TOUCH_INVERT_Y)) ? (touch_screen_width - w) : w;
+			break;
+		}
 	}
 
 #ifdef __cplusplus
