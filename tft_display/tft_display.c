@@ -355,20 +355,21 @@ static lv_indev_t *indev;
 
 void tft_touch_read(lv_indev_t *indev, lv_indev_data_t *data)
 {
-	int16_t x = -1, y = -1;
-	touch_screen_get_position(&x, &y, 127);
-	data->point.x = x;
-	data->point.y = y;
-	data->state = touch_screen_is_touching() ? LV_INDEV_STATE_PRESSED : LV_INDEV_STATE_RELEASED;
-#ifdef TFT_TOUCH_DEBUG
+	data->point.x = 0;
+	data->point.y = 0;
+	data->state = LV_INDEV_STATE_RELEASED;
+
 	if (touch_screen_is_touching())
 	{
-		serial_print_int(x);
+		touch_screen_get_position(&(data->point.x), &(data->point.y), 127);
+		data->state = LV_INDEV_STATE_PRESSED;
+#ifdef TFT_TOUCH_DEBUG
+		serial_print_int((uint32_t)data->point.x);
 		serial_putc(';');
-		serial_print_int(y);
+		serial_print_int((uint32_t)data->point.y);
 		serial_putc('\n');
-	}
 #endif
+	}
 }
 #endif
 
@@ -424,7 +425,7 @@ lv_display_t *lvgl_create_display()
 #endif
 
 #if ASSERT_PIN(TFT_TOUCH_CS) && ASSERT_PIN(TFT_TOUCH_DETECT)
-	touch_screen_init(&touch_spi, TFT_DISPLAY_WIDTH, TFT_DISPLAY_HEIGHT, TFT_TOUCH_CS, TFT_TOUCH_DETECT);
+	touch_screen_init(&touch_spi, TFT_DISPLAY_WIDTH, TFT_DISPLAY_HEIGHT, ((uint8_t)TFT_DISPLAY_ROTATION), TFT_TOUCH_CS, TFT_TOUCH_DETECT);
 	indev = lv_indev_create();
 	lv_indev_set_type(indev, LV_INDEV_TYPE_POINTER);
 	lv_indev_set_read_cb(indev, tft_touch_read);

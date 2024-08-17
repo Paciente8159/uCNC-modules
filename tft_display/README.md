@@ -90,7 +90,6 @@ and a register select pin. Here are all the configuration options of this module
 // this requires you to to include the touch_screen module inside the modules directory
 #define TFT_TOUCH_CS DOUT35
 #define TFT_TOUCH_DETECT DIN35
-#define TOUCH_ROTATION TOUCH_ROTATION_0
 ```
 
 6. Make sure to define `ENABLE_MAIN_LOOP_MODULES` inside `cnc_config.h`
