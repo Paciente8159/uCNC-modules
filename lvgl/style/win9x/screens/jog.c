@@ -17,6 +17,7 @@
 */
 
 #include "../config.h"
+#include "widgets/dropdown/lv_dropdown.h"
 
 #if defined(GUI_STYLE_WIN9X) && CUSTOM_JOG_MENU
 
@@ -37,6 +38,7 @@ static lv_obj_t *screen;
 static lv_group_t *group;
 
 static lv_obj_t *coordinate_table;
+static lv_obj_t *axis_select;
 
 static void jog_update()
 {
@@ -88,6 +90,46 @@ static char *jog_axis_opts = "X\nY\nZ"
 	"\nC"
 #endif
 ;
+
+static void jog_pos_cb()
+{
+	if(cnc_get_exec_state(EXEC_JOG | EXEC_RUN) || cnc_has_alarm())
+		return;
+
+	char buffer[48];
+
+	char axis;
+	lv_dropdown_get_selected_str(axis_select, &axis, 1);
+
+	int distI = (int)g_jog_distance;
+	int feedI = (int)g_jog_feed;
+	sprintf(buffer, "$J=G91%c%d.%03dF%d.%03d\r",
+		axis,
+		distI, (int)((g_jog_distance - distI) * 1000),
+		feedI, (int)((g_jog_feed - feedI) * 1000));
+
+	system_menu_send_cmd(buffer);
+}
+
+static void jog_neg_cb()
+{
+	if(cnc_get_exec_state(EXEC_JOG | EXEC_RUN) || cnc_has_alarm())
+		return;
+
+	char buffer[48];
+
+	char axis;
+	lv_dropdown_get_selected_str(axis_select, &axis, 1);
+
+	int distI = (int)g_jog_distance;
+	int feedI = (int)g_jog_feed;
+	sprintf(buffer, "$J=G91%c-%d.%03dF%d.%03d\r",
+		axis,
+		distI, (int)((g_jog_distance - distI) * 1000),
+		feedI, (int)((g_jog_feed - feedI) * 1000));
+
+	system_menu_send_cmd(buffer);
+}
 
 void style_create_jog_screen()
 {
@@ -148,17 +190,23 @@ void style_create_jog_screen()
 		lv_obj_set_style_pad_all(container, 1, LV_PART_MAIN);
 		lv_obj_set_style_pad_row(container, 5, LV_PART_MAIN);
 
+		lv_obj_set_style_pad_left(container, 10, LV_PART_MAIN);
+		lv_obj_set_style_pad_top(container, 20, LV_PART_MAIN);
+
 		lv_obj_t *jogPos = win9x_button(container, "+");
 		lv_group_add_obj(group, jogPos);
+		lv_obj_add_event_cb(jogPos, jog_pos_cb, LV_EVENT_CLICKED, NULL);
 
 		lv_obj_t *axis = win9x_dropdown(container);
 		lv_dropdown_set_options_static(axis, jog_axis_opts);
 		lv_obj_set_style_text_font(axis, &font_pixel_14pt, LV_PART_MAIN);
 		lv_obj_set_width(axis, 40);
 		lv_group_add_obj(group, axis);
+		axis_select = axis;
 
 		lv_obj_t *jogNeg = win9x_button(container, "-");
 		lv_group_add_obj(group, jogNeg);
+		lv_obj_add_event_cb(jogPos, jog_neg_cb, LV_EVENT_CLICKED, NULL);
 	}
 
 	system_menu_set_render_callback(SYSTEM_MENU_ID_JOG, jog_render);
