@@ -61,5 +61,56 @@ lv_obj_t *win9x_button(lv_obj_t *parent, const char *text)
 	return btn;
 }
 
+static void switch_indicator_border(lv_event_t *event)
+{
+	lv_layer_t *layer = lv_event_get_layer(event);
+	lv_obj_t *sw = lv_event_get_target(event);
+	bool checked = lv_obj_has_state(sw, LV_STATE_CHECKED);
+
+	int32_t x = sw->coords.x1;
+	int32_t y = sw->coords.y1;
+
+	if(checked)
+		x += 10;
+	lv_area_t area = {
+		x + 2, y + 2,
+		x + 13, y + 13,
+	};
+
+
+	lv_draw_rect_dsc_t dsc = {};
+	dsc.bg_opa = LV_OPA_TRANSP;
+	dsc.border_color = shadow_dark;
+	dsc.border_width = 2;
+	dsc.border_opa = LV_OPA_COVER;
+	dsc.border_side = LV_BORDER_SIDE_RIGHT | LV_BORDER_SIDE_BOTTOM;
+	lv_draw_rect(layer, &dsc, &area);
+}
+
+lv_obj_t *win9x_switch(lv_obj_t *parent)
+{
+	lv_obj_t *sw = lv_switch_create(parent);
+
+	lv_obj_set_size(sw, 26, 16);
+
+	lv_obj_add_style(sw, &g_styles.container, LV_PART_MAIN);
+	lv_obj_set_style_border_color(sw, shadow_darker, LV_PART_MAIN);
+	lv_obj_set_style_bg_color(sw, bg_other, LV_PART_MAIN);
+	WIN9X_BORDER_PART_TWO(sw, shadow_light);
+
+	lv_obj_set_style_bg_opa(sw, LV_OPA_TRANSP, LV_PART_INDICATOR);
+	lv_obj_set_style_pad_all(sw, -2, LV_PART_KNOB);
+	lv_obj_set_style_bg_color(sw, bg_base, LV_PART_KNOB);
+
+	lv_obj_set_style_border_width(sw, 2, LV_PART_KNOB);
+	lv_obj_set_style_border_color(sw, shadow_light, LV_PART_KNOB);
+	lv_obj_set_style_border_opa(sw, LV_OPA_COVER, LV_PART_KNOB);
+
+	lv_obj_add_style(sw, &g_styles.outline, LV_PART_MAIN | LV_STATE_FOCUSED);
+
+	lv_obj_add_event_cb(sw, switch_indicator_border, LV_EVENT_DRAW_MAIN_END, NULL);
+	return sw;
+}
+
 #endif
 

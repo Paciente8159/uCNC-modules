@@ -24,95 +24,6 @@
 #include "../colors.h"
 #include "../fonts/pixel_mono.h"
 
-#include "src/modules/system_menu.h"
-
-static FORCEINLINE int int_to_string(uint32_t value, char *str)
-{
-	int length = 0;
-	do
-	{
-		char digit = (value % 10) + '0';
-		*(str + length++) = digit;
-		value /= 10;
-	} while(value > 0);
-	// Reverse the digits
-	for(int i = 0; i < length / 2; ++i)
-	{
-		char buf = str[i];
-		str[i] = str[length - i - 1];
-		str[length - i - 1] = buf;
-	}
-	str[length] = 0;
-	return length;
-}
-
-static void value_to_string(const void *valuePtr, uint8_t valueType, char *str)
-{
-	uint32_t valueI;
-
-#define HANDLE_SIGN(type) \
-	if(*(const type*)valuePtr < 0) \
-	{ \
-		valueI = -(*(const type*)valuePtr); \
-		*str++ = '-'; \
-	}
-
-	switch(valueType)
-	{
-		case VAR_TYPE_INT8:
-			HANDLE_SIGN(int8_t);
-			// Fallthrough
-		case VAR_TYPE_UINT8:
-			valueI = *(const uint8_t*)valuePtr;
-			goto case_int;
-
-		case VAR_TYPE_INT16:
-			HANDLE_SIGN(int16_t);
-			// Fallthrough
-		case VAR_TYPE_UINT16:
-			valueI = *(const uint16_t*)valuePtr;
-			goto case_int;
-
-		case VAR_TYPE_INT32:
-			HANDLE_SIGN(int32_t);
-			// Fallthrough
-		case VAR_TYPE_UINT32:
-			valueI = *(const uint32_t*)valuePtr;
-		case_int:
-			int_to_string(valueI, str);
-			break;
-		case VAR_TYPE_BOOLEAN:
-			str[0] = *(const bool*)valuePtr == 0 ? '0' : '1';
-			str[1] = 0;
-			break;
-		case VAR_TYPE_FLOAT:
-			{
-				float valueF = *(const float*)valuePtr;
-				// Sign
-				if(valueF < 0)
-				{
-					*str++ = '-';
-					valueF = -valueF;
-				}
-				// Decimal part
-				valueI = (uint32_t)valueF;
-				str += int_to_string(valueI, str);
-				*str++ = '.';
-				// Fractional part (3 digits)
-				valueI = (valueF - valueI) * 1000;
-				for(int i = 0; i < 3; ++i)
-				{
-					char digit = (valueI % 10) + '0';
-					str[2 - i] = digit;
-					valueI /= 10;
-				}
-			}
-			break;
-	}
-
-#undef HANDLE_SIGN
-}
-
 static void key_cb(lv_event_t *event)
 {
 	lv_obj_t *spinbox = lv_event_get_target_obj(event);
@@ -122,12 +33,18 @@ static void key_cb(lv_event_t *event)
 	{
 		int32_t step = lv_spinbox_get_step(spinbox);
 		int32_t value = lv_spinbox_get_value(spinbox);
+		bool sign = value < 0;
+		if(sign) value = -value;
 
 		int32_t masked = (value % (step * 10)) - (value % step);
 		value = value - masked + (key - '0') * step;
-		lv_spinbox_set_value(spinbox, value);
+		lv_spinbox_set_value(spinbox, sign ? -value : value);
 
 		lv_spinbox_step_prev(spinbox);
+	}
+	else if(key == '-')
+	{
+		lv_spinbox_set_value(spinbox, -lv_spinbox_get_value(spinbox));
 	}
 }
 
