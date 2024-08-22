@@ -1,10 +1,10 @@
 /*
-	Name: config.h
-	Description: Configures the Win9x style
+	Name: dropdown_arrow.h
+	Description: Bitmapped dropdown list arrow icon
 
 	Copyright: Copyright (c) Patryk Mierzyński
 	Author: Patryk Mierzyński
-	Date: 14/08/2024
+	Date: 21/08/2024
 
 	µCNC is free software: you can redistribute it and/or modify
 	it under the terms of the GNU General Public License as published by
@@ -15,24 +15,30 @@
 	Also without the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 	See the GNU General Public License for more details.
 */
-
-#ifndef WIN9X_CONFIG_H
-#define WIN9X_CONFIG_H
+#ifndef WIN9X_BITMAP_DROPDOWN_ARROW_H
+#define WIN9X_BITMAP_DROPDOWN_ARROW_H
 
 #ifdef __cplusplus
 extern "C"
 {
 #endif
 
-// Include the "style selector" config
-#include "../config.h"
-
-// Enable a menu for moving into specific coordinates
-// This requires a working numeric keypad.
-#define MOVEMENT_MENU 0
-
-// Enable a custom jogging menu
-#define CUSTOM_JOG_MENU 0
+#ifdef BITMAP_IMPL
+static const uint8_t Arrow_8x4[] = { 255, 126, 60, 24 };
+const lv_image_dsc_t Img_DropdownArrow = {
+	.header = {
+		.magic = LV_IMAGE_HEADER_MAGIC,
+		.cf = LV_COLOR_FORMAT_A1,
+		.w = 8,
+		.h = 4,
+		.stride = 1,
+	},
+	.data = Arrow_8x4,
+	.data_size = sizeof(Arrow_8x4),
+};
+#else
+extern const lv_image_dsc_t Img_DropdownArrow;
+#endif
 
 #ifdef __cplusplus
 }

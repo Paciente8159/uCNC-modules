@@ -395,9 +395,7 @@ static void movement_render(uint8_t flags);
 
 void style_create_movement_screen()
 {
-	screen = lv_obj_create(NULL);
-	lv_obj_set_style_bg_color(screen, bg_base, LV_PART_MAIN);
-	lv_obj_set_style_text_font(screen, &font_pixel_bold_11pt, LV_PART_MAIN);
+	screen = win9x_screen();
 
 	group = lv_group_create();
 
@@ -419,7 +417,6 @@ void style_create_movement_screen()
 	lv_obj_set_layout(column, LV_LAYOUT_FLEX);
 	lv_obj_set_flex_flow(column, LV_FLEX_FLOW_COLUMN);
 	lv_obj_set_style_text_font(column, &font_pixel_7pt, LV_PART_MAIN);
-	lv_obj_set_style_text_color(column, col_black, LV_PART_MAIN);
 	lv_obj_set_style_bg_opa(column, LV_OPA_TRANSP, LV_PART_MAIN);
 	lv_obj_set_flex_align(column, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_START);
 
@@ -482,11 +479,11 @@ void style_create_movement_screen()
 
 		lv_obj_t *back = win9x_button(row, STR_BACK);
 		lv_group_add_obj(group, back);
-		lv_obj_add_event_cb(back, lvgl_callback_back, LV_EVENT_PRESSED, NULL);
+		lv_obj_add_event_cb(back, lvgl_callback_back, LV_EVENT_CLICKED, NULL);
 
 		lv_obj_t *move = win9x_button(row, STR_MOVE);
 		lv_group_add_obj(group, move);
-		lv_obj_add_event_cb(move, move_to_coord, LV_EVENT_PRESSED, NULL);
+		lv_obj_add_event_cb(move, move_to_coord, LV_EVENT_CLICKED, NULL);
 	}
 
 	// Declare system menu screen

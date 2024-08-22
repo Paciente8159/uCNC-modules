@@ -48,9 +48,8 @@ void lvgl_add_indev(indev_list_t *entry)
 	last->next = entry;
 }
 
-static void timer_set_group(lv_timer_t *timer)
+void lvgl_set_indev_group(lv_group_t *group)
 {
-	lv_group_t *group = (lv_group_t*)lv_timer_get_user_data(timer);
 	if(group == NULL)
 		group = action_translator;
 	for(indev_list_t *entry = indev_list; entry != 0; entry = entry->next)
@@ -58,13 +57,7 @@ static void timer_set_group(lv_timer_t *timer)
 		lv_indev_set_group(entry->device, group);
 	}
 	current_group = group;
-}
-
-void lvgl_set_indev_group(lv_group_t *group)
-{
-	// Delay group change to prevent encoder from pressing buttons in the new group.
-	lv_timer_t *timer = lv_timer_create(timer_set_group, 250, group);
-	lv_timer_set_repeat_count(timer, 1);
+	lv_group_set_editing(group, false);
 }
 
 static void action_translator_cb(lv_event_t *event)
@@ -74,9 +67,6 @@ static void action_translator_cb(lv_event_t *event)
 
 	switch(key)
 	{
-		case LV_KEY_ENTER:
-			action = SYSTEM_MENU_ACTION_SELECT;
-			break;
 		case LV_KEY_LEFT:
 			action = SYSTEM_MENU_ACTION_PREV;
 			break;
@@ -99,6 +89,12 @@ static void action_translator_cb(lv_event_t *event)
 			return;
 	}
 
+	BUFFER_ENQUEUE(lvgl_action_buffer, &action);
+}
+
+static void action_translator_select_cb(lv_event_t *event)
+{
+	uint8_t action = SYSTEM_MENU_ACTION_SELECT;
 	BUFFER_ENQUEUE(lvgl_action_buffer, &action);
 }
 
@@ -257,6 +253,7 @@ DECL_MODULE(lvgl_support)
 	lv_group_add_obj(action_translator, full);
 	lv_group_set_edge_cb(action_translator, action_translator_edge_cb);
 	lv_obj_add_event_cb(full, action_translator_cb, LV_EVENT_KEY, NULL);
+	lv_obj_add_event_cb(full, action_translator_select_cb, LV_EVENT_CLICKED, NULL);
 
 	// Init system menu module
 	system_menu_init();
