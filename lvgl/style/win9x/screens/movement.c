@@ -33,259 +33,58 @@
 #include "../elements.h"
 #include "../../../lvgl_support.h"
 
-#define COORDINATE_DECIMAL_DIGITS 3
-#define COORDINATE_FRACTIONAL_DIGITS 3
-
-#define FEED_DIGITS 5
-
-#define COORD_BOX_SIZE ((COORDINATE_DECIMAL_DIGITS + COORDINATE_FRACTIONAL_DIGITS + 2) * 15)
-
 static lv_obj_t *screen;
 static lv_group_t *group;
 
 static uint8_t coordinate_type = 0;
 
-static lv_obj_t *feed_box;
-static uint16_t feed = 0;
-
-typedef struct _cb_state
-{
-	uint32_t sign:1;
-	uint32_t decimal:10;
-	uint32_t fractional:10;
-	uint32_t edited:1;
-	uint32_t reserved:10;
-
-	int multiplier;
-	lv_obj_t *object;
-} coord_box_state_t;
-
 static char axis[] = { 'X', 'Y', 'Z' };
-static coord_box_state_t coordinates[3];
 
-static float coord_box_value(const coord_box_state_t *state)
+static lv_obj_t *spinboxes[3];
+static lv_obj_t *switches[3];
+
+extern float g_jog_feed;
+
+static void coordbox_edit_cb(lv_event_t *event)
 {
-	return ((float)state->decimal + (float)state->fractional * 0.001f) * (state->sign ? -1 : 1);
+	float *valuePtr = (float*)lv_event_get_user_data(event);
+	lv_obj_t *spinbox = lv_event_get_target(event);
+
+	*valuePtr = (float)lv_spinbox_get_value(spinbox) / 1000;
 }
 
-static void coordbox_table_cb(lv_event_t *event)
-{
-	lv_draw_task_t *draw_task = lv_event_get_draw_task(event);
-	lv_draw_dsc_base_t *base_dsc = (lv_draw_dsc_base_t*)draw_task->draw_dsc;
-
-	coord_box_state_t *state = (coord_box_state_t*)lv_event_get_user_data(event);
-
-	if(base_dsc->part == LV_PART_ITEMS)
-	{
-    uint32_t col = base_dsc->id2;
-
-		lv_draw_border_dsc_t *border_draw_dsc = lv_draw_task_get_border_dsc(draw_task);
-		if(border_draw_dsc)
-		{
-			if(col == 0)
-			{
-				border_draw_dsc->side = LV_BORDER_SIDE_NONE;
-			}
-		}
-
-		lv_draw_fill_dsc_t *fill_draw_dsc = lv_draw_task_get_fill_dsc(draw_task);
-		if(fill_draw_dsc)
-		{
-			lv_obj_t *table = lv_event_get_target(event);
-			lv_obj_t *root = lv_obj_get_parent(table);
-			bool focused = lv_obj_get_state(root) & LV_STATE_FOCUSED;
-
-			int digit = (COORDINATE_DECIMAL_DIGITS + 1) - col;
-			int cursor = state->multiplier;
-			if(cursor >= 0)
-				cursor += 1;
-
-			fill_draw_dsc->opa = digit == cursor && focused ? LV_OPA_COVER : LV_OPA_TRANSP;
-		}
-	}
-}
-
-static void feed_table_cb(lv_event_t *event)
-{
-	lv_draw_task_t *draw_task = lv_event_get_draw_task(event);
-	lv_draw_dsc_base_t *base_dsc = (lv_draw_dsc_base_t*)draw_task->draw_dsc;
-
-	if(base_dsc->part == LV_PART_ITEMS)
-	{
-    uint32_t col = base_dsc->id2;
-
-		lv_draw_border_dsc_t *border_draw_dsc = lv_draw_task_get_border_dsc(draw_task);
-		if(border_draw_dsc)
-		{
-			if(col == 0)
-			{
-				border_draw_dsc->side = LV_BORDER_SIDE_NONE;
-			}
-		}
-	}
-}
-
-static void set_coordinate_value(lv_obj_t *coordbox, float value)
-{
-	lv_obj_t *table = lv_obj_get_child(coordbox, 1);
-	
-	char str[10];
-	sprintf(str, "%4d.%03d", (int)value, ABS((int)(value * 1000) % 1000));
-
-	for(int i = 0; i < 8; ++i)
-	{
-		char c[2];
-		c[0] = str[i];
-		c[1] = 0;
-		lv_table_set_cell_value(table, 0, i, c);
-	}
-}
-
-static void set_feed_value(uint16_t value)
-{
-	lv_obj_t *table = lv_obj_get_child(feed_box, 1);
-
-	char str[10];
-	sprintf(str, "%5d", value);
-
-	for(int i = 0; i < FEED_DIGITS; ++i)
-	{
-		char c[2];
-		c[0] = str[i];
-		c[1] = 0;
-		lv_table_set_cell_value(table, 0, i, c);
-	}
-}
-
-static void clear_coordinate(lv_obj_t *coordbox)
-{
-	lv_obj_t *table = lv_obj_get_child(coordbox, 1);
-
-	for(int i = 0; i < COORDINATE_DECIMAL_DIGITS + COORDINATE_FRACTIONAL_DIGITS + 2; ++i)
-	{
-		lv_table_set_cell_value(table, 0, i, "");
-	}
-}
-
-static void coord_input_cb(lv_event_t *event)
-{
-	coord_box_state_t *state = (coord_box_state_t*)lv_event_get_user_data(event);
-	lv_obj_t *root = lv_event_get_current_target(event);
-
-	char c = lv_event_get_key(event);
-	if(c >= '0' && c <= '9')
-	{
-		if(state->multiplier >= 0)
-		{
-			state->decimal = (state->decimal * 10 + (c - '0')) % 1000;
-		}
-		else
-		{
-			if(state->multiplier == -1)
-				state->fractional = 0;
-			state->fractional += (c - '0') * powf(10, 3 + state->multiplier);
-			if(--state->multiplier < -3)
-				state->multiplier = 0;
-		}
-		state->edited = 1;
-	}
-	else if(c == '-')
-	{
-		state->sign = !state->sign;
-	}
-	else if(c == '\b')
-	{
-		if(state->decimal == 0 && state->multiplier >= 0)
-		{
-			state->fractional = 0;
-			state->edited = 0;
-			state->multiplier = 0;
-			clear_coordinate(root);
-			return;
-		}
-		else if(state->multiplier >= 0)
-		{
-			state->decimal *= 0.1;
-			state->multiplier -= 1;
-			if(state->multiplier < 0)
-				state->multiplier = 0;
-		}
-	}
-	else if(c == '.')
-	{
-		state->multiplier = -1;
-	}
-
-	// Prevent the encoder from getting "stuck"
-	lv_group_set_editing(group, false);
-	set_coordinate_value(root, coord_box_value(state));
-}
-
-static void feed_input_cb(lv_event_t *event)
-{
-	char c = lv_event_get_key(event);
-	if(c >= '0' && c <= '9')
-	{
-		feed = (feed * 10 + (c - '0')) % 100000;
-	}
-	else if(c == '\b')
-	{
-		feed *= 0.1;
-	}
-
-	// Prevent the encoder from getting "stuck"
-	lv_group_set_editing(group, false);
-	set_feed_value(feed);
-}
-
-static lv_obj_t *make_coordinate_box(lv_obj_t *parent, const char *label, coord_box_state_t *state)
+static lv_obj_t *make_coordinate_box(lv_obj_t *parent, const char *label)
 {
 	lv_obj_t *root = lv_obj_create(parent);
 	lv_obj_set_size(root, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
 	lv_obj_set_style_bg_opa(root, LV_OPA_TRANSP, LV_PART_MAIN);
 	lv_obj_set_style_text_font(root, &font_pixel_mono_14pt, LV_PART_MAIN);
 
-	lv_obj_set_style_bg_opa(root, LV_OPA_COVER, LV_PART_MAIN | LV_STATE_FOCUSED);
-	lv_obj_set_style_bg_color(root, select_highlight, LV_PART_MAIN | LV_STATE_FOCUSED);
 	lv_obj_set_style_pad_all(root, 2, LV_PART_MAIN);
+
+	lv_obj_t *sw = win9x_switch(root);
+	lv_obj_set_pos(sw, 0, 8);
+	lv_group_add_obj(group, sw);
 
 	lv_obj_t *labelob = lv_label_create(root);
 	lv_label_set_text(labelob, label);
-	lv_obj_set_pos(labelob, 0, 2 + 4);
+	lv_obj_set_pos(labelob, 35, 2 + 4);
 
-	lv_obj_t *table = lv_table_create(root);
-	lv_obj_set_pos(table, 40, 0);
-	lv_obj_add_style(table, &g_styles.container, LV_PART_MAIN);
-	WIN9X_BORDER_PART_TWO(table, shadow_light);
+	lv_obj_t *input = win9x_number_input(root);
+	lv_obj_set_pos(input, 65, 0);
+	lv_obj_set_width(input, 120);
 
-	for(int i = 0; i < COORDINATE_DECIMAL_DIGITS + COORDINATE_FRACTIONAL_DIGITS + 2; ++i)
-		lv_table_set_column_width(table, i, 18);
+	lv_spinbox_set_digit_format(input, 6, 3);
+	lv_spinbox_set_range(input, -999999, 999999);
 
-	lv_obj_set_style_pad_left(table, 2, LV_PART_ITEMS);
-	lv_obj_set_style_pad_top(table, 4, LV_PART_ITEMS);
-	lv_obj_set_style_border_side(table, LV_BORDER_SIDE_LEFT, LV_PART_ITEMS);
-	lv_obj_set_style_border_width(table, 1, LV_PART_ITEMS);
-	lv_obj_set_style_border_color(table, separator, LV_PART_ITEMS);
-	lv_obj_set_style_text_align(table, LV_TEXT_ALIGN_CENTER, LV_PART_ITEMS);
-	lv_obj_set_style_bg_opa(table, LV_OPA_COVER, LV_PART_ITEMS);
-
-	state->decimal = 0;
-	state->fractional = 0;
-	state->multiplier = 0;
-	state->sign = 0;
-	state->edited = 0;
-
-	lv_obj_add_event_cb(table, coordbox_table_cb, LV_EVENT_DRAW_TASK_ADDED, state);
-	lv_obj_add_flag(table, LV_OBJ_FLAG_SEND_DRAW_TASK_EVENTS | LV_OBJ_FLAG_EVENT_BUBBLE);
-	lv_obj_remove_flag(table, LV_OBJ_FLAG_CLICKABLE | LV_OBJ_FLAG_CLICK_FOCUSABLE);
-
-	lv_obj_add_event_cb(root, coord_input_cb, LV_EVENT_KEY, state);
-	lv_obj_add_flag(root, LV_OBJ_FLAG_CLICKABLE | LV_OBJ_FLAG_CLICK_FOCUSABLE);
-
-	lv_group_add_obj(group, root);
-
-	state->object = root;
+	lv_group_add_obj(group, input);
 	return root;
+}
+
+static void feedbox_edit_cb(lv_event_t *event)
+{
+	lv_obj_t *spinbox = lv_event_get_target(event);
+	g_jog_feed = (float)lv_spinbox_get_value(spinbox) / 1000;
 }
 
 static lv_obj_t *make_feed_box(lv_obj_t *parent)
@@ -303,45 +102,28 @@ static lv_obj_t *make_feed_box(lv_obj_t *parent)
 	lv_label_set_text(labelob, STR_FEED);
 	lv_obj_set_pos(labelob, 0, 2 + 4);
 
-	lv_obj_t *table = lv_table_create(root);
-	lv_obj_set_pos(table, 80, 0);
-	lv_obj_add_style(table, &g_styles.container, LV_PART_MAIN);
-	WIN9X_BORDER_PART_TWO(table, shadow_light);
+	lv_obj_t *input = win9x_number_input(root);
+	lv_obj_set_pos(input, 60, 0);
+	lv_obj_set_width(input, 120);
 
-	for(int i = 0; i < FEED_DIGITS; ++i)
-		lv_table_set_column_width(table, i, 18);
+	lv_spinbox_set_digit_format(input, 7, 4);
+	lv_spinbox_set_range(input, 0, 9999999);
 
-	lv_obj_set_style_pad_left(table, 2, LV_PART_ITEMS);
-	lv_obj_set_style_pad_top(table, 4, LV_PART_ITEMS);
-	lv_obj_set_style_border_side(table, LV_BORDER_SIDE_LEFT, LV_PART_ITEMS);
-	lv_obj_set_style_border_width(table, 1, LV_PART_ITEMS);
-	lv_obj_set_style_border_color(table, separator, LV_PART_ITEMS);
-	lv_obj_set_style_text_align(table, LV_TEXT_ALIGN_CENTER, LV_PART_ITEMS);
-	lv_obj_set_style_bg_opa(table, LV_OPA_TRANSP, LV_PART_ITEMS);
+	lv_spinbox_set_value(input, (int32_t)(g_jog_feed * 1000));
 
-	lv_obj_add_event_cb(table, feed_table_cb, LV_EVENT_DRAW_TASK_ADDED, NULL);
-	lv_obj_add_flag(table, LV_OBJ_FLAG_SEND_DRAW_TASK_EVENTS | LV_OBJ_FLAG_EVENT_BUBBLE);
-	lv_obj_remove_flag(table, LV_OBJ_FLAG_CLICKABLE | LV_OBJ_FLAG_CLICK_FOCUSABLE);
-
-	lv_obj_add_event_cb(root, feed_input_cb, LV_EVENT_KEY, NULL);
-	lv_obj_add_flag(root, LV_OBJ_FLAG_CLICKABLE | LV_OBJ_FLAG_CLICK_FOCUSABLE);
+	lv_obj_add_event_cb(input, feedbox_edit_cb, LV_EVENT_VALUE_CHANGED, NULL);
 
 	lv_group_add_obj(group, root);
 
-	feed_box = root;
 	return root;
 }
 
 static void reset_form()
 {
-	for(uint8_t i = 0; i < 3; ++i)
+	for(int i = 0; i < 3; ++i)
 	{
-		clear_coordinate(coordinates[i].object);
-		coordinates[i].edited = 0;
-		coordinates[i].sign = 0;
-		coordinates[i].decimal = 0;
-		coordinates[i].fractional = 0;
-		coordinates[i].multiplier = 0;
+		lv_obj_remove_state(switches[i], LV_STATE_CHECKED);
+		lv_spinbox_set_value(spinboxes[i], 0);
 	}
 }
 
@@ -373,18 +155,19 @@ static void move_to_coord(lv_event_t *event)
 	// Append axis which were modified
 	for(uint8_t i = 0; i < 3; ++i)
 	{
-		if(!coordinates[i].edited)
+		if(!lv_obj_has_state(switches[i], LV_STATE_CHECKED))
 			continue;
 		*ptr++ = axis[i];
-		int dec = coordinates[i].sign ? -coordinates[i].decimal : coordinates[i].decimal;
-		sprintf(ptr, "%d.%03d", dec, coordinates[i].fractional);
+		int32_t value = lv_spinbox_get_value(spinboxes[i]);
+		sprintf(ptr, "%d.%03d", value / 1000, value % 1000);
 
 		while(*ptr++);
 		--ptr;
 	}
 
 	// Append feed rate and finish the command
-	sprintf(ptr, "F%d\r", feed);
+	int jogI = (int)g_jog_feed;
+	sprintf(ptr, "F%d.%03d\r", (int)g_jog_feed, (int)((g_jog_feed - jogI) * 1000));
 
 	system_menu_send_cmd(buffer);
 
@@ -440,8 +223,6 @@ void style_create_movement_screen()
 		lv_group_set_default(NULL);
 
 		make_feed_box(row);
-		feed = 100;
-		set_feed_value(100);
 	}
 
 	{
@@ -459,12 +240,20 @@ void style_create_movement_screen()
 		lv_obj_set_style_pad_row(row, 5, LV_PART_MAIN);
 		lv_obj_set_style_pad_column(row, 5, LV_PART_MAIN);
 
-		lv_obj_t *x = make_coordinate_box(row, "X", &coordinates[0]);
+		lv_obj_t *x = make_coordinate_box(row, "X");
 		lv_obj_set_grid_cell(x, LV_GRID_ALIGN_START, 0, 1, LV_GRID_ALIGN_START, 0, 1);
-		lv_obj_t *y = make_coordinate_box(row, "Y", &coordinates[1]);
+		switches[0] = lv_obj_get_child(x, 0);
+		spinboxes[0] = lv_obj_get_child(x, 2);
+		
+		lv_obj_t *y = make_coordinate_box(row, "Y");
 		lv_obj_set_grid_cell(y, LV_GRID_ALIGN_START, 0, 1, LV_GRID_ALIGN_START, 1, 1);
-		lv_obj_t *z = make_coordinate_box(row, "Z", &coordinates[2]);
+		switches[1] = lv_obj_get_child(y, 0);
+		spinboxes[1] = lv_obj_get_child(y, 2);
+
+		lv_obj_t *z = make_coordinate_box(row, "Z");
 		lv_obj_set_grid_cell(z, LV_GRID_ALIGN_START, 0, 1, LV_GRID_ALIGN_START, 2, 1);
+		switches[2] = lv_obj_get_child(z, 0);
+		spinboxes[2] = lv_obj_get_child(z, 2);
 	}
 
 	{
