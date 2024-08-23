@@ -101,12 +101,12 @@ static void jog_pos_cb()
 	char axis;
 	lv_dropdown_get_selected_str(axis_select, &axis, 1);
 
-	int distI = (int)g_jog_distance;
-	int feedI = (int)g_jog_feed;
+	int distI = (int)g_system_menu_jog_distance;
+	int feedI = (int)g_system_menu_jog_feed;
 	sprintf(buffer, "$J=G91%c%d.%03dF%d.%03d\r",
 		axis,
-		distI, (int)((g_jog_distance - distI) * 1000),
-		feedI, (int)((g_jog_feed - feedI) * 1000));
+		distI, (int)((g_system_menu_jog_distance - distI) * 1000),
+		feedI, (int)((g_system_menu_jog_feed - feedI) * 1000));
 
 	system_menu_send_cmd(buffer);
 }
@@ -121,12 +121,12 @@ static void jog_neg_cb()
 	char axis;
 	lv_dropdown_get_selected_str(axis_select, &axis, 1);
 
-	int distI = (int)g_jog_distance;
-	int feedI = (int)g_jog_feed;
+	int distI = (int)g_system_menu_jog_distance;
+	int feedI = (int)g_system_menu_jog_feed;
 	sprintf(buffer, "$J=G91%c-%d.%03dF%d.%03d\r",
 		axis,
-		distI, (int)((g_jog_distance - distI) * 1000),
-		feedI, (int)((g_jog_feed - feedI) * 1000));
+		distI, (int)((g_system_menu_jog_distance - distI) * 1000),
+		feedI, (int)((g_system_menu_jog_feed - feedI) * 1000));
 
 	system_menu_send_cmd(buffer);
 }
@@ -170,12 +170,12 @@ void style_create_jog_screen()
 	}
 
 	{
-		lv_obj_t *container = editable_value(screen, STR_JOG_FEED, &g_jog_feed);
+		lv_obj_t *container = editable_value(screen, STR_JOG_FEED, &g_system_menu_jog_feed);
 		lv_obj_set_grid_cell(container, LV_GRID_ALIGN_START, 2, 1, LV_GRID_ALIGN_START, 1, 1);
 	}
 
 	{
-		lv_obj_t *container = editable_value(screen, STR_JOG_DIST, &g_jog_distance);
+		lv_obj_t *container = editable_value(screen, STR_JOG_DIST, &g_system_menu_jog_distance);
 		lv_obj_set_grid_cell(container, LV_GRID_ALIGN_START, 2, 1, LV_GRID_ALIGN_START, 2, 1);
 	}
 

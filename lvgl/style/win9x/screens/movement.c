@@ -43,8 +43,6 @@ static char axis[] = { 'X', 'Y', 'Z' };
 static lv_obj_t *spinboxes[3];
 static lv_obj_t *switches[3];
 
-extern float g_jog_feed;
-
 static void coordbox_edit_cb(lv_event_t *event)
 {
 	float *valuePtr = (float*)lv_event_get_user_data(event);
@@ -84,7 +82,7 @@ static lv_obj_t *make_coordinate_box(lv_obj_t *parent, const char *label)
 static void feedbox_edit_cb(lv_event_t *event)
 {
 	lv_obj_t *spinbox = lv_event_get_target(event);
-	g_jog_feed = (float)lv_spinbox_get_value(spinbox) / 1000;
+	g_system_menu_jog_feed = (float)lv_spinbox_get_value(spinbox) / 1000;
 }
 
 static lv_obj_t *make_feed_box(lv_obj_t *parent)
@@ -109,7 +107,7 @@ static lv_obj_t *make_feed_box(lv_obj_t *parent)
 	lv_spinbox_set_digit_format(input, 7, 4);
 	lv_spinbox_set_range(input, 0, 9999999);
 
-	lv_spinbox_set_value(input, (int32_t)(g_jog_feed * 1000));
+	lv_spinbox_set_value(input, (int32_t)(g_system_menu_jog_feed * 1000));
 
 	lv_obj_add_event_cb(input, feedbox_edit_cb, LV_EVENT_VALUE_CHANGED, NULL);
 
@@ -166,8 +164,8 @@ static void move_to_coord(lv_event_t *event)
 	}
 
 	// Append feed rate and finish the command
-	int jogI = (int)g_jog_feed;
-	sprintf(ptr, "F%d.%03d\r", (int)g_jog_feed, (int)((g_jog_feed - jogI) * 1000));
+	int jogI = (int)g_system_menu_jog_feed;
+	sprintf(ptr, "F%d.%03d\r", (int)g_system_menu_jog_feed, (int)((g_system_menu_jog_feed - jogI) * 1000));
 
 	system_menu_send_cmd(buffer);
 
