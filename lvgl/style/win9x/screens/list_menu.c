@@ -139,7 +139,8 @@ void style_list_menu_item_value(lv_obj_t *screen, list_menu_item_arg_t *arg)
 	{
 		lv_obj_t *entry = lv_obj_get_child(item_list, arg->item_index);
 		value = lv_obj_get_child(entry, 1);
-		cursor = lv_obj_get_child(entry, 2);
+		if(arg->render_flags & SYSTEM_MENU_MODE_EDIT)
+			cursor = lv_obj_get_child(entry, 2);
 	}
 
 	if(strcmp(lv_label_get_text(value), arg->text))

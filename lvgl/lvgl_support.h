@@ -42,6 +42,9 @@ extern void lvgl_add_indev(indev_list_t *entry);
 
 extern void lvgl_set_indev_group(lv_group_t *group);
 
+extern void lvgl_serial_putc(char c);
+extern uint8_t lvgl_serial_write_available();
+
 typedef struct _cb_goto
 {
 	uint8_t menu_id;

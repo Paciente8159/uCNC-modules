@@ -113,14 +113,24 @@ static uint8_t lvgl_ss_getc(void)
 	return c;
 }
 
-uint8_t lvgl_ss_available(void)
+static uint8_t lvgl_ss_available(void)
 {
 	return BUFFER_READ_AVAILABLE(lvgl_stream_buffer);
 }
 
-void lvgl_ss_clear(void)
+static void lvgl_ss_clear(void)
 {
 	BUFFER_CLEAR(lvgl_stream_buffer);
+}
+
+void lvgl_serial_putc(char c)
+{
+	BUFFER_ENQUEUE(lvgl_stream_buffer, &c);
+}
+
+uint8_t lvgl_serial_write_available()
+{
+	return BUFFER_WRITE_AVAILABLE(lvgl_stream_buffer);
 }
 
 DECL_SERIAL_STREAM(lvgl_stream, lvgl_ss_getc, lvgl_ss_available, lvgl_ss_clear, NULL, NULL);

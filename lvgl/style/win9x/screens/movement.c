@@ -43,14 +43,6 @@ static char axis[] = { 'X', 'Y', 'Z' };
 static lv_obj_t *spinboxes[3];
 static lv_obj_t *switches[3];
 
-static void coordbox_edit_cb(lv_event_t *event)
-{
-	float *valuePtr = (float*)lv_event_get_user_data(event);
-	lv_obj_t *spinbox = lv_event_get_target(event);
-
-	*valuePtr = (float)lv_spinbox_get_value(spinbox) / 1000;
-}
-
 static lv_obj_t *make_coordinate_box(lv_obj_t *parent, const char *label)
 {
 	lv_obj_t *root = lv_obj_create(parent);
@@ -127,26 +119,27 @@ static void reset_form()
 
 static void move_to_coord(lv_event_t *event)
 {
-	char buffer[64];
-	char *ptr = buffer;
-	*ptr++ = '$';
-	*ptr++ = 'J';
-	*ptr++ = '=';
-	*ptr++ = 'G';
+	if(lvgl_serial_write_available() < 64)
+		return;
+
+	lvgl_serial_putc('$');
+	lvgl_serial_putc('J');
+	lvgl_serial_putc('=');
+	lvgl_serial_putc('G');
 
 	switch(coordinate_type)
 	{
 		case 0:
-			*ptr++ = '9';
-			*ptr++ = '0';
+			lvgl_serial_putc('9');
+			lvgl_serial_putc('0');
 			break;
 		case 1:
-			*ptr++ = '9';
-			*ptr++ = '1';
+			lvgl_serial_putc('9');
+			lvgl_serial_putc('1');
 			break;
 		case 2:
-			*ptr++ = '5';
-			*ptr++ = '3';
+			lvgl_serial_putc('5');
+			lvgl_serial_putc('3');
 			break;
 	}
 
@@ -155,19 +148,15 @@ static void move_to_coord(lv_event_t *event)
 	{
 		if(!lv_obj_has_state(switches[i], LV_STATE_CHECKED))
 			continue;
-		*ptr++ = axis[i];
+		lvgl_serial_putc(axis[i]);
 		int32_t value = lv_spinbox_get_value(spinboxes[i]);
-		sprintf(ptr, "%d.%03d", value / 1000, value % 1000);
-
-		while(*ptr++);
-		--ptr;
+		print_flt(lvgl_serial_putc, (float)value / 1000);
 	}
 
 	// Append feed rate and finish the command
-	int jogI = (int)g_system_menu_jog_feed;
-	sprintf(ptr, "F%d.%03d\r", (int)g_system_menu_jog_feed, (int)((g_system_menu_jog_feed - jogI) * 1000));
-
-	system_menu_send_cmd(buffer);
+	lvgl_serial_putc('F');
+	print_flt(lvgl_serial_putc, g_system_menu_jog_feed);
+	lvgl_serial_putc('\r');
 
 	system_menu_goto(SYSTEM_MENU_ID_IDLE);
 }

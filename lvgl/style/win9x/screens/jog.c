@@ -92,42 +92,50 @@ static char *jog_axis_opts = "X\nY\nZ"
 
 static void jog_pos_cb()
 {
-	if(cnc_get_exec_state(EXEC_JOG | EXEC_RUN) || cnc_has_alarm())
+	if(cnc_get_exec_state(EXEC_JOG | EXEC_RUN) || cnc_has_alarm() || lvgl_serial_write_available() < 32)
 		return;
-
-	char buffer[48];
 
 	char axis;
 	lv_dropdown_get_selected_str(axis_select, &axis, 1);
 
-	int distI = (int)g_system_menu_jog_distance;
-	int feedI = (int)g_system_menu_jog_feed;
-	sprintf(buffer, "$J=G91%c%d.%03dF%d.%03d\r",
-		axis,
-		distI, (int)((g_system_menu_jog_distance - distI) * 1000),
-		feedI, (int)((g_system_menu_jog_feed - feedI) * 1000));
+	lvgl_serial_putc('$');
+	lvgl_serial_putc('J');
+	lvgl_serial_putc('=');
+	lvgl_serial_putc('G');
+	lvgl_serial_putc('9');
+	lvgl_serial_putc('1');
 
-	system_menu_send_cmd(buffer);
+	lvgl_serial_putc(axis);
+	print_flt(lvgl_serial_putc, g_system_menu_jog_distance);
+
+	lvgl_serial_putc('F');
+	print_flt(lvgl_serial_putc, g_system_menu_jog_feed);
+
+	lvgl_serial_putc('\r');
 }
 
 static void jog_neg_cb()
 {
-	if(cnc_get_exec_state(EXEC_JOG | EXEC_RUN) || cnc_has_alarm())
+	if(cnc_get_exec_state(EXEC_JOG | EXEC_RUN) || cnc_has_alarm() || lvgl_serial_write_available() < 32)
 		return;
-
-	char buffer[48];
 
 	char axis;
 	lv_dropdown_get_selected_str(axis_select, &axis, 1);
 
-	int distI = (int)g_system_menu_jog_distance;
-	int feedI = (int)g_system_menu_jog_feed;
-	sprintf(buffer, "$J=G91%c-%d.%03dF%d.%03d\r",
-		axis,
-		distI, (int)((g_system_menu_jog_distance - distI) * 1000),
-		feedI, (int)((g_system_menu_jog_feed - feedI) * 1000));
+	lvgl_serial_putc('$');
+	lvgl_serial_putc('J');
+	lvgl_serial_putc('=');
+	lvgl_serial_putc('G');
+	lvgl_serial_putc('9');
+	lvgl_serial_putc('1');
 
-	system_menu_send_cmd(buffer);
+	lvgl_serial_putc(axis);
+	print_flt(lvgl_serial_putc, g_system_menu_jog_distance);
+
+	lvgl_serial_putc('F');
+	print_flt(lvgl_serial_putc, g_system_menu_jog_feed);
+
+	lvgl_serial_putc('\r');
 }
 
 void style_create_jog_screen()
