@@ -90,13 +90,14 @@ static char *jog_axis_opts = "X\nY\nZ"
 #endif
 ;
 
+static const char axis[] = { 'X', 'Y', 'Z', 'A', 'B', 'C' };
+
 static void jog_pos_cb()
 {
-	if(cnc_get_exec_state(EXEC_JOG | EXEC_RUN) || cnc_has_alarm() || lvgl_serial_write_available() < 32)
+	if(cnc_get_exec_state(EXEC_ALLACTIVE & ~EXEC_JOG) || cnc_has_alarm() || lvgl_serial_write_available() < 32)
 		return;
 
-	char axis;
-	lv_dropdown_get_selected_str(axis_select, &axis, 1);
+	uint32_t index = lv_dropdown_get_selected(axis_select);
 
 	lvgl_serial_putc('$');
 	lvgl_serial_putc('J');
@@ -105,7 +106,7 @@ static void jog_pos_cb()
 	lvgl_serial_putc('9');
 	lvgl_serial_putc('1');
 
-	lvgl_serial_putc(axis);
+	lvgl_serial_putc(axis[index]);
 	print_flt(lvgl_serial_putc, g_system_menu_jog_distance);
 
 	lvgl_serial_putc('F');
@@ -116,11 +117,10 @@ static void jog_pos_cb()
 
 static void jog_neg_cb()
 {
-	if(cnc_get_exec_state(EXEC_JOG | EXEC_RUN) || cnc_has_alarm() || lvgl_serial_write_available() < 32)
+	if(cnc_get_exec_state(EXEC_ALLACTIVE & ~EXEC_JOG) || cnc_has_alarm() || lvgl_serial_write_available() < 32)
 		return;
 
-	char axis;
-	lv_dropdown_get_selected_str(axis_select, &axis, 1);
+	uint32_t index = lv_dropdown_get_selected(axis_select);
 
 	lvgl_serial_putc('$');
 	lvgl_serial_putc('J');
@@ -129,13 +129,19 @@ static void jog_neg_cb()
 	lvgl_serial_putc('9');
 	lvgl_serial_putc('1');
 
-	lvgl_serial_putc(axis);
+	lvgl_serial_putc(axis[index]);
+	lvgl_serial_putc('-');
 	print_flt(lvgl_serial_putc, g_system_menu_jog_distance);
 
 	lvgl_serial_putc('F');
 	print_flt(lvgl_serial_putc, g_system_menu_jog_feed);
 
 	lvgl_serial_putc('\r');
+}
+
+static void jog_stop()
+{
+	cnc_call_rt_command(CMD_CODE_JOG_CANCEL);
 }
 
 void style_create_jog_screen()
@@ -198,7 +204,7 @@ void style_create_jog_screen()
 		lv_obj_set_style_pad_row(container, 5, LV_PART_MAIN);
 
 		lv_obj_set_style_pad_left(container, 10, LV_PART_MAIN);
-		lv_obj_set_style_pad_top(container, 20, LV_PART_MAIN);
+		lv_obj_set_style_pad_top(container, 5, LV_PART_MAIN);
 
 		lv_obj_t *jogPos = win9x_button(container, "+");
 		lv_group_add_obj(group, jogPos);
@@ -213,7 +219,11 @@ void style_create_jog_screen()
 
 		lv_obj_t *jogNeg = win9x_button(container, "-");
 		lv_group_add_obj(group, jogNeg);
-		lv_obj_add_event_cb(jogPos, jog_neg_cb, LV_EVENT_CLICKED, NULL);
+		lv_obj_add_event_cb(jogNeg, jog_neg_cb, LV_EVENT_CLICKED, NULL);
+
+		lv_obj_t *stop = win9x_button(container, "Stop");
+		lv_group_add_obj(group, stop);
+		lv_obj_add_event_cb(stop, jog_stop, LV_EVENT_CLICKED, NULL);
 	}
 
 	system_menu_set_render_callback(SYSTEM_MENU_ID_JOG, jog_render);

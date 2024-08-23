@@ -58,6 +58,15 @@ void lvgl_set_indev_group(lv_group_t *group)
 	}
 	current_group = group;
 	lv_group_set_editing(group, false);
+
+	if(group != action_translator)
+	{
+		// Force a redraw on group switch since it is most likely
+		// caused by a screen switch and screens with custom groups
+		// might need to be redraw frequently.
+		g_system_menu.flags = SYSTEM_MENU_MODE_REDRAW;
+		system_menu_action_timeout(SYSTEM_MENU_REDRAW_IDLE_MS);
+	}
 }
 
 static void action_translator_cb(lv_event_t *event)

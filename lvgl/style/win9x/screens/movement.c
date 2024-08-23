@@ -84,8 +84,6 @@ static lv_obj_t *make_feed_box(lv_obj_t *parent)
 	lv_obj_set_style_bg_opa(root, LV_OPA_TRANSP, LV_PART_MAIN);
 	lv_obj_set_style_text_font(root, &font_pixel_mono_14pt, LV_PART_MAIN);
 
-	lv_obj_set_style_bg_opa(root, LV_OPA_COVER, LV_PART_MAIN | LV_STATE_FOCUSED);
-	lv_obj_set_style_bg_color(root, select_highlight, LV_PART_MAIN | LV_STATE_FOCUSED);
 	lv_obj_set_style_pad_all(root, 2, LV_PART_MAIN);
 
 	lv_obj_t *labelob = lv_label_create(root);
@@ -103,7 +101,7 @@ static lv_obj_t *make_feed_box(lv_obj_t *parent)
 
 	lv_obj_add_event_cb(input, feedbox_edit_cb, LV_EVENT_VALUE_CHANGED, NULL);
 
-	lv_group_add_obj(group, root);
+	lv_group_add_obj(group, input);
 
 	return root;
 }
