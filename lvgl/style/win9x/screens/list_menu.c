@@ -25,6 +25,7 @@
 
 #include "../colors.h"
 #include "../styles.h"
+#include "../elements.h"
 #include "../fonts/pixel.h"
 #include "../fonts/pixel_mono.h"
 #include "../bitmaps/close.h"
@@ -36,8 +37,7 @@ static lv_obj_t *last_item_entry;
 
 void style_list_menu_header(lv_obj_t *screen, const char *header)
 {
-	lv_obj_set_style_bg_color(screen, bg_base, LV_PART_MAIN);
-	lv_obj_set_style_text_font(screen, &font_pixel_bold_11pt, LV_PART_MAIN);
+	lv_obj_add_style(screen, &g_styles.screen, LV_PART_MAIN);
 
 	lv_obj_t *topbar = lv_obj_create(screen);
 	lv_obj_set_size(topbar, 480, 22);
@@ -54,7 +54,6 @@ void style_list_menu_header(lv_obj_t *screen, const char *header)
 	lv_obj_set_layout(item_list, LV_LAYOUT_FLEX);
 	lv_obj_set_flex_flow(item_list, LV_FLEX_FLOW_COLUMN);
 	lv_obj_set_style_bg_opa(item_list, LV_OPA_TRANSP, LV_PART_MAIN);
-	lv_obj_set_style_text_color(item_list, col_black, LV_PART_MAIN);
 }
 
 void style_list_menu_nav_back(lv_obj_t *screen, bool is_hover, bool rebuild)
@@ -62,20 +61,7 @@ void style_list_menu_nav_back(lv_obj_t *screen, bool is_hover, bool rebuild)
 	lv_obj_t *back;
 	if(rebuild)
 	{
-		back = lv_obj_create(lv_obj_get_child(screen, 0));
-		lv_obj_add_style(back, &g_styles.button, LV_PART_MAIN);
-		lv_obj_set_size(back, 18, 18);
-		WIN9X_BORDER_PART_TWO(back, shadow_dark);
-
-		lv_obj_set_align(back, LV_ALIGN_RIGHT_MID);
-		lv_obj_set_pos(back, -2, 0);
-
-		lv_obj_set_style_bg_color(back, select_highlight, LV_PART_MAIN | LV_STATE_FOCUSED);
-
-		lv_obj_t *image = lv_image_create(back);
-		lv_obj_center(image);
-		lv_image_set_src(image, &Img_Close);
-		lv_obj_set_style_image_recolor(image, col_black, LV_PART_MAIN);
+		back = win9x_close_button(lv_obj_get_child(screen, 0));
 	}
 	else
 	{
@@ -153,7 +139,8 @@ void style_list_menu_item_value(lv_obj_t *screen, list_menu_item_arg_t *arg)
 	{
 		lv_obj_t *entry = lv_obj_get_child(item_list, arg->item_index);
 		value = lv_obj_get_child(entry, 1);
-		cursor = lv_obj_get_child(entry, 2);
+		if(arg->render_flags & SYSTEM_MENU_MODE_EDIT)
+			cursor = lv_obj_get_child(entry, 2);
 	}
 
 	if(strcmp(lv_label_get_text(value), arg->text))

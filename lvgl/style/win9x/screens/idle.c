@@ -63,10 +63,6 @@ static struct _posbox {
 	lv_obj_t *state_label;
 } g_state;
 
-static const char* axis_labels[] = {
-	"X", "Y", "Z"
-};
-
 static void update_topbar()
 {
 	static uint8_t old_state = -1;
@@ -113,30 +109,6 @@ static void update_topbar()
 			lv_obj_add_flag(g_topbar.alarm_box, LV_OBJ_FLAG_HIDDEN);
 		}
 		old_alarm = new_alarm;
-	}
-}
-
-static void update_coordinates()
-{
-	int32_t steppos[STEPPER_COUNT];
-	itp_get_rt_position(steppos);
-
-	float mpos[MAX(AXIS_COUNT, 3)];
-	kinematics_apply_forward(steppos, mpos);
-	kinematics_apply_reverse_transform(mpos);
-
-	float wpos[MAX(AXIS_COUNT, 3)];
-	for(uint8_t i = 0; i < MAX(AXIS_COUNT, 3); ++i)
-		wpos[i] = mpos[i];
-	parser_machine_to_work(wpos);
-
-	char str[32];
-	for(int i = 0; i < MAX(AXIS_COUNT, 3); ++i)
-	{
-	 	sprintf(str, "%4d.%03d", (int)wpos[i], ABS((int)(wpos[i] * 1000) % 1000));
-		lv_table_set_cell_value(g_state.coordinate_table, i + 1, 1, str);
-		sprintf(str, "%4d.%03d", (int)mpos[i], ABS((int)(mpos[i] * 1000) % 1000));
-		lv_table_set_cell_value(g_state.coordinate_table, i + 1, 2, str);
 	}
 }
 
@@ -217,44 +189,6 @@ static void update_state()
 	lv_label_set_text(g_state.state_label, str);
 }
 
-static void coord_box_event_cb(lv_event_t *event)
-{
-	lv_draw_task_t *draw_task = lv_event_get_draw_task(event);
-	lv_draw_dsc_base_t *base_dsc = (lv_draw_dsc_base_t*)draw_task->draw_dsc;
-
-	if(base_dsc->part == LV_PART_ITEMS)
-	{
-    uint32_t row = base_dsc->id1;
-    uint32_t col = base_dsc->id2;
-
-		lv_draw_label_dsc_t *label_draw_dsc = lv_draw_task_get_label_dsc(draw_task);
-		if(label_draw_dsc)
-		{
-			if(col == 0 || row == 0)
-			{
-				label_draw_dsc->align = LV_TEXT_ALIGN_LEFT;
-			}
-			else
-			{
-				label_draw_dsc->align = LV_TEXT_ALIGN_RIGHT;
-			}
-		}
-
-		lv_draw_border_dsc_t *border_draw_dsc = lv_draw_task_get_border_dsc(draw_task);
-		if(border_draw_dsc)
-		{
-			if(col == 0)
-			{
-				border_draw_dsc->side &= ~LV_BORDER_SIDE_LEFT;
-			}
-			if(row == 0)
-			{
-				border_draw_dsc->side &= ~LV_BORDER_SIDE_TOP;
-			}
-		}
-  }
-}
-
 static void feed_box_event_cb(lv_event_t *event)
 {
 	lv_draw_task_t *draw_task = lv_event_get_draw_task(event);
@@ -295,17 +229,14 @@ static lv_obj_t *side_button(lv_obj_t *parent, int32_t y, const void *img, lv_gr
 	lv_obj_t *btn = lv_button_create(parent);
 	lv_obj_set_pos(btn, 0, y);
 	lv_obj_set_size(btn, 50, 50);
-	lv_obj_add_style(btn, &g_styles.button, 0);
+	lv_obj_add_style(btn, &g_styles.button, LV_PART_MAIN);
+	lv_obj_add_style(btn, &g_styles.outline, LV_PART_MAIN | LV_STATE_FOCUSED);
 	WIN9X_BORDER_PART_TWO(btn, shadow_dark);
 
 	lv_obj_t *btn_img = lv_image_create(btn);
 	lv_obj_center(btn_img);
 	lv_image_set_src(btn_img, img);
 	lv_obj_set_style_image_recolor(btn_img, charcoal, LV_PART_MAIN);
-
-	lv_obj_set_style_outline_opa(btn, LV_OPA_COVER, LV_PART_MAIN | LV_STATE_FOCUSED);
-	lv_obj_set_style_outline_color(btn, col_black, LV_PART_MAIN | LV_STATE_FOCUSED);
-	lv_obj_set_style_outline_width(btn, 1, LV_PART_MAIN | LV_STATE_FOCUSED);
 
 	lv_group_add_obj(group, btn);
 
@@ -362,9 +293,7 @@ static void zero_axis(lv_event_t *event)
 
 void style_create_idle_screen()
 {
-	screen = lv_obj_create(NULL);
-	lv_obj_set_style_bg_color(screen, bg_base, LV_PART_MAIN);
-	lv_obj_set_style_text_font(screen, &font_pixel_bold_11pt, LV_PART_MAIN);
+	screen = win9x_screen();
 
 	group = lv_group_create();
 	zero_btn_group = lv_group_create();
@@ -414,7 +343,7 @@ void style_create_idle_screen()
 			lv_obj_set_size(buttons_def, LV_SIZE_CONTENT + 1, LV_SIZE_CONTENT + 1);
 
 			lv_obj_t *btn1 = side_button(buttons_def,  30, &Img_ZeroX, group);
-			lv_obj_add_event_cb(btn1, side_buttons_zero, LV_EVENT_PRESSED, NULL);
+			lv_obj_add_event_cb(btn1, side_buttons_zero, LV_EVENT_CLICKED, NULL);
 
 			lv_obj_t *btn2 = side_button(buttons_def, 115, &Img_Move, group);
 #if MOVEMENT_MENU
@@ -422,11 +351,11 @@ void style_create_idle_screen()
 #else
 			static cb_goto_arg_t btn2_arg = { SYSTEM_MENU_ID_JOG };
 #endif
-			lv_obj_add_event_cb(btn2, lvgl_callback_goto, LV_EVENT_PRESSED, &btn2_arg);
+			lv_obj_add_event_cb(btn2, lvgl_callback_goto, LV_EVENT_CLICKED, &btn2_arg);
 
 			lv_obj_t *btn3 = side_button(buttons_def, 200, &Img_Menu, group);
 			static cb_goto_arg_t btn3_arg = { SYSTEM_MENU_ID_MAIN_MENU };
-			lv_obj_add_event_cb(btn3, lvgl_callback_goto, LV_EVENT_PRESSED, &btn3_arg);
+			lv_obj_add_event_cb(btn3, lvgl_callback_goto, LV_EVENT_CLICKED, &btn3_arg);
 
 			side_buttons_blocks[0] = buttons_def;
 		}
@@ -439,21 +368,21 @@ void style_create_idle_screen()
 
 			lv_obj_t *btn1 = side_button(buttons_zero,  30, &Img_ZeroX, zero_btn_group);
 			static uint8_t x = 0;
-			lv_obj_add_event_cb(btn1, zero_axis, LV_EVENT_PRESSED, &x);
+			lv_obj_add_event_cb(btn1, zero_axis, LV_EVENT_CLICKED, &x);
 
 			lv_obj_t *btn2 = side_button(buttons_zero, 115, &Img_ZeroY, zero_btn_group);
 			static uint8_t y = 1;
-			lv_obj_add_event_cb(btn2, zero_axis, LV_EVENT_PRESSED, &y);
+			lv_obj_add_event_cb(btn2, zero_axis, LV_EVENT_CLICKED, &y);
 
 			lv_obj_t *btn3 = side_button(buttons_zero, 200, &Img_ZeroZ, zero_btn_group);
 			static uint8_t z = 2;
-			lv_obj_add_event_cb(btn3, zero_axis, LV_EVENT_PRESSED, &z);
+			lv_obj_add_event_cb(btn3, zero_axis, LV_EVENT_CLICKED, &z);
 
 			lv_obj_t *back = win9x_button(buttons_zero, "Back");
 			lv_obj_set_width(back, 50);
 			lv_obj_set_pos(back, 0, 285);
 			lv_group_add_obj(zero_btn_group, back);
-			lv_obj_add_event_cb(back, side_buttons_back, LV_EVENT_PRESSED, NULL);
+			lv_obj_add_event_cb(back, side_buttons_back, LV_EVENT_CLICKED, NULL);
 
 			lv_group_focus_obj(btn1);
 			side_buttons_blocks[1] = buttons_zero;
@@ -461,47 +390,16 @@ void style_create_idle_screen()
 	}
 
 	{
-		lv_obj_t *container = lv_obj_create(screen);
+		lv_obj_t *container = win9x_coordinate_table(screen);
 		lv_obj_set_pos(container, 70, 30);
-		lv_obj_set_size(container, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
-
-		lv_obj_set_style_text_font(container, &font_pixel_mono_14pt, LV_PART_MAIN);
-		lv_obj_set_style_text_color(container, col_black, LV_PART_MAIN);
-
-		lv_obj_add_style(container, &g_styles.container, LV_PART_MAIN);
-		WIN9X_BORDER_PART_TWO(container, shadow_light);
-
-		lv_obj_t *table = lv_table_create(container);
-
-		lv_obj_add_style(table, &g_styles.table_item, LV_PART_ITEMS);
-		lv_obj_set_style_align(table, LV_ALIGN_CENTER, LV_PART_ITEMS);
-
-		lv_table_set_column_width(table, 0, 40);
-		lv_table_set_column_width(table, 1, 108);
-		lv_table_set_column_width(table, 2, 108);
-		
-		lv_table_set_cell_value(table, 0, 1, STR_COORD_WORKSPACE_SHORT);
-		lv_table_set_cell_value(table, 0, 2, STR_COORD_MACHINE);
-
-		for(int i = 0; i < 3; ++i)
-		{
-			lv_table_set_cell_value(table, i + 1, 0, axis_labels[i]);
-		}
-
-		lv_obj_add_event_cb(table, coord_box_event_cb, LV_EVENT_DRAW_TASK_ADDED, NULL);
-		lv_obj_add_flag(table, LV_OBJ_FLAG_SEND_DRAW_TASK_EVENTS);
-
-		g_state.coordinate_table = table;
-		update_coordinates();
+		g_state.coordinate_table = container;
 	}
 
 	{
 		lv_obj_t *container = lv_obj_create(screen);
 		lv_obj_set_pos(container, 350, 30);
 		lv_obj_set_size(container, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
-
 		lv_obj_set_style_text_font(container, &font_pixel_mono_14pt, LV_PART_MAIN);
-		lv_obj_set_style_text_color(container, col_black, LV_PART_MAIN);
 
 		lv_obj_add_style(container, &g_styles.container, LV_PART_MAIN);
 		WIN9X_BORDER_PART_TWO(container, shadow_light);
@@ -527,9 +425,7 @@ void style_create_idle_screen()
 		lv_obj_t *container = lv_obj_create(screen);
 		lv_obj_set_pos(container, 350, 110);
 		lv_obj_set_size(container, 110, LV_SIZE_CONTENT);
-
 		lv_obj_set_style_text_font(container, &font_pixel_mono_14pt, LV_PART_MAIN);
-		lv_obj_set_style_text_color(container, col_black, LV_PART_MAIN);
 
 		lv_obj_set_style_pad_all(container, 4, LV_PART_MAIN);
 
@@ -551,7 +447,7 @@ void style_create_idle_screen()
 static void idle_update()
 {
 	update_topbar();
-	update_coordinates();
+	win9x_update_coordinate_table(g_state.coordinate_table);
 	update_feed_spindle();
 	update_state();
 }

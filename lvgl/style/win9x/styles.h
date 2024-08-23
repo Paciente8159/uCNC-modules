@@ -27,7 +27,13 @@ extern "C"
 #include "lvgl.h"
 
 typedef struct _styles {
+	lv_style_t screen;
+
 	lv_style_t button;
+	lv_style_t text_button;
+
+	lv_style_t outline;
+
 	lv_style_t container;
 	lv_style_t table_item;
 } win9x_styles;

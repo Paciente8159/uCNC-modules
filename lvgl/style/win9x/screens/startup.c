@@ -29,7 +29,6 @@ static lv_obj_t *screen;
 void style_create_startup_screen()
 {
 	screen = lv_obj_create(NULL);
-
 	lv_obj_set_style_bg_color(screen, col_black, LV_PART_MAIN);
 
 	lv_obj_t *logo = lv_img_create(screen);

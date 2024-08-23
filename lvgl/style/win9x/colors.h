@@ -28,6 +28,7 @@ extern "C"
 
 const static lv_color_t bg_base = LV_COLOR_MAKE(229, 229, 229);
 const static lv_color_t bg_box = LV_COLOR_MAKE(242, 242, 242);
+const static lv_color_t bg_other = LV_COLOR_MAKE(220, 220, 220);
 
 const static lv_color_t col_black = LV_COLOR_MAKE(0, 0, 0);
 const static lv_color_t col_white = LV_COLOR_MAKE(255, 255, 255);

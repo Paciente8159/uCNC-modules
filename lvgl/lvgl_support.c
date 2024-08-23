@@ -48,9 +48,8 @@ void lvgl_add_indev(indev_list_t *entry)
 	last->next = entry;
 }
 
-static void timer_set_group(lv_timer_t *timer)
+void lvgl_set_indev_group(lv_group_t *group)
 {
-	lv_group_t *group = (lv_group_t*)lv_timer_get_user_data(timer);
 	if(group == NULL)
 		group = action_translator;
 	for(indev_list_t *entry = indev_list; entry != 0; entry = entry->next)
@@ -58,13 +57,16 @@ static void timer_set_group(lv_timer_t *timer)
 		lv_indev_set_group(entry->device, group);
 	}
 	current_group = group;
-}
+	lv_group_set_editing(group, false);
 
-void lvgl_set_indev_group(lv_group_t *group)
-{
-	// Delay group change to prevent encoder from pressing buttons in the new group.
-	lv_timer_t *timer = lv_timer_create(timer_set_group, 250, group);
-	lv_timer_set_repeat_count(timer, 1);
+	if(group != action_translator)
+	{
+		// Force a redraw on group switch since it is most likely
+		// caused by a screen switch and screens with custom groups
+		// might need to be redraw frequently.
+		g_system_menu.flags = SYSTEM_MENU_MODE_REDRAW;
+		system_menu_action_timeout(SYSTEM_MENU_REDRAW_IDLE_MS);
+	}
 }
 
 static void action_translator_cb(lv_event_t *event)
@@ -74,9 +76,6 @@ static void action_translator_cb(lv_event_t *event)
 
 	switch(key)
 	{
-		case LV_KEY_ENTER:
-			action = SYSTEM_MENU_ACTION_SELECT;
-			break;
 		case LV_KEY_LEFT:
 			action = SYSTEM_MENU_ACTION_PREV;
 			break;
@@ -102,6 +101,12 @@ static void action_translator_cb(lv_event_t *event)
 	BUFFER_ENQUEUE(lvgl_action_buffer, &action);
 }
 
+static void action_translator_select_cb(lv_event_t *event)
+{
+	uint8_t action = SYSTEM_MENU_ACTION_SELECT;
+	BUFFER_ENQUEUE(lvgl_action_buffer, &action);
+}
+
 static void action_translator_edge_cb(lv_group_t *group, bool next)
 {
 	uint8_t action = next ? SYSTEM_MENU_ACTION_NEXT : SYSTEM_MENU_ACTION_PREV;
@@ -117,14 +122,24 @@ static uint8_t lvgl_ss_getc(void)
 	return c;
 }
 
-uint8_t lvgl_ss_available(void)
+static uint8_t lvgl_ss_available(void)
 {
 	return BUFFER_READ_AVAILABLE(lvgl_stream_buffer);
 }
 
-void lvgl_ss_clear(void)
+static void lvgl_ss_clear(void)
 {
 	BUFFER_CLEAR(lvgl_stream_buffer);
+}
+
+void lvgl_serial_putc(char c)
+{
+	BUFFER_ENQUEUE(lvgl_stream_buffer, &c);
+}
+
+uint8_t lvgl_serial_write_available()
+{
+	return BUFFER_WRITE_AVAILABLE(lvgl_stream_buffer);
 }
 
 DECL_SERIAL_STREAM(lvgl_stream, lvgl_ss_getc, lvgl_ss_available, lvgl_ss_clear, NULL, NULL);
@@ -257,6 +272,7 @@ DECL_MODULE(lvgl_support)
 	lv_group_add_obj(action_translator, full);
 	lv_group_set_edge_cb(action_translator, action_translator_edge_cb);
 	lv_obj_add_event_cb(full, action_translator_cb, LV_EVENT_KEY, NULL);
+	lv_obj_add_event_cb(full, action_translator_select_cb, LV_EVENT_CLICKED, NULL);
 
 	// Init system menu module
 	system_menu_init();

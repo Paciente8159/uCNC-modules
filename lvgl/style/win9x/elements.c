@@ -8,6 +8,30 @@
 #include "fonts/pixel.h"
 
 #include "bitmaps/checkbox.h"
+#include "bitmaps/dropdown_arrow.h"
+
+lv_obj_t *win9x_screen()
+{
+	lv_obj_t *screen = lv_obj_create(NULL);
+	lv_obj_add_style(screen, &g_styles.screen, LV_PART_MAIN);
+	return screen;
+}
+
+lv_obj_t *win9x_dropdown(lv_obj_t *parent)
+{
+	lv_obj_t *dropdown = lv_dropdown_create(parent);
+
+	lv_obj_add_style(dropdown, &g_styles.container, LV_PART_MAIN);
+	lv_obj_add_style(dropdown, &g_styles.button, LV_PART_INDICATOR);
+	lv_obj_add_style(dropdown, &g_styles.outline, LV_PART_MAIN | LV_STATE_FOCUSED);
+	WIN9X_BORDER_PART_TWO(dropdown, shadow_light);
+
+	lv_obj_set_style_pad_all(dropdown, 2, LV_PART_MAIN);
+
+	lv_dropdown_set_symbol(dropdown, &Img_DropdownArrow);
+
+	return dropdown;
+}
 
 static void radio_list_cb(lv_event_t *event)
 {
@@ -74,30 +98,6 @@ lv_obj_t *win9x_radio_list(lv_obj_t *parent, const char *header, const char **it
 	}
 
 	return root;
-}
-
-lv_obj_t *win9x_button(lv_obj_t *parent, const char *text)
-{
-	lv_obj_t *btn = lv_button_create(parent);
-	lv_obj_add_style(btn, &g_styles.button, LV_PART_MAIN);
-	lv_obj_set_size(btn, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
-	WIN9X_BORDER_PART_TWO(btn, shadow_dark);
-
-	lv_obj_t *label = lv_label_create(btn);
-	lv_label_set_text(label, text);
-	lv_obj_center(label);
-
-	lv_obj_set_style_text_color(label, col_black, LV_PART_MAIN);
-	lv_obj_set_style_text_font(label, &font_pixel_7pt, LV_PART_MAIN);
-
-	lv_obj_set_style_pad_ver(btn, 3, LV_PART_MAIN);
-	lv_obj_set_style_pad_hor(btn, 6, LV_PART_MAIN);
-
-	lv_obj_set_style_outline_opa(btn, LV_OPA_COVER, LV_PART_MAIN | LV_STATE_FOCUSED);
-	lv_obj_set_style_outline_color(btn, col_black, LV_PART_MAIN | LV_STATE_FOCUSED);
-	lv_obj_set_style_outline_width(btn, 1, LV_PART_MAIN | LV_STATE_FOCUSED);
-
-	return btn;
 }
 
 void win9x_two_color_border_draw(lv_event_t *event)

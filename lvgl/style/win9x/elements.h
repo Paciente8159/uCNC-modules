@@ -26,8 +26,19 @@ extern "C"
 
 #include "lvgl.h"
 
+extern lv_obj_t *win9x_screen();
+extern lv_obj_t *win9x_coordinate_table(lv_obj_t *parent);
+extern void win9x_update_coordinate_table(lv_obj_t *coordinate_table);
+
+extern lv_obj_t *win9x_number_input(lv_obj_t *parent);
+
+extern lv_obj_t *win9x_dropdown(lv_obj_t *parent);
+
+extern lv_obj_t *win9x_close_button(lv_obj_t *parent);
 extern lv_obj_t *win9x_radio_list(lv_obj_t *parent, const char *header, const char **items, int item_count, uint8_t *index_ptr);
 extern lv_obj_t *win9x_button(lv_obj_t *parent, const char *text);
+
+extern lv_obj_t *win9x_switch(lv_obj_t *parent);
 
 #define STYLE_LOAD_SCREEN(screen_name) \
 void style_##screen_name() { \
