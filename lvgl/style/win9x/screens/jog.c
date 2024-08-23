@@ -17,7 +17,6 @@
 */
 
 #include "../config.h"
-#include "widgets/dropdown/lv_dropdown.h"
 
 #if defined(GUI_STYLE_WIN9X) && CUSTOM_JOG_MENU
 
