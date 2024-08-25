@@ -113,6 +113,12 @@ lv_obj_t *win9x_coordinate_table(lv_obj_t *parent)
 	return container;
 }
 
+static char *str_ptr;
+static void buf_putc(char c)
+{
+	*str_ptr++ = c;
+}
+
 void win9x_update_coordinate_table(lv_obj_t *coordinate_table)
 {
 	lv_obj_t *table = lv_obj_get_child(coordinate_table, 0);
@@ -129,13 +135,18 @@ void win9x_update_coordinate_table(lv_obj_t *coordinate_table)
 		wpos[i] = mpos[i];
 	parser_machine_to_work(wpos);
 
-	char str[32];
+	char buf[16];
 	for(int i = 0; i < MAX(AXIS_COUNT, 3); ++i)
 	{
-	 	sprintf(str, "%4d.%03d", (int)wpos[i], ABS((int)(wpos[i] * 1000) % 1000));
-		lv_table_set_cell_value(table, i + 1, 1, str);
-		sprintf(str, "%4d.%03d", (int)mpos[i], ABS((int)(mpos[i] * 1000) % 1000));
-		lv_table_set_cell_value(table, i + 1, 2, str);
+		str_ptr = buf;
+		print_flt(buf_putc, wpos[i]);
+		buf_putc(0);
+		lv_table_set_cell_value(table, i + 1, 1, buf);
+
+		str_ptr = buf;
+		print_flt(buf_putc, mpos[i]);
+		buf_putc(0);
+		lv_table_set_cell_value(table, i + 1, 2, buf);
 	}
 }
 
