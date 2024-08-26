@@ -70,7 +70,7 @@ extern "C"
 #if !defined(DETACH_UART2_FROM_MAIN_PROTOCOL) || defined(UART2_DISABLE_BUFFER)
 #error "UART2 needs to be detached from main protocol and must have buffer enable"
 #endif
-#elif (STEPPER0_TMC_INTERFACE == TMC_SPI_HW)
+#elif (STEPPER0_TMC_INTERFACE == TMC_SPI_HW) || (STEPPER0_TMC_INTERFACE == TMC_SPI2_HW)
 #ifndef STEPPER0_SPI_CS
 #define STEPPER0_SPI_CS DOUT12
 #endif 
@@ -143,7 +143,7 @@ extern "C"
 #if !defined(DETACH_UART2_FROM_MAIN_PROTOCOL) || defined(UART2_DISABLE_BUFFER)
 #error "UART2 needs to be detached from main protocol and must have buffer enable"
 #endif
-#elif (STEPPER1_TMC_INTERFACE == TMC_SPI_HW)
+#elif (STEPPER1_TMC_INTERFACE == TMC_SPI_HW) || (STEPPER1_TMC_INTERFACE == TMC_SPI2_HW)
 #ifndef STEPPER1_SPI_CS
 #define STEPPER1_SPI_CS DOUT13
 #endif 
@@ -216,7 +216,7 @@ extern "C"
 #if !defined(DETACH_UART2_FROM_MAIN_PROTOCOL) || defined(UART2_DISABLE_BUFFER)
 #error "UART2 needs to be detached from main protocol and must have buffer enable"
 #endif
-#elif (STEPPER2_TMC_INTERFACE == TMC_SPI_HW)
+#elif (STEPPER2_TMC_INTERFACE == TMC_SPI_HW) || (STEPPER2_TMC_INTERFACE == TMC_SPI2_HW)
 #ifndef STEPPER2_SPI_CS
 #define STEPPER2_SPI_CS DOUT14
 #endif 
@@ -289,7 +289,7 @@ extern "C"
 #if !defined(DETACH_UART2_FROM_MAIN_PROTOCOL) || defined(UART2_DISABLE_BUFFER)
 #error "UART2 needs to be detached from main protocol and must have buffer enable"
 #endif
-#elif (STEPPER3_TMC_INTERFACE == TMC_SPI_HW)
+#elif (STEPPER3_TMC_INTERFACE == TMC_SPI_HW) || (STEPPER3_TMC_INTERFACE == TMC_SPI2_HW)
 #ifndef STEPPER3_SPI_CS
 #define STEPPER3_SPI_CS DOUT15
 #endif 
@@ -362,7 +362,7 @@ extern "C"
 #if !defined(DETACH_UART2_FROM_MAIN_PROTOCOL) || defined(UART2_DISABLE_BUFFER)
 #error "UART2 needs to be detached from main protocol and must have buffer enable"
 #endif
-#elif (STEPPER4_TMC_INTERFACE == TMC_SPI_HW)
+#elif (STEPPER4_TMC_INTERFACE == TMC_SPI_HW) || (STEPPER4_TMC_INTERFACE == TMC_SPI2_HW)
 #ifndef STEPPER4_SPI_CS
 #define STEPPER4_SPI_CS DOUT16
 #endif 
@@ -435,7 +435,7 @@ extern "C"
 #if !defined(DETACH_UART2_FROM_MAIN_PROTOCOL) || defined(UART2_DISABLE_BUFFER)
 #error "UART2 needs to be detached from main protocol and must have buffer enable"
 #endif
-#elif (STEPPER5_TMC_INTERFACE == TMC_SPI_HW)
+#elif (STEPPER5_TMC_INTERFACE == TMC_SPI_HW) || (STEPPER5_TMC_INTERFACE == TMC_SPI2_HW)
 #ifndef STEPPER5_SPI_CS
 #define STEPPER5_SPI_CS DOUT17
 #endif 
@@ -508,7 +508,7 @@ extern "C"
 #if !defined(DETACH_UART2_FROM_MAIN_PROTOCOL) || defined(UART2_DISABLE_BUFFER)
 #error "UART2 needs to be detached from main protocol and must have buffer enable"
 #endif
-#elif (STEPPER6_TMC_INTERFACE == TMC_SPI_HW)
+#elif (STEPPER6_TMC_INTERFACE == TMC_SPI_HW) || (STEPPER6_TMC_INTERFACE == TMC_SPI2_HW)
 #ifndef STEPPER6_SPI_CS
 #define STEPPER6_SPI_CS DOUT18
 #endif 
@@ -581,7 +581,7 @@ extern "C"
 #if !defined(DETACH_UART2_FROM_MAIN_PROTOCOL) || defined(UART2_DISABLE_BUFFER)
 #error "UART2 needs to be detached from main protocol and must have buffer enable"
 #endif
-#elif (STEPPER7_TMC_INTERFACE == TMC_SPI_HW)
+#elif (STEPPER7_TMC_INTERFACE == TMC_SPI_HW) || (STEPPER7_TMC_INTERFACE == TMC_SPI2_HW)
 #ifndef STEPPER7_SPI_CS
 #define STEPPER7_SPI_CS DOUT19
 #endif 
