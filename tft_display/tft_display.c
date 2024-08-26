@@ -122,8 +122,8 @@ static SOFTSPI(tft_spi, TFT_SPI_FREQ, 0, TFT_SPI_MOSI, UNDEF_PIN, TFT_SPI_CLK);
 #error "No driver enabled in lv_conf.h with TFT_LV_DRIVER defined"
 #endif // __DRIVER_SUM
 
-#ifndef TFT_DISPLAY_ROTATION
-#define TFT_DISPLAY_ROTATION LV_DISPLAY_ROTATION_0
+#ifndef TFT_DISPLAY_TOUCH_FLAGS
+#define TFT_DISPLAY_TOUCH_FLAGS 0
 #endif
 
 #ifndef TFT_DISPLAY_FLAGS
@@ -355,20 +355,25 @@ static lv_indev_t *indev;
 
 void tft_touch_read(lv_indev_t *indev, lv_indev_data_t *data)
 {
-	data->point.x = 0;
-	data->point.y = 0;
 	data->state = LV_INDEV_STATE_RELEASED;
-
+	data->point.x = -1;
+	data->point.y = -1;
 	if (touch_screen_is_touching())
 	{
-		touch_screen_get_position(&(data->point.x), &(data->point.y), 127);
-		data->state = LV_INDEV_STATE_PRESSED;
+		uint16_t x, y;
+		touch_screen_get_position(&x, &y);
+		if (x > 0 && x < TFT_H_RES && y > 0 && x < TFT_V_RES)
+		{
+			data->point.x = x;
+			data->point.y = y;
+			data->state = LV_INDEV_STATE_PRESSED;
 #ifdef TFT_TOUCH_DEBUG
-		serial_print_int((uint32_t)data->point.x);
-		serial_putc(';');
-		serial_print_int((uint32_t)data->point.y);
-		serial_putc('\n');
+			serial_print_int((uint32_t)x);
+			serial_putc(';');
+			serial_print_int((uint32_t)y);
+			serial_putc('\n');
 #endif
+		}
 	}
 }
 #endif
@@ -425,7 +430,7 @@ lv_display_t *lvgl_create_display()
 #endif
 
 #if ASSERT_PIN(TFT_TOUCH_CS) && ASSERT_PIN(TFT_TOUCH_DETECT)
-	touch_screen_init(&touch_spi, TFT_DISPLAY_WIDTH, TFT_DISPLAY_HEIGHT, ((uint8_t)TFT_DISPLAY_ROTATION), TFT_TOUCH_CS, TFT_TOUCH_DETECT);
+	touch_screen_init(&touch_spi, TFT_DISPLAY_WIDTH, TFT_DISPLAY_HEIGHT, TFT_DISPLAY_TOUCH_FLAGS, TFT_TOUCH_CS, TFT_TOUCH_DETECT);
 	indev = lv_indev_create();
 	lv_indev_set_type(indev, LV_INDEV_TYPE_POINTER);
 	lv_indev_set_read_cb(indev, tft_touch_read);
