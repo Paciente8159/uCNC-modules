@@ -35,6 +35,14 @@
 /**
  * Display settings
  * **/
+#define TFT_DISPLAY_HW_SPI 0
+#define TFT_DISPLAY_HW_SPI2 1
+#define TFT_DISPLAY_SW_SPI 2
+
+#ifndef TFT_DISPLAY_SPI_INTERFACE
+#define TFT_DISPLAY_SPI_INTERFACE TFT_DISPLAY_HW_SPI
+#endif
+
 #ifndef TFT_DISPLAY_SPI_CS
 #define TFT_DISPLAY_SPI_CS DOUT6
 #endif
@@ -46,12 +54,6 @@
 #endif
 #ifndef TFT_DISPLAY_RST
 #define TFT_DISPLAY_RST DOUT34
-#endif
-#ifndef TFT_DISPLAY_SPI_PORT
-#define TFT_DISPLAY_SPI_PORT mcu_spi_port
-#endif
-#ifndef TFT_DISPLAY_SPI_LOCK
-#define TFT_DISPLAY_SPI_LOCK LISTENER_HWSPI_LOCK
 #endif
 #ifndef TFT_DISPLAY_SPI_FREQ
 #define TFT_DISPLAY_SPI_FREQ 24000000UL
@@ -83,8 +85,19 @@
 #define TFT_SWAP_BIT 8
 #endif
 
+#if (TFT_DISPLAY_SPI_INTERFACE==TFT_DISPLAY_HW_SPI)
+#define TFT_DISPLAY_SPI_PORT mcu_spi_port
+#define TFT_DISPLAY_SPI_LOCK LISTENER_HWSPI_LOCK
 HARDSPI(tft_spi, TFT_DISPLAY_SPI_FREQ, 3, TFT_DISPLAY_SPI_PORT);
 HARDSPI(touch_spi, TFT_DISPLAY_TOUCH_SPI_FREQ, 3, TFT_DISPLAY_SPI_PORT);
+#elif (TFT_DISPLAY_SPI_INTERFACE==TFT_DISPLAY_HW_SPI2)
+#define TFT_DISPLAY_SPI_PORT mcu_spi2_port
+#define TFT_DISPLAY_SPI_LOCK LISTENER_HWSPI2_LOCK
+HARDSPI(tft_spi, TFT_DISPLAY_SPI_FREQ, 3, TFT_DISPLAY_SPI_PORT);
+HARDSPI(touch_spi, TFT_DISPLAY_TOUCH_SPI_FREQ, 3, TFT_DISPLAY_SPI_PORT);
+#elif (TFT_DISPLAY_SPI_INTERFACE==TFT_DISPLAY_SW_SPI)
+#error "nor defined"
+#endif
 // extern void tft_init(void);
 // extern void tft_write(uint16_t x, uint16_t y, uint16_t *data, uint16_t w, uint16_t h);
 static lv_disp_t *disp;
