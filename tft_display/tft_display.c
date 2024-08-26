@@ -88,7 +88,7 @@
  * if the clock is fast enough that delay is not needed.
  */
 #define TFT_CLK_SETTLE_DELAY() // mcu_delay_us(1)
-#endif // TFT_CLK_SETTLE_DELAY
+#endif												 // TFT_CLK_SETTLE_DELAY
 
 #ifdef TFT_SPI_HARDWARE_PORT
 
@@ -122,8 +122,8 @@ static SOFTSPI(tft_spi, TFT_SPI_FREQ, 0, TFT_SPI_MOSI, UNDEF_PIN, TFT_SPI_CLK);
 #error "No driver enabled in lv_conf.h with TFT_LV_DRIVER defined"
 #endif // __DRIVER_SUM
 
-#ifndef TFT_DISPLAY_ROTATION
-#define TFT_DISPLAY_ROTATION LV_DISPLAY_ROTATION_0
+#ifndef TFT_DISPLAY_TOUCH_FLAGS
+#define TFT_DISPLAY_TOUCH_FLAGS 0
 #endif
 
 #ifndef TFT_DISPLAY_FLAGS
@@ -131,16 +131,16 @@ static SOFTSPI(tft_spi, TFT_SPI_FREQ, 0, TFT_SPI_MOSI, UNDEF_PIN, TFT_SPI_CLK);
 #endif
 
 #ifndef LV_USE_ST7735
-#define LV_USE_ST7735		0
+#define LV_USE_ST7735 0
 #endif
 #ifndef LV_USE_ST7789
-#define LV_USE_ST7789		0
+#define LV_USE_ST7789 0
 #endif
 #ifndef LV_USE_ST7796
-#define LV_USE_ST7796		0
+#define LV_USE_ST7796 0
 #endif
 #ifndef LV_USE_ILI9341
-#define LV_USE_ILI9341		0
+#define LV_USE_ILI9341 0
 #endif
 
 #if LV_USE_ST7735
@@ -223,7 +223,7 @@ static void tft_bulk_data(const uint8_t *data, uint16_t len)
 #endif // TFT_SYNC_CS
 
 	softspi_bulk_xmit(&tft_spi, data, 0, len);
-	
+
 	TFT_CLK_SETTLE_DELAY();
 #if TFT_SYNC_CS
 	TFT_RELEASE();
@@ -237,7 +237,7 @@ static void *tx_pixels;
 #ifdef ENABLE_MAIN_LOOP_MODULES
 bool tft_update(void *arg)
 {
-	if(pending_tx)
+	if (pending_tx)
 	{
 		tft_start();
 
@@ -281,14 +281,14 @@ static void lvgl_flush_cb(lv_display_t *display, const lv_area_t *area, uint8_t 
 
 static void lvgl_flush_wait_cb(lv_display_t *display)
 {
-	while(pending_tx)
+	while (pending_tx)
 		cnc_dotasks();
 }
 #else // TFT_LV_DRIVER
 static void lvgl_cmd_cb(lv_display_t *display, const uint8_t *cmd, size_t cmd_size, const uint8_t *param, size_t param_size)
 {
 	// LVGL module doesn't have a lock on its event so we have to check for it here.
-	while(CHECKFLAG(g_module_lockguard, TFT_SPI_LOCK))
+	while (CHECKFLAG(g_module_lockguard, TFT_SPI_LOCK))
 		cnc_dotasks();
 
 	LV_UNUSED(display);
@@ -316,7 +316,7 @@ static void lvgl_cmd_cb(lv_display_t *display, const uint8_t *cmd, size_t cmd_si
 static void lvgl_pixel_cb(lv_display_t *display, const uint8_t *cmd, size_t cmd_size, uint8_t *param, size_t param_size)
 {
 	// LVGL module doesn't have a lock on its event so we have to check for it here.
-	while(CHECKFLAG(g_module_lockguard, TFT_SPI_LOCK))
+	while (CHECKFLAG(g_module_lockguard, TFT_SPI_LOCK))
 		cnc_dotasks();
 
 	LV_UNUSED(display);
@@ -348,6 +348,36 @@ static void lvgl_pixel_cb(lv_display_t *display, const uint8_t *cmd, size_t cmd_
 }
 #endif // !TFT_LV_DRIVER
 
+#if ASSERT_PIN(TFT_TOUCH_CS) && ASSERT_PIN(TFT_TOUCH_DETECT)
+#include "src/modules/touch_screen/touch_screen.h"
+static HARDSPI(touch_spi, 1000000, 0, TFT_SPI_PORT_OBJ);
+static lv_indev_t *indev;
+
+void tft_touch_read(lv_indev_t *indev, lv_indev_data_t *data)
+{
+	data->state = LV_INDEV_STATE_RELEASED;
+	data->point.x = -1;
+	data->point.y = -1;
+	if (touch_screen_is_touching())
+	{
+		uint16_t x, y;
+		touch_screen_get_position(&x, &y);
+		if (x > 0 && x < TFT_H_RES && y > 0 && x < TFT_V_RES)
+		{
+			data->point.x = x;
+			data->point.y = y;
+			data->state = LV_INDEV_STATE_PRESSED;
+#ifdef TFT_TOUCH_DEBUG
+			serial_print_int((uint32_t)x);
+			serial_putc(';');
+			serial_print_int((uint32_t)y);
+			serial_putc('\n');
+#endif
+		}
+	}
+}
+#endif
+
 static uint8_t lvgl_display_buffer[TFT_BUFFER_SIZE];
 
 DECL_MODULE(tft_display)
@@ -363,7 +393,7 @@ DECL_MODULE(tft_display)
 	cnc_delay_ms(150);
 #endif
 
-	spi_config_t conf = { 0 };
+	spi_config_t conf = {0};
 	conf.enable_dma = 1;
 	softspi_config(&tft_spi, conf, TFT_SPI_FREQ);
 }
@@ -387,10 +417,10 @@ lv_display_t *lvgl_create_display()
 #endif // ENABLE_MAIN_LOOP_MODULES
 
 	lvgl_display = lv_display_create(TFT_DISPLAY_WIDTH, TFT_DISPLAY_HEIGHT);
-	lv_display_set_flush_cb(lvgl_display , lvgl_flush_cb);
+	lv_display_set_flush_cb(lvgl_display, lvgl_flush_cb);
 	lv_display_set_flush_wait_cb(lvgl_display, lvgl_flush_wait_cb);
 	lv_display_set_color_format(lvgl_display, LV_COLOR_FORMAT_RGB565);
-#else // TFT_LV_DRIVER
+#else	 // TFT_LV_DRIVER
 	lvgl_display = LV_DISPLAY_CREATE();
 	lv_display_set_rotation(lvgl_display, TFT_DISPLAY_ROTATION);
 #endif // !TFT_LV_DRIVER
@@ -399,10 +429,16 @@ lv_display_t *lvgl_create_display()
 	io_set_output(TFT_BACKLIGHT);
 #endif
 
+#if ASSERT_PIN(TFT_TOUCH_CS) && ASSERT_PIN(TFT_TOUCH_DETECT)
+	touch_screen_init(&touch_spi, TFT_DISPLAY_WIDTH, TFT_DISPLAY_HEIGHT, TFT_DISPLAY_TOUCH_FLAGS, TFT_TOUCH_CS, TFT_TOUCH_DETECT);
+	indev = lv_indev_create();
+	lv_indev_set_type(indev, LV_INDEV_TYPE_POINTER);
+	lv_indev_set_read_cb(indev, tft_touch_read);
+#endif
+
 	// Send the object to LVGL support module
 	lv_display_set_buffers(lvgl_display, lvgl_display_buffer, 0, TFT_BUFFER_SIZE, LV_DISPLAY_RENDER_MODE_PARTIAL);
 	return lvgl_display;
 }
 
 #endif // defined(TFT_SPI_HARDWARE_PORT) || (defined(TFT_SPI_MOSI) && defined(TFT_SPI_CLK))
-
