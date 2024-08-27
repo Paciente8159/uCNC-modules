@@ -25,7 +25,7 @@
 
 #include "tft_display.h"
 #include "src/modules/softspi.h"
-#include "src/modules/lvgl/lvgl_support.h"
+#include "src/modules/lvgl_support/lvgl_support.h"
 
 #if defined(TFT_CS) && ASSERT_PIN(TFT_CS)
 // Clear/set IO pin
