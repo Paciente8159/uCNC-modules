@@ -13,7 +13,13 @@ MKS display module already includes the lvgl library so you don't need to includ
 To use the mks_display module follow these steps:
 
 1. Copy the `mks_display` directory and place it inside the `src/modules/` directory of µCNC. You will need to include the `touch_screen` module to allow using the touch sensor of the screen.
-2. You must choose the communication bus used by the display and the pins used by both the display driver and the touch sensor
+2. Add the LVGL library to `platformio.ini`:
+```
+lib_deps = 
+	lvgl/lvgl@^9.1.0
+```
+3. Also inside the board ini file on `build_flags` add a build flag to set the lv configuration with the path of `lv_conf.h` file like `-DLV_CONF_PATH="/src/modules/mks_display/lv_conf.h"`:
+4. You must choose the communication bus used by the display and the pins used by both the display driver and the touch sensor
 These are the default values:
 
 ```

@@ -8,8 +8,8 @@ extern "C"
 
 #include <stdint.h>
 #include <stdbool.h>
-#include "src/cnc.h"
-#include "src/modules/softspi.h"
+#include "../../cnc.h"
+#include "../softspi.h"
 
 /**
  * Parameters for calibration.
