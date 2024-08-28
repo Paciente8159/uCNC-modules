@@ -70,7 +70,7 @@ bool m42_exec(void *args)
 			return EVENT_HANDLED;
 		}
 
-		if (ptr->words->p >= PWM_PINS_OFFSET && ptr->words->p < (DOUT_PINS_OFFSET + 32))
+		if (ptr->words->p >= PWM_PINS_OFFSET && ptr->words->p < (DOUT_PINS_OFFSET + 50))
 		{
 			io_set_pinvalue(ptr->words->p, (uint8_t)CLAMP(0, ptr->words->s, 255));
 		}
