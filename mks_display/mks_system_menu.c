@@ -20,13 +20,13 @@
 #include <stdbool.h>
 #include <string.h>
 #include <math.h>
-#include "src/cnc.h"
-#include "src/modules/system_menu.h"
-#include "src/modules/softspi.h"
-#include "lvgl/lvgl.h"
-#include "lvgl/src/drivers/display/st7796/lv_st7796.h"
+#include "../../cnc.h"
+#include "../system_menu.h"
+#include "../softspi.h"
+#include "lvgl.h"
+#include "drivers/display/st7796/lv_st7796.h"
 #include "ui/ui.h"
-#include "src/modules/touch_screen/touch_screen.h"
+#include "../touch_screen/touch_screen.h"
 
 #ifndef MAX_TFT_LINES
 #define MAX_TFT_LINES 6

@@ -18,7 +18,13 @@ To use the mks_display module follow these steps:
 lib_deps = 
 	lvgl/lvgl@^9.1.0
 ```
-3. Also inside the board ini file on `build_flags` add a build flag to set the lv configuration with the path of `lv_conf.h` file like `-DLV_CONF_PATH="/src/modules/mks_display/lv_conf.h"`:
+3. Add a build flag (`-DLV_CONF_PATH`) in `platformio.ini`:
+```
+[common]
+build_flags = 
+	${webconfig.build_flags}
+  -DLV_CONF_PATH="${platformio.include_dir}/src/modules/mks_display/lv_conf.h"
+```
 4. You must choose the communication bus used by the display and the pins used by both the display driver and the touch sensor
 These are the default values:
 

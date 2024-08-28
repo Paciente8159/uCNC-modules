@@ -33,7 +33,8 @@ lib_deps =
 6. Add a build flag (`-DLV_CONF_PATH`) in `platformio.ini`:
 ```
 [common]
-build_flags = -std=gnu99 -Wall -fdata-sections -ffunction-sections -fno-exceptions -Wl,--gc-sections
-  -DLV_CONF_PATH="${platformio.include_dir}/src/modules/lvgl/lv_conf.h"
+build_flags = 
+	${webconfig.build_flags}
+  -DLV_CONF_PATH="${platformio.include_dir}/src/modules/lvgl_support/lv_conf.h"
 ```
 
