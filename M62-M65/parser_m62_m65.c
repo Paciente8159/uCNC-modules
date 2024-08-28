@@ -96,9 +96,9 @@ bool m62_m65_exec(void *args)
 
 		*(ptr->error) = STATUS_INVALID_STATEMENT;.
 
-		// pins 32-63 will be reserved
+		// pins 50-63 will be reserved
 
-		if (ptr->words->p < 32)
+		if (ptr->words->p < 50)
 		{
 			io_set_pinvalue(ptr->words->p + DOUT_PINS_OFFSET, pinstate);
 			*(ptr->error) = STATUS_OK;
