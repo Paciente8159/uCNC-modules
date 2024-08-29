@@ -65,7 +65,7 @@ extern "C"
 
 	void touch_screen_init(softspi_port_t *spiport, uint16_t width, uint16_t height, uint8_t flags, uint8_t cs_pin, uint8_t penirq_pin)
 	{
-		spi_config_t conf = {0};
+		spi_config_t conf = spiport->spiconfig;
 		touch_spi = spiport;
 #ifdef TOUCH_SCREEN_SPI_FREQ
 		softspi_config(touch_spi, conf, TOUCH_SCREEN_SPI_FREQ);
