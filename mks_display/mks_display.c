@@ -44,16 +44,16 @@
 #endif
 
 #ifndef TFT_DISPLAY_SPI_CS
-#define TFT_DISPLAY_SPI_CS DOUT6
+#define TFT_DISPLAY_SPI_CS DOUT32
 #endif
 #ifndef TFT_DISPLAY_SPI_DC
-#define TFT_DISPLAY_SPI_DC DOUT32
+#define TFT_DISPLAY_SPI_DC DOUT33
 #endif
 #ifndef TFT_DISPLAY_BKL
-#define TFT_DISPLAY_BKL DOUT33
+#define TFT_DISPLAY_BKL DOUT34
 #endif
 #ifndef TFT_DISPLAY_RST
-#define TFT_DISPLAY_RST DOUT34
+#define TFT_DISPLAY_RST DOUT35
 #endif
 #ifndef TFT_DISPLAY_SPI_FREQ
 #define TFT_DISPLAY_SPI_FREQ 24000000UL
@@ -67,6 +67,12 @@
 #ifndef TFT_V_RES
 #define TFT_V_RES 480
 #endif
+#ifndef TFT_FLAGS
+#define TFT_FLAGS LV_LCD_FLAG_BGR
+#endif
+#ifndef TFT_ROTATION
+#define TFT_ROTATION LV_DISPLAY_ROTATION_270
+#endif
 
 /**
  * Touch screen sensor
@@ -75,30 +81,37 @@
 #define TFT_DISPLAY_TOUCH_SPI_FREQ 1000000UL
 #endif
 #ifndef TFT_DISPLAY_TOUCH_CS
-#define TFT_DISPLAY_TOUCH_CS DOUT35
+#define TFT_DISPLAY_TOUCH_CS DOUT36
 #endif
 #ifndef TFT_DISPLAY_TOUCH_IRQ_PRESS
-#define TFT_DISPLAY_TOUCH_IRQ_PRESS DIN35
+#define TFT_DISPLAY_TOUCH_IRQ_PRESS DIN36
+#endif
+#ifndef TFT_DISPLAY_TOUCH_FLAGS
+#if TFT_ROTATION == LV_DISPLAY_ROTATION_90
+#define TFT_DISPLAY_TOUCH_FLAGS 0
+#elif TFT_ROTATION == LV_DISPLAY_ROTATION_270
+#define TFT_DISPLAY_TOUCH_FLAGS (TOUCH_INVERT_X | TOUCH_INVERT_Y)
+#endif
 #endif
 
 // set 0 to disable
 // set 8 to perform a byte swap
 // other values for custom bit swaping
 #ifndef TFT_SWAP_BIT
-#define TFT_SWAP_BIT 8
+#define TFT_SWAP_BIT 0
 #endif
 
-#if (TFT_DISPLAY_SPI_INTERFACE==HW_SPI)
+#if (TFT_DISPLAY_SPI_INTERFACE == HW_SPI)
 #define TFT_DISPLAY_SPI_PORT mcu_spi_port
 #define TFT_DISPLAY_SPI_LOCK LISTENER_HWSPI_LOCK
 HARDSPI(tft_spi, TFT_DISPLAY_SPI_FREQ, TFT_DISPLAY_SPI_MODE, TFT_DISPLAY_SPI_PORT);
 HARDSPI(touch_spi, TFT_DISPLAY_TOUCH_SPI_FREQ, TFT_DISPLAY_SPI_MODE, TFT_DISPLAY_SPI_PORT);
-#elif (TFT_DISPLAY_SPI_INTERFACE==HW_SPI2)
+#elif (TFT_DISPLAY_SPI_INTERFACE == HW_SPI2)
 #define TFT_DISPLAY_SPI_PORT mcu_spi2_port
 #define TFT_DISPLAY_SPI_LOCK LISTENER_HWSPI2_LOCK
 HARDSPI(tft_spi, TFT_DISPLAY_SPI_FREQ, TFT_DISPLAY_SPI_MODE, TFT_DISPLAY_SPI_PORT);
 HARDSPI(touch_spi, TFT_DISPLAY_TOUCH_SPI_FREQ, TFT_DISPLAY_SPI_MODE, TFT_DISPLAY_SPI_PORT);
-#elif (TFT_DISPLAY_SPI_INTERFACE==SW_SPI)
+#elif (TFT_DISPLAY_SPI_INTERFACE == SW_SPI)
 #ifndef TFT_DISPLAY_SPI_CLOCK
 #define TFT_DISPLAY_SPI_CLOCK DOUT29
 #endif
@@ -117,7 +130,9 @@ SOFTSPI(touch_spi, TFT_DISPLAY_TOUCH_SPI_FREQ, TFT_DISPLAY_SPI_MODE, TFT_DISPLAY
 // extern void tft_write(uint16_t x, uint16_t y, uint16_t *data, uint16_t w, uint16_t h);
 static lv_disp_t *disp;
 static lv_indev_t *indev;
+#ifdef TFT_DISPLAY_ENABLE_TOUCH_DEBUG
 static lv_obj_t *cursor_obj;
+#endif
 
 // buffer
 #define SCREENBUFFER_SIZE_PIXELS (TFT_H_RES * TFT_V_RES / 20)
@@ -153,8 +168,25 @@ static void tft_send_cmd(lv_display_t *display, const uint8_t *cmd, size_t cmd_s
 	lv_display_flush_ready(display);
 }
 
+#ifdef TFT_DISPLAY_SWAP_BIT_TEST_MODE
+#undef TFT_SWAP_BIT
+#define TFT_SWAP_BIT p
+#endif
+
 static FORCEINLINE void swap_colors(uint16_t *buff, size_t pixel_count)
 {
+#ifdef TFT_DISPLAY_SWAP_BIT_TEST_MODE
+	static uint32_t t = 0;
+	static uint8_t p = 0;
+	if (t < mcu_millis())
+	{
+		t = mcu_millis() + 2000;
+		p = (p + 1) & 0xF;
+		serial_print_int(p);
+		serial_putc('\n');
+		// lv_obj_invalidate(lv_scr_act());
+	}
+#endif
 	while (pixel_count--)
 	{
 		uint16_t pixel = *buff;
@@ -183,12 +215,10 @@ static void tft_send_color(lv_display_t *display, const uint8_t *cmd, size_t cmd
 	softspi_start(&tft_spi);
 /* for short data blocks we use polling transfer */
 // fix color swap
-#if TFT_SWAP_BIT == 8
-	lv_draw_sw_rgb565_swap(param, param_size >> 1);
-#elif TFT_SWAP_BIT != 0
+#if (TFT_SWAP_BIT != 0) || defined(TFT_DISPLAY_SWAP_BIT_TEST_MODE)
 	swap_colors((uint16_t *)param, param_size >> 1);
 #endif
-			softspi_bulk_xmit(&tft_spi, param, NULL, (uint16_t)param_size);
+	softspi_bulk_xmit(&tft_spi, param, NULL, (uint16_t)param_size);
 	/* CS high */
 	io_set_output(TFT_DISPLAY_SPI_CS);
 	softspi_stop(&tft_spi);
@@ -218,6 +248,13 @@ void tft_touch_read(lv_indev_t *indev, lv_indev_data_t *data)
 	{
 		uint16_t x, y;
 		touch_screen_get_position(&x, &y);
+#ifdef TFT_DISPLAY_ENABLE_TOUCH_DEBUG
+		serial_print_str("Touch X: ");
+		serial_print_int(x);
+		serial_print_str(" Touch Y: ");
+		serial_print_int(y);
+		serial_putc('\n');
+#endif
 		if (x > 0 && x < TFT_H_RES && y > 0 && x < TFT_V_RES)
 		{
 			data->point.x = x;
@@ -257,15 +294,29 @@ bool mks_display_start(void *args)
 {
 	if (!disp)
 	{
+#ifndef TFT_DISPLAY_BKL_INVERT
 		io_clear_output(TFT_DISPLAY_BKL);
 		cnc_delay_ms(50);
 		io_set_output(TFT_DISPLAY_BKL);
+#else
+		io_set_output(TFT_DISPLAY_BKL);
+		cnc_delay_ms(50);
+		io_clear_output(TFT_DISPLAY_BKL);
+#endif
 #if ASSERT_PIN(TFT_DISPLAY_RST)
+#ifndef TFT_DISPLAY_RST_INVERT
 		io_set_output(TFT_DISPLAY_RST);
 		cnc_delay_ms(100);
 		io_clear_output(TFT_DISPLAY_RST);
 		cnc_delay_ms(100);
 		io_set_output(TFT_DISPLAY_RST);
+#else
+		io_clear_output(TFT_DISPLAY_RST);
+		cnc_delay_ms(100);
+		io_set_output(TFT_DISPLAY_RST);
+		cnc_delay_ms(100);
+		io_clear_output(TFT_DISPLAY_RST);
+#endif
 #endif
 		io_set_output(TFT_DISPLAY_SPI_DC);
 		io_set_output(TFT_DISPLAY_SPI_CS);
@@ -273,8 +324,8 @@ bool mks_display_start(void *args)
 		// tft_init();
 
 		// disp = lv_display_create(TFT_H_RES, TFT_V_RES);
-		disp = lv_st7796_create(TFT_H_RES, TFT_V_RES, LV_LCD_FLAG_BGR, tft_send_cmd, tft_send_color);
-		lv_display_set_rotation(disp, LV_DISPLAY_ROTATION_90);
+		disp = lv_st7796_create(TFT_H_RES, TFT_V_RES, TFT_FLAGS, tft_send_cmd, tft_send_color);
+		lv_display_set_rotation(disp, TFT_ROTATION);
 		// lv_display_set_flush_cb(disp, tft_flush_cb);
 		// lv_log_register_print_cb(tft_log);
 
@@ -283,16 +334,19 @@ bool mks_display_start(void *args)
 #if ASSERT_PIN(TFT_DISPLAY_TOUCH_CS)
 		spi_config_t config = {0};
 		softspi_config(&touch_spi, config, TFT_DISPLAY_TOUCH_SPI_FREQ);
-		touch_screen_init(&touch_spi, TFT_H_RES, TFT_V_RES, 0, TFT_DISPLAY_TOUCH_CS, TFT_DISPLAY_TOUCH_IRQ_PRESS);
+		touch_screen_init(&touch_spi, TFT_H_RES, TFT_V_RES, TFT_DISPLAY_TOUCH_FLAGS, TFT_DISPLAY_TOUCH_CS, TFT_DISPLAY_TOUCH_IRQ_PRESS);
 		indev = lv_indev_create();
 		lv_indev_set_type(indev, LV_INDEV_TYPE_POINTER);
 		lv_indev_set_read_cb(indev, tft_touch_read);
 #else
 #warning "No input device selected. You will not be able to interact with the menus."
 #endif
-		// cursor_obj = lv_image_create(lv_screen_active());		 /*Create an image object for the cursor */
-		// lv_image_set_src(cursor_obj, &ui_img_checkmark_png); /*Set the image source*/
-		// lv_indev_set_cursor(indev, cursor_obj);
+
+#ifdef TFT_DISPLAY_ENABLE_TOUCH_DEBUG
+		cursor_obj = lv_image_create(lv_screen_active());		 /*Create an image object for the cursor */
+		lv_image_set_src(cursor_obj, &ui_img_checkmark_png); /*Set the image source*/
+		lv_indev_set_cursor(indev, cursor_obj);
+#endif
 
 		ui_init();
 
@@ -359,6 +413,23 @@ extern void system_menu_render_jog(uint8_t flags);
 
 DECL_MODULE(mks_display)
 {
+
+#if ASSERT_PIN(TFT_DISPLAY_SPI_CS)
+	io_hal_config_output(TFT_DISPLAY_SPI_CS);
+#endif
+#if ASSERT_PIN(TFT_DISPLAY_SPI_DC)
+	io_hal_config_output(TFT_DISPLAY_SPI_DC);
+#endif
+#if ASSERT_PIN(TFT_DISPLAY_BKL)
+	io_hal_config_output(TFT_DISPLAY_BKL);
+#endif
+#if ASSERT_PIN(TFT_DISPLAY_RST)
+	io_hal_config_output(TFT_DISPLAY_RST);
+#endif
+#if ASSERT_PIN(TFT_DISPLAY_TOUCH_CS)
+	io_hal_config_output(TFT_DISPLAY_TOUCH_CS);
+#endif
+
 #ifdef DECL_SERIAL_STREAM
 	serial_stream_register(&mks_display_stream);
 #endif
