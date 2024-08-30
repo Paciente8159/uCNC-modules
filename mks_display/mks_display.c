@@ -70,6 +70,9 @@
 #ifndef TFT_FLAGS
 #define TFT_FLAGS LV_LCD_FLAG_BGR
 #endif
+#ifndef TFT_ROTATION
+#define TFT_ROTATION LV_DISPLAY_ROTATION_270
+#endif
 
 /**
  * Touch screen sensor
@@ -84,7 +87,11 @@
 #define TFT_DISPLAY_TOUCH_IRQ_PRESS DIN36
 #endif
 #ifndef TFT_DISPLAY_TOUCH_FLAGS
+#if TFT_ROTATION == LV_DISPLAY_ROTATION_90
 #define TFT_DISPLAY_TOUCH_FLAGS 0
+#elif TFT_ROTATION == LV_DISPLAY_ROTATION_270
+#define TFT_DISPLAY_TOUCH_FLAGS (TOUCH_INVERT_X | TOUCH_INVERT_Y)
+#endif
 #endif
 
 // set 0 to disable
@@ -287,15 +294,29 @@ bool mks_display_start(void *args)
 {
 	if (!disp)
 	{
+#ifndef TFT_DISPLAY_BKL_INVERT
 		io_clear_output(TFT_DISPLAY_BKL);
 		cnc_delay_ms(50);
 		io_set_output(TFT_DISPLAY_BKL);
+#else
+		io_set_output(TFT_DISPLAY_BKL);
+		cnc_delay_ms(50);
+		io_clear_output(TFT_DISPLAY_BKL);
+#endif
 #if ASSERT_PIN(TFT_DISPLAY_RST)
+#ifndef TFT_DISPLAY_RST_INVERT
 		io_set_output(TFT_DISPLAY_RST);
 		cnc_delay_ms(100);
 		io_clear_output(TFT_DISPLAY_RST);
 		cnc_delay_ms(100);
 		io_set_output(TFT_DISPLAY_RST);
+#else
+		io_clear_output(TFT_DISPLAY_RST);
+		cnc_delay_ms(100);
+		io_set_output(TFT_DISPLAY_RST);
+		cnc_delay_ms(100);
+		io_clear_output(TFT_DISPLAY_RST);
+#endif
 #endif
 		io_set_output(TFT_DISPLAY_SPI_DC);
 		io_set_output(TFT_DISPLAY_SPI_CS);
@@ -304,7 +325,7 @@ bool mks_display_start(void *args)
 
 		// disp = lv_display_create(TFT_H_RES, TFT_V_RES);
 		disp = lv_st7796_create(TFT_H_RES, TFT_V_RES, TFT_FLAGS, tft_send_cmd, tft_send_color);
-		lv_display_set_rotation(disp, LV_DISPLAY_ROTATION_270);
+		lv_display_set_rotation(disp, TFT_ROTATION);
 		// lv_display_set_flush_cb(disp, tft_flush_cb);
 		// lv_log_register_print_cb(tft_log);
 
