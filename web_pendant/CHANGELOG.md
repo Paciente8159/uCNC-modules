@@ -5,6 +5,10 @@ This is available for MCU's that support WiFi.
 
 ## Changelog
 
+### 2024-08-31
+
+- fixed stream buffer enqueue call
+
 ### 2024-02-10
 
 - replaced ajax call by websockets

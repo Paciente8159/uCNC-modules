@@ -92,8 +92,7 @@ bool web_pendant_ws_receive(void *args)
 						c = OVF;
 					}
 
-					*(BUFFER_NEXT_FREE(web_pendant_rx)) = c;
-					BUFFER_STORE(web_pendant_rx);
+					BUFFER_ENQUEUE(web_pendant_rx, &c);
 				}
 			}
 		}
