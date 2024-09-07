@@ -94,7 +94,7 @@ bool m62_m65_exec(void *args)
 			break;
 		}
 
-		*(ptr->error) = STATUS_INVALID_STATEMENT;.
+		*(ptr->error) = STATUS_INVALID_STATEMENT;
 
 		// pins 50-63 will be reserved
 
