@@ -235,6 +235,7 @@ DECL_MODULE(i2c_eeprom)
 	{
 		// error prevents initialization
 		protocol_send_feedback(__romstr__("External EEPROM initialization error"));
+		return;
 	}
 
 #ifdef ENABLE_SETTINGS_MODULES
