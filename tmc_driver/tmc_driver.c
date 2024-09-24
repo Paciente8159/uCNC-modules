@@ -126,7 +126,7 @@
 // UART
 #define TMC1_STEPPER_DECL(CHANNEL) SOFTUART(tmc##CHANNEL##_uart, STEPPER##CHANNEL##_BAUDRATE, STEPPER##CHANNEL##_UART_TX, STEPPER##CHANNEL##_UART_RX);
 // SPI
-#define TMC2_STEPPER_DECL(CHANNEL) SOFTSPI(tmc##CHANNEL##_spi, 1000000UL, 0, STEPPER##CHANNEL##_SPI_DO, STEPPER##CHANNEL##_SPI_DI, STEPPER##CHANNEL##_SPI_CLK);
+#define TMC2_STEPPER_DECL(CHANNEL) SOFTSPI(tmc##CHANNEL##_spi, 1000000UL, 0, STEPPER##CHANNEL##_SPI_SDO, STEPPER##CHANNEL##_SPI_SDI, STEPPER##CHANNEL##_SPI_CLK);
 // ONEWIRE
 #define TMC3_STEPPER_DECL(CHANNEL) ONEWIRE(tmc##CHANNEL##_uart, STEPPER##CHANNEL##_BAUDRATE, STEPPER##CHANNEL##_UART_RX);
 // UART2_HW
@@ -287,37 +287,37 @@ static bool mcodes_parse_words(gcode_parse_args_t *ptr)
 {
 	switch (ptr->word)
 	{
-#ifndef AXIS_X
+#ifdef AXIS_X
 	case 'X':
 		ptr->cmd->words |= GCODE_WORD_X;
 		ptr->words->xyzabc[0] = ptr->value;
 		break;
 #endif
-#ifndef AXIS_Y
+#ifdef AXIS_Y
 	case 'Y':
 		ptr->cmd->words |= GCODE_WORD_Y;
 		ptr->words->xyzabc[1] = ptr->value;
 		break;
 #endif
-#ifndef AXIS_Z
+#ifdef AXIS_Z
 	case 'Z':
 		ptr->cmd->words |= GCODE_WORD_Z;
 		ptr->words->xyzabc[2] = ptr->value;
 		break;
 #endif
-#ifndef AXIS_A
+#ifdef AXIS_A
 	case 'A':
 		ptr->cmd->words |= GCODE_WORD_A;
 		ptr->words->xyzabc[3] = ptr->value;
 		break;
 #endif
-#ifndef AXIS_B
+#ifdef AXIS_B
 	case 'B':
 		ptr->cmd->words |= GCODE_WORD_B;
 		ptr->words->xyzabc[4] = ptr->value;
 		break;
 #endif
-#ifndef AXIS_C
+#ifdef AXIS_C
 	case 'C':
 		ptr->cmd->words |= GCODE_WORD_C;
 		ptr->words->xyzabc[5] = ptr->value;
