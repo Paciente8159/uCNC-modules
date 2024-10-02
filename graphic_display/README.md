@@ -21,65 +21,28 @@ LOAD_MODULE(graphic_display);
 These are the default values
 
 ```
-/**
- * Display settings
- * **/
- // the display SPI CS pin
-#ifndef TFT_DISPLAY_SPI_CS
-#define TFT_DISPLAY_SPI_CS DOUT6
-#endif
- // the display SPI DC pin
-#ifndef TFT_DISPLAY_SPI_DC
-#define TFT_DISPLAY_SPI_DC DOUT32
-#endif
- // the display SPI Backlight pin
-#ifndef TFT_DISPLAY_BKL
-#define TFT_DISPLAY_BKL DOUT33
-#endif
- // the display SPI Reset pin
-#ifndef TFT_DISPLAY_RST
-#define TFT_DISPLAY_RST DOUT34
-#endif
- // the display SPI HW port (SPI or SPI2)
-#ifndef TFT_DISPLAY_SPI_PORT
-#define TFT_DISPLAY_SPI_PORT mcu_spi_port
-#endif
- // the display SPI HW port resource lock (SPI or SPI2)
-#ifndef TFT_DISPLAY_SPI_LOCK
-#define TFT_DISPLAY_SPI_LOCK LISTENER_HWSPI_LOCK
-#endif
- // the display SPI frequency
-#ifndef TFT_DISPLAY_SPI_FREQ
-#define TFT_DISPLAY_SPI_FREQ 24000000UL
-#endif
- // the display resolution
-#ifndef TFT_H_RES
-#define TFT_H_RES 320
-#endif
-#ifndef TFT_V_RES
-#define TFT_V_RES 480
-#endif
+// choose the communication interface
+#define GRAPHIC_DISPLAY_INTERFACE GRAPHIC_DISPLAY_HW_SPI /* or GRAPHIC_DISPLAY_HW_I2C or GRAPHIC_DISPLAY_SW_SPI or GRAPHIC_DISPLAY_SW_I2C */
+// choose one of the available display drivers
+#define GRAPHIC_DISPLAY_DRIVER st7920_128x64_spi
 
-/**
- * Touch screen sensor
- * * */
-#ifndef TFT_DISPLAY_TOUCH_SPI_FREQ
-#define TFT_DISPLAY_TOUCH_SPI_FREQ 1000000UL
+#ifndef GRAPHIC_DISPLAY_SPI_CLOCK
+#define GRAPHIC_DISPLAY_SPI_CLOCK DOUT4
 #endif
-// touch sensor SPI CS pin
-#ifndef TFT_DISPLAY_TOUCH_CS
-#define TFT_DISPLAY_TOUCH_CS DOUT35
+#ifndef GRAPHIC_DISPLAY_SPI_MOSI
+#define GRAPHIC_DISPLAY_SPI_MOSI DOUT5
 #endif
-// touch sensor pressure detection pin (optional)
-#ifndef TFT_DISPLAY_TOUCH_IRQ_PRESS
-#define TFT_DISPLAY_TOUCH_IRQ_PRESS DIN35
+#ifndef GRAPHIC_DISPLAY_SPI_CS
+#define GRAPHIC_DISPLAY_SPI_CS DOUT6
 #endif
-
-// set 0 to disable
-// set 8 to perform a byte swap
-// other values for custom bit swaping
-#ifndef TFT_SWAP_BIT
-#define TFT_SWAP_BIT 8
+#ifndef GRAPHIC_DISPLAY_ENCODER_BTN
+#define GRAPHIC_DISPLAY_ENCODER_BTN DIN11
+#endif
+#ifndef GRAPHIC_DISPLAY_ENCODER_ENC1
+#define GRAPHIC_DISPLAY_ENCODER_ENC1 DIN12
+#endif
+#ifndef GRAPHIC_DISPLAY_ENCODER_ENC2
+#define GRAPHIC_DISPLAY_ENCODER_ENC2 DIN13
 #endif
 ```
 
