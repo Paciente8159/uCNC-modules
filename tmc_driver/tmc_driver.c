@@ -287,37 +287,37 @@ static bool mcodes_parse_words(gcode_parse_args_t *ptr)
 {
 	switch (ptr->word)
 	{
-#ifdef AXIS_X
+#ifndef AXIS_X
 	case 'X':
 		ptr->cmd->words |= GCODE_WORD_X;
 		ptr->words->xyzabc[0] = ptr->value;
 		break;
 #endif
-#ifdef AXIS_Y
+#ifndef AXIS_Y
 	case 'Y':
 		ptr->cmd->words |= GCODE_WORD_Y;
 		ptr->words->xyzabc[1] = ptr->value;
 		break;
 #endif
-#ifdef AXIS_Z
+#ifndef AXIS_Z
 	case 'Z':
 		ptr->cmd->words |= GCODE_WORD_Z;
 		ptr->words->xyzabc[2] = ptr->value;
 		break;
 #endif
-#ifdef AXIS_A
+#ifndef AXIS_A
 	case 'A':
 		ptr->cmd->words |= GCODE_WORD_A;
 		ptr->words->xyzabc[3] = ptr->value;
 		break;
 #endif
-#ifdef AXIS_B
+#ifndef AXIS_B
 	case 'B':
 		ptr->cmd->words |= GCODE_WORD_B;
 		ptr->words->xyzabc[4] = ptr->value;
 		break;
 #endif
-#ifdef AXIS_C
+#ifndef AXIS_C
 	case 'C':
 		ptr->cmd->words |= GCODE_WORD_C;
 		ptr->words->xyzabc[5] = ptr->value;
