@@ -240,13 +240,17 @@ fs_file_t *sd_fs_open(const char *file, const char *mode)
 	}
 	if (strchr(mode, 'w'))
 	{
-		modebyte |= FA_WRITE;
+		modebyte |= FA_CREATE_ALWAYS | FA_WRITE;
 	}
 	if (strchr(mode, 'a'))
 	{
-		modebyte |= FA_OPEN_APPEND;
+		modebyte |= FA_OPEN_APPEND | FA_WRITE;
 	}
 	if (strchr(mode, '+'))
+	{
+		modebyte |= FA_READ | FA_WRITE;
+	}
+	if (strchr(mode, 'x'))
 	{
 		modebyte |= FA_CREATE_NEW;
 	}
