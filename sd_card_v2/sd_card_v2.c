@@ -199,7 +199,8 @@ bool sd_fs_finfo(const char *path, fs_file_info_t *finfo)
 	memset(finfo, 0, sizeof(fs_file_info_t));
 
 	// root dir
-	if(strlen(path)<2){
+	if (strlen(path) < 2)
+	{
 		strcpy(finfo->full_name, "/");
 		finfo->is_dir = true;
 		return true;
@@ -222,12 +223,6 @@ fs_file_t *sd_fs_open(const char *file, const char *mode)
 
 	if (!fp)
 	{
-		return NULL;
-	}
-
-	if (!sd_fs_finfo(file, &(fp->file_info)))
-	{
-		free(fp);
 		return NULL;
 	}
 
@@ -262,6 +257,8 @@ fs_file_t *sd_fs_open(const char *file, const char *mode)
 		free(fp);
 		return NULL;
 	}
+
+	sd_fs_finfo(file, &(fp->file_info));
 
 	return fp;
 }
@@ -594,7 +591,7 @@ CREATE_EVENT_LISTENER_WITHLOCK(grbl_cmd, sd_card_cmd_parser, SD_CARD_BUS_LOCK);
 
 DECL_MODULE(sd_card_v2)
 {
-	//starts the file system and system commands
+	// starts the file system and system commands
 	LOAD_MODULE(file_system);
 	// STARTS SYSTEM MENU MODULE
 	LOAD_MODULE(system_menu);
