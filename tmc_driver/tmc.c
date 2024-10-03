@@ -321,7 +321,7 @@ static void tmc22xx_init(tmc_driver_t *driver)
 	chopconf.toff = 4;		 // toff
 	chopconf.hend = (2 + 3); // hend
 	chopconf.hstrt = (1 - 1);
-	tmc_write_register(driver, CHOPCONF, gconf.sr);
+	tmc_write_register(driver, CHOPCONF, chopconf.sr);
 }
 
 void tmc_init(tmc_driver_t *driver, tmc_driver_setting_t *settings)
