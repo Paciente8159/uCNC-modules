@@ -153,11 +153,7 @@ bool mmcsd_response(uint8_t *result, uint16_t len, uint8_t token)
 	}
 
 	memset(result, 0xFF, len);
-	uint32_t s = mcu_micros();
 	softspi_bulk_xmit(SD_SPI_PORT, result, result, len);
-	uint32_t e = mcu_micros();
-	serial_print_int((e - s));
-	serial_print_str("us\n");
 
 	// discard CRC
 	softspi_xmit(SD_SPI_PORT, 0xFF);

@@ -7,7 +7,11 @@ This version uses FatFs. PetitFs might be implemented in the future
 
 ## Changelog
 
-### 2023-07-04
+### 2024-10-03
+
+- fixed file open/create if file does not exist (#77)
+
+### 2024-07-04
 
 - modified softspi interface to match improved softspi core module (#56)
 
