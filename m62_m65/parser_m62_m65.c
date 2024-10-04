@@ -66,7 +66,7 @@ bool m62_m65_exec(void *args)
 {
 	gcode_exec_args_t *ptr = (gcode_exec_args_t *)args;
 
-	if (ptr->cmd->group_extended >= 62 && ptr->cmd->group_extended <= 65)
+	if (ptr->cmd->group_extended >= M62 && ptr->cmd->group_extended <= M65)
 	{
 		if (!CHECKFLAG(ptr->cmd->words, GCODE_WORD_P))
 		{

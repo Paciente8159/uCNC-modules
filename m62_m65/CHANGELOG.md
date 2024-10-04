@@ -4,6 +4,12 @@ This module adds custom M62-M65 code to the µCNC parser. This similar to LinuxC
 
 ## Changelog
 
+### 2024-10-04
+
+- fix execution parsing bug (#80)
+
+- updated to core v1.10
+
 ### 2024-08-28
 
 - updated to core v1.10
