@@ -219,8 +219,6 @@ uint8_t u8x8_byte_ucnc_hw_i2c(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int, void *
 
 uint8_t u8x8_gpio_and_delay_ucnc(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int, void *arg_ptr)
 {
-	cnc_dotasks();
-
 	switch (msg)
 	{
 	case U8X8_MSG_GPIO_AND_DELAY_INIT: // called once during init phase of u8g2/u8x8
@@ -594,10 +592,8 @@ bool graphic_display_update(void *args)
 
 		system_menu_action(action);
 
-		cnc_dotasks();
 		// render menu
 		system_menu_render();
-		cnc_dotasks();
 
 		running = false;
 	}
@@ -806,8 +802,6 @@ void system_menu_render_idle(void)
 	y -= (FONTHEIGHT + 3);
 #endif
 
-	cnc_dotasks();
-
 #if (AXIS_COUNT >= 3)
 	buff[0] = 'Z';
 	system_menu_flt_to_str(&buff[1], axis[2]);
@@ -874,8 +868,6 @@ void system_menu_render_idle(void)
 
 	y -= (FONTHEIGHT + 3);
 
-	cnc_dotasks();
-
 	// system status
 	rom_strcpy(buff, __romstr__("St:"));
 	uint8_t state = cnc_get_exec_state(0xFF);
@@ -928,8 +920,6 @@ void system_menu_render_idle(void)
 	io_states_str(buff);
 	u8g2_DrawStr(U8G2, (LCDWIDTH >> 1), y, buff);
 
-	cnc_dotasks();
-
 	u8g2_SendBuffer(U8G2);
 }
 
@@ -961,8 +951,6 @@ void system_menu_item_render_label(uint8_t render_flags, const char *label)
 	uint8_t y = y_coord;
 	if (label)
 	{
-		cnc_dotasks();
-
 		if (render_flags & SYSTEM_MENU_MODE_EDIT)
 		{
 			y_coord += FONTHEIGHT + 1;
@@ -986,8 +974,6 @@ void system_menu_item_render_arg(uint8_t render_flags, const char *value)
 {
 	if (value)
 	{
-		cnc_dotasks();
-
 		uint8_t y = y_coord;
 
 		if (render_flags & SYSTEM_MENU_MODE_EDIT)
