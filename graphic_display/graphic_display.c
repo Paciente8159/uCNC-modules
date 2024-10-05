@@ -390,11 +390,11 @@ uint8_t u8x8_gpio_and_delay_ucnc(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int, voi
 #ifndef GRAPHIC_DISPLAY_DRIVER
 #error "Display driver not defined"
 #endif
-#if (GRAPHIC_DISPLAY_DRIVER==ssd1306_128x64_i2c)
+#if (GRAPHIC_DISPLAY_DRIVER == ssd1306_128x64_i2c)
 #define DRIVER_INIT() u8g2_Setup_ssd1306_i2c_128x64_noname_f(U8G2, U8G2_R0, u8x8_byte_ucnc_hw_i2c, u8x8_gpio_and_delay_ucnc)
-#elif (GRAPHIC_DISPLAY_DRIVER==st7920_128x64_spi)
+#elif (GRAPHIC_DISPLAY_DRIVER == st7920_128x64_spi)
 #define DRIVER_INIT() u8g2_Setup_st7920_s_128x64_f(U8G2, U8G2_R0, u8x8_byte_ucnc_hw_spi, u8x8_gpio_and_delay_ucnc)
-#elif (GRAPHIC_DISPLAY_DRIVER==virtual_sdl)
+#elif (GRAPHIC_DISPLAY_DRIVER == virtual_sdl)
 #define DRIVER_INIT() u8g2_SetupBuffer_SDL_128x64(U8G2, U8G2_R0)
 #endif
 
@@ -572,7 +572,7 @@ CREATE_EVENT_LISTENER(cnc_io_dotasks, graphic_display_rotary_encoder_control_sam
 bool graphic_display_update(void *args)
 {
 	static bool running = false;
-	
+
 	if (!running)
 	{
 		running = true;
@@ -646,7 +646,7 @@ uint8_t system_menu_send_cmd(const char *__s)
 		return STATUS_STREAM_FAILED;
 	}
 
-	BUFFER_WRITE(graphic_stream_buffer, (void*)__s, len, w);
+	BUFFER_WRITE(graphic_stream_buffer, (void *)__s, len, w);
 
 	return STATUS_OK;
 }
@@ -655,7 +655,7 @@ uint8_t system_menu_send_cmd(const char *__s)
 
 DECL_MODULE(graphic_display)
 {
-// initializes the display port
+	// initializes the display port
 	DRIVER_INIT();
 
 	u8g2_InitDisplay(U8G2); // send init sequence to the display, display is in sleep mode after this,
@@ -751,6 +751,7 @@ void system_menu_render_startup(void)
 {
 	u8g2_ClearBuffer(U8G2);
 	char buff[SYSTEM_MENU_MAX_STR_LEN];
+	memset(buff, 0, sizeof(buff));
 	rom_strcpy(buff, __romstr__("µCNC"));
 	u8g2_ClearBuffer(U8G2);
 	u8g2_SetFont(U8G2, u8g2_font_9x15_t_symbols);
@@ -781,7 +782,7 @@ void system_menu_render_idle(void)
 	// u8g2_DrawButtonUTF8(U8G2, (LCDWIDTH>>1), JUSTIFY_TOP + 1,U8G2_BTN_INV|U8G2_BTN_HCENTER, LCDWIDTH, 1, 1, buff);
 	// u8g2_SetFont(U8G2, u8g2_font_6x12_tr);
 
-	memset(buff, 0, 32);
+	memset(buff, 0, sizeof(buff));
 
 	float axis[MAX(AXIS_COUNT, 3)];
 	int32_t steppos[STEPPER_COUNT];
@@ -795,11 +796,12 @@ void system_menu_render_idle(void)
 	u8g2_DrawStr(U8G2, ALIGN_LEFT, y, buff);
 
 #if (AXIS_COUNT >= 6)
+	memset(buff, 0, sizeof(buff));
 	buff[0] = 'C';
 	system_menu_flt_to_str(&buff[1], axis[5]);
 	u8g2_DrawStr(U8G2, (LCDWIDTH >> 1), y, buff);
 #endif
-	memset(buff, 0, 32);
+	memset(buff, 0, sizeof(buff));
 	u8g2_DrawLine(U8G2, 0, y - FONTHEIGHT - 1, LCDWIDTH, y - FONTHEIGHT - 1);
 	y -= (FONTHEIGHT + 3);
 #endif
@@ -812,37 +814,30 @@ void system_menu_render_idle(void)
 	u8g2_DrawStr(U8G2, ALIGN_LEFT, y, buff);
 
 #if (AXIS_COUNT >= 4)
-	memset(buff, 0, 32);
+	memset(buff, 0, sizeof(buff));
 	buff[0] = 'A';
 	system_menu_flt_to_str(&buff[1], axis[3]);
 	u8g2_DrawStr(U8G2, (LCDWIDTH >> 1), y, buff);
 #endif
-	memset(buff, 0, 32);
+	memset(buff, 0, sizeof(buff));
 	u8g2_DrawLine(U8G2, 0, y - FONTHEIGHT - 1, LCDWIDTH, y - FONTHEIGHT - 1);
 	y -= (FONTHEIGHT + 3);
 #endif
-
-	cnc_dotasks();
-
-	{
-		cnc_dotasks();
-	}
 
 #if (AXIS_COUNT >= 1)
 	buff[0] = 'X';
 	system_menu_flt_to_str(&buff[1], axis[0]);
 	u8g2_DrawStr(U8G2, ALIGN_LEFT, y, buff);
 #if (AXIS_COUNT >= 2)
+	memset(buff, 0, sizeof(buff));
 	buff[0] = 'Y';
 	system_menu_flt_to_str(&buff[1], axis[1]);
 	u8g2_DrawStr(U8G2, (LCDWIDTH >> 1), y, buff);
 #endif
-	memset(buff, 0, 32);
+	memset(buff, 0, sizeof(buff));
 	u8g2_DrawLine(U8G2, 0, y - FONTHEIGHT - 1, LCDWIDTH, y - FONTHEIGHT - 1);
 	y -= (FONTHEIGHT + 3);
 #endif
-
-	cnc_dotasks();
 
 	// units, feed and tool
 	if (g_settings.report_inches)
@@ -857,7 +852,7 @@ void system_menu_render_idle(void)
 	// Realtime feed
 	system_menu_flt_to_str(&buff[4], itp_get_rt_feed());
 	u8g2_DrawStr(U8G2, ALIGN_LEFT, y, buff);
-	memset(buff, 0, 32);
+	memset(buff, 0, sizeof(buff));
 
 	// Tool
 	char tool[5];
@@ -874,7 +869,7 @@ void system_menu_render_idle(void)
 	system_menu_int_to_str(&buff[1], tool_get_speed());
 	strcat(buff, tool);
 	u8g2_DrawStr(U8G2, ALIGN_RIGHT(buff), y, buff);
-	memset(buff, 0, 32);
+	memset(buff, 0, sizeof(buff));
 	u8g2_DrawLine(U8G2, 0, y - FONTHEIGHT - 1, LCDWIDTH, y - FONTHEIGHT - 1);
 
 	y -= (FONTHEIGHT + 3);
@@ -929,7 +924,7 @@ void system_menu_render_idle(void)
 	}
 
 	u8g2_DrawStr(U8G2, ALIGN_LEFT, y, buff);
-	memset(buff, 0, 32);
+	memset(buff, 0, sizeof(buff));
 	io_states_str(buff);
 	u8g2_DrawStr(U8G2, (LCDWIDTH >> 1), y, buff);
 
@@ -1082,6 +1077,7 @@ void system_menu_render_modal_popup(const char *__s)
 	do
 	{
 		char buffer[SYSTEM_MENU_MAX_STR_LEN];
+		memset(buff, 0, sizeof(buff));
 		uint8_t len = graphic_display_str_line_len(__s);
 		memcpy(buffer, __s, len);
 		buffer[len] = 0;
@@ -1147,6 +1143,7 @@ void system_menu_render_alarm(void)
 	// coordinates
 	uint8_t y = JUSTIFY_TOP + 1;
 	char buff[SYSTEM_MENU_MAX_STR_LEN];
+	memset(buff, 0, sizeof(buff));
 	u8g2_SetFontMode(U8G2, 1);
 	u8g2_SetDrawColor(U8G2, 1); /* color 1 for the box */
 	u8g2_DrawBox(U8G2, 0, 0, LCDWIDTH, FONTHEIGHT);
@@ -1158,7 +1155,7 @@ void system_menu_render_alarm(void)
 	u8g2_SetDrawColor(U8G2, 1); /* color 1 for the font */
 	y += JUSTIFY_TOP + 2;
 
-	memset(buff, 0, SYSTEM_MENU_MAX_STR_LEN);
+	memset(buff, 0, sizeof(buff));
 
 	switch (alarm)
 	{
@@ -1208,13 +1205,15 @@ void system_menu_render_alarm(void)
 
 	u8g2_DrawStr(U8G2, ALIGN_CENTER(buff), y, buff);
 	y += JUSTIFY_TOP + 2;
-	memset(buff, 0, SYSTEM_MENU_MAX_STR_LEN);
+	memset(buff, 0, sizeof(buff));
 	io_states_str(buff);
 	u8g2_DrawStr(U8G2, ALIGN_CENTER(buff), y, buff);
 	y += JUSTIFY_TOP + 2;
+	memset(buff, 0, sizeof(buff));
 	rom_strcpy(buff, __romstr__(STR_USER_NEEDS_SYSTEM_RESET_1));
 	u8g2_DrawStr(U8G2, ALIGN_CENTER(buff), y, buff);
 	y += JUSTIFY_TOP + 2;
+	memset(buff, 0, sizeof(buff));
 	rom_strcpy(buff, __romstr__(STR_USER_NEEDS_SYSTEM_RESET_2));
 	u8g2_DrawStr(U8G2, ALIGN_CENTER(buff), y, buff);
 	u8g2_SendBuffer(U8G2);
