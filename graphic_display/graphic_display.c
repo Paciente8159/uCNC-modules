@@ -129,6 +129,7 @@ uint8_t u8x8_byte_ucnc_hw_spi(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int, void *
 	case U8X8_MSG_BYTE_SEND:
 		data = (uint8_t *)arg_ptr;
 		softspi_bulk_xmit((softspi_port_t *)GRAPHIC_PORT, data, NULL, arg_int);
+		cnc_dotasks();
 		break;
 	case U8X8_MSG_BYTE_INIT:
 		u8x8_gpio_SetCS(u8x8, u8x8->display_info->chip_disable_level);
@@ -206,6 +207,7 @@ uint8_t u8x8_byte_ucnc_hw_i2c(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int, void *
 #else
 		softi2c_send((softi2c_port_t *)GRAPHIC_PORT, u8x8_GetI2CAddress(u8x8) >> 1, i2c_buffer, i2c_buffer_offset, true, 20);
 #endif
+		cnc_dotasks();
 		i2c_buffer_offset = 0;
 		break;
 	default:
@@ -1062,13 +1064,13 @@ void system_menu_render_modal_popup(const char *__s)
 	uint8_t y_start = (LCDHEIGHT >> 1) - (((FONTHEIGHT + 1) * (lines - 1)) >> 1) + ((FONTHEIGHT + 1) >> 2);
 	do
 	{
-		char buffer[SYSTEM_MENU_MAX_STR_LEN];
+		char buff[SYSTEM_MENU_MAX_STR_LEN];
 		memset(buff, 0, sizeof(buff));
 		uint8_t len = graphic_display_str_line_len(__s);
-		memcpy(buffer, __s, len);
-		buffer[len] = 0;
+		memcpy(buff, __s, len);
+		buff[len] = 0;
 		__s += len;
-		u8g2_DrawStr(U8G2, ALIGN_CENTER(buffer), y_start, buffer);
+		u8g2_DrawStr(U8G2, ALIGN_CENTER(buff), y_start, buff);
 		y_start += FONTHEIGHT + 1;
 	} while (--lines);
 
