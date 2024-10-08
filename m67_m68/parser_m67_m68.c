@@ -78,12 +78,6 @@ bool m67_m68_exec(void *args)
 
 	if (ptr->cmd->group_extended == M67 || ptr->cmd->group_extended == M68)
 	{
-		if (ptr->words->l == 0)
-		{
-			*(ptr->error) = STATUS_GCODE_VALUE_WORD_MISSING;
-			return EVENT_HANDLED;
-		}
-
 		if (ptr->words->xyzabc[3] < 0)
 		{
 			*(ptr->error) = STATUS_NEGATIVE_VALUE;
@@ -98,7 +92,7 @@ bool m67_m68_exec(void *args)
 			itp_sync();
 		}
 
-		if (analogoutput < 16)
+		if (analogoutput >= PWM_PINS_OFFSET && analogoutput < SERVO_PINS_OFFSET)
 		{
 			io_set_pinvalue(analogoutput, (uint8_t)CLAMP(0, ptr->words->d, 255));
 			*(ptr->error) = STATUS_OK;
