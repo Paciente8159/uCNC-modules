@@ -413,8 +413,12 @@ void sd_card_mount(void)
 #ifdef ENABLE_SETTINGS_ON_SD_SDCARD
 			// clear the read error
 			g_settings_error &= ~SETTINGS_READ_ERROR;
+			// reload all stored settings
 			settings_init();
+			// reload all non volatile parser parameters
 			parser_parameters_load();
+			// reinitialize kinematics since some kinematics depend on settings data
+			kinematics_init();
 #endif
 			return;
 		}
