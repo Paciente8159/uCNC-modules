@@ -393,7 +393,7 @@ void sd_card_mount(void)
 	{
 		if ((sd_mount(&cfs) == FR_OK))
 		{
-			protocol_send_feedback(__romstr__(SD_STR_SD_PREFIX SD_STR_SD_MOUNTED));
+			proto_feedback(SD_STR_SD_PREFIX SD_STR_SD_MOUNTED);
 			sd_fs.drive = 'D';
 			sd_fs.open = sd_fs_open;
 			sd_fs.read = sd_fs_read;
@@ -410,13 +410,16 @@ void sd_card_mount(void)
 			sd_fs.next = NULL;
 			fs_mount(&sd_fs);
 			sd_card_mounted = SD_MOUNTED;
-#ifdef ENABLE_SETTINGS_MODULES
+#ifdef ENABLE_SETTINGS_ON_SD_SDCARD
+			// clear the read error
+			g_settings_error &= ~SETTINGS_READ_ERROR;
 			settings_init();
+			parser_parameters_load();
 #endif
 			return;
 		}
 
-		protocol_send_feedback(__romstr__(SD_STR_SD_PREFIX SD_STR_SD_ERROR));
+		proto_feedback(SD_STR_SD_PREFIX SD_STR_SD_ERROR);
 	}
 }
 
@@ -442,12 +445,12 @@ bool sd_card_dotasks(void *args)
 #if (ASSERT_PIN(SD_CARD_DETECT_PIN))
 	if (mcu_get_input(SD_CARD_DETECT_PIN) && sd_card_mounted)
 	{
-		protocol_send_feedback(__romstr__(SD_STR_SD_PREFIX SD_STR_SD_NOT_FOUND));
+		proto_feedback(SD_STR_SD_PREFIX SD_STR_SD_NOT_FOUND);
 		if (sd_card_mounted == SD_MOUNTED)
 		{
 			sd_unmount(&cfs);
 			fs_unmount('D');
-			protocol_send_feedback(__romstr__(SD_STR_SD_PREFIX SD_STR_SD_UNMOUNTED));
+			proto_feedback(SD_STR_SD_PREFIX SD_STR_SD_UNMOUNTED);
 		}
 		sd_card_mounted = SD_UNDETECTED;
 		g_system_menu.flags |= SYSTEM_MENU_MODE_REDRAW;
@@ -458,6 +461,22 @@ bool sd_card_dotasks(void *args)
 		cnc_delay_ms(2000);
 		sd_card_mount();
 		g_system_menu.flags |= SYSTEM_MENU_MODE_REDRAW;
+	}
+#endif
+#ifdef ENABLE_SETTINGS_ON_SD_SDCARD
+	static uint32_t retry = 0;
+	// the previous write failed
+	if (g_settings_error & SETTINGS_WRITE_ERROR)
+	{
+		if (retry < mcu_millis())
+		{
+			retry = mcu_millis() + 5000; // retry every 5 seconds
+			// try again
+			g_settings_error &= ~SETTINGS_WRITE_ERROR;
+			// save all settings and parameters again
+			settings_save(SETTINGS_ADDRESS_OFFSET, (uint8_t *)&g_settings, (uint8_t)sizeof(settings_t));
+			parser_parameters_save();
+		}
 	}
 #endif
 	return EVENT_CONTINUE;
@@ -484,18 +503,24 @@ bool sd_settings_load(void *args)
 
 	if (fp)
 	{
-		protocol_send_feedback(__romstr__(SD_STR_SETTINGS_FOUND));
+		if (p->address == SETTINGS_ADDRESS_OFFSET)
+		{
+			proto_feedback(SD_STR_SETTINGS_FOUND);
+		}
 		fs_seek(fp, p->address);
 		i = fs_read(fp, p->data, p->size);
 		if (p->size == i)
 		{
-			protocol_send_feedback(__romstr__(SD_STR_SETTINGS_LOADED));
+			DBGMSG(SD_STR_SETTINGS_LOADED "@ %u", p->address);
 			p->error = 0; // no error
 		}
 	}
 	else
 	{
-		protocol_send_feedback(__romstr__(SD_STR_SETTINGS_NOT_FOUND));
+		if (p->address == SETTINGS_ADDRESS_OFFSET)
+		{
+			proto_feedback(SD_STR_SETTINGS_NOT_FOUND);
+		}
 	}
 
 	fs_close(fp);
@@ -524,7 +549,7 @@ bool sd_settings_save(void *args)
 		i = fs_write(fp, p->data, p->size);
 		if (p->size == i)
 		{
-			protocol_send_feedback(__romstr__(SD_STR_SETTINGS_SAVED));
+			DBGMSG(SD_STR_SETTINGS_SAVED "@ %u", p->address);
 			p->error = 0; // no error
 		}
 	}
