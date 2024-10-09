@@ -29,37 +29,30 @@ static uint32_t dummy_setting;
 
 bool extend_settings_load(void *args)
 {
-	settings_args_t *set = (settings_args_t *)args;
-	// the setting will be saved when trying to save standard setting
-	if (set->address == SETTINGS_ADDRESS_OFFSET)
-	{
-		// load from disk
-		// this will do a recursive call
+	// load setting from NVM
 
-		// at this point you should call a function to read the settings from a different media
-		// loading returned error. settings corrupted. stop reading.
-		// allow propagate to get settings from eeprom
-		return EVENT_CONTINUE;
-	}
+	// can be done by simply read from NVM
+	settings_load(dummy_settings_address, &dummy_setting, sizeof(dummy_setting));
 
-	// prevent propagation
-	// to enable event propagation return EVENT_CONTINUE
-	return EVENT_HANDLED;
+	// or in alternative use any custom method for loading the setting
+	// if a read error occurs it can be represent signaled to force the user to reconfigure all the machine settings
+	// the settings error global variable must be signaled like this:
+	
+	// g_settings_error |= SETTINGS_READ_ERROR;
+
+	return EVENT_CONTINUE;
 }
 
 bool extend_settings_save(void *args)
 {
-	settings_args_t *set = (settings_args_t *)args;
-	// if saving main settings load this one too
-	if (set->address == SETTINGS_ADDRESS_OFFSET)
-	{
-		// load from disk
-		// this will do an infinite loop
+	// save setting to NVM
+	// can be done by simply write to NVM
+	settings_save(dummy_settings_address, &dummy_setting, sizeof(dummy_setting));
 
-		// save setting to other media
-		//  prevent propagation
-		return EVENT_HANDLED;
-	}
+	// to signal a write error you can set the settings error global variable
+	// the settings error global variable must be signaled like this:
+	
+	// g_settings_error |= SETTINGS_WRITE_ERROR;
 
 	// allow other settings to be stored in eeprom
 	return EVENT_CONTINUE;
@@ -96,15 +89,15 @@ bool extend_settings_erase(void *args)
 
 uint8_t extend_protocol_send_cnc_settings(void *args)
 {
-	protocol_send_gcode_setting_line_int(DUMMY_SETTING_ID, dummy_setting);
+	proto_gcode_setting_line_int(DUMMY_SETTING_ID, dummy_setting);
 	return EVENT_CONTINUE;
 }
 
-CREATE_EVENT_LISTENER(settings_load, extend_settings_load);
-CREATE_EVENT_LISTENER(settings_save, extend_settings_save);
-CREATE_EVENT_LISTENER(settings_change, extend_settings_change);
-CREATE_EVENT_LISTENER(settings_erase, extend_settings_erase);
-CREATE_EVENT_LISTENER(protocol_send_cnc_settings, extend_protocol_send_cnc_settings);
+CREATE_EVENT_LISTENER(settings_extended_load, extend_settings_load);
+CREATE_EVENT_LISTENER(settings_extended_save, extend_settings_save);
+CREATE_EVENT_LISTENER(settings_extended_change, extend_settings_change);
+CREATE_EVENT_LISTENER(settings_extended_erase, extend_settings_erase);
+CREATE_EVENT_LISTENER(proto_cnc_settings, extend_protocol_send_cnc_settings);
 
 #endif
 
@@ -114,9 +107,9 @@ DECL_MODULE(dummy)
 	dummy_settings_address = settings_register_external_setting(sizeof(dummy_setting));
 	ADD_EVENT_LISTENER(settings_load, extend_settings_load);
 	ADD_EVENT_LISTENER(settings_save, extend_settings_save);
-	ADD_EVENT_LISTENER(settings_change, extend_settings_change);
-	ADD_EVENT_LISTENER(settings_erase, extend_settings_erase);
-	ADD_EVENT_LISTENER(protocol_send_cnc_settings, extend_protocol_send_cnc_settings);
+	ADD_EVENT_LISTENER(settings_extended_change, extend_settings_change);
+	ADD_EVENT_LISTENER(settings_extended_erase, extend_settings_erase);
+	ADD_EVENT_LISTENER(proto_cnc_settings, extend_protocol_send_cnc_settings);
 #else
 // just a warning in case you disabled the MAIN_LOOP option on build
 #warning "Settings extensions are not enabled. Your module will not work."
@@ -144,7 +137,7 @@ static uint32_t dummy_settings_address;
 //  count - var array length (iff single var set to 1)
 //  print_cb - protocol setting print callback
 
-DECL_EXTENDED_SETTING(DUMMY_SETTING_ID, &dummy_settings_address, uint32_t, 1, protocol_send_gcode_setting_line_int);
+DECL_EXTENDED_SETTING(DUMMY_SETTING_ID, &dummy_settings_address, uint32_t, 1, proto_gcode_setting_line_int);
 
 // then just call the initializator from any point in the code
 // the initialization will run only once

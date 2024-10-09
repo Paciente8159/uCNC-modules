@@ -178,11 +178,15 @@ static uint8_t i2c_eeprom_write(uint16_t address, uint8_t *data, uint16_t len)
 bool i2c_eeprom_settings_load(void *args)
 {
 	settings_args_t *p = args;
+	p->error = 1;
 
 	if (i2c_eeprom_read(p->address, (uint8_t *)p->data, p->size) != I2C_OK)
 	{
 		protocol_send_feedback(__romstr__("External EEPROM read error"));
-		return EVENT_CONTINUE;
+	}
+	else
+	{
+		p->error = 0;
 	}
 
 	// read eeprom
@@ -194,35 +198,21 @@ CREATE_EVENT_LISTENER(settings_load, i2c_eeprom_settings_load);
 bool i2c_eeprom_settings_save(void *args)
 {
 	settings_args_t *p = args;
+	p->error = 1;
 
 	if (i2c_eeprom_write(p->address, (uint8_t *)p->data, p->size) != I2C_OK)
 	{
 		protocol_send_feedback(__romstr__("External EEPROM write error"));
-		return EVENT_CONTINUE;
+	}
+	else
+	{
+		p->error = 0;
 	}
 
-	// write eeprom
 	return EVENT_HANDLED;
 }
 
 CREATE_EVENT_LISTENER(settings_save, i2c_eeprom_settings_save);
-
-bool i2c_eeprom_settings_erase(void *args)
-{
-	settings_args_t *p = args;
-
-	memset(p->data, 0, p->size);
-
-	if (i2c_eeprom_write(p->address, (uint8_t *)p->data, p->size) != I2C_OK)
-	{
-		return EVENT_CONTINUE;
-	}
-
-	// erase eeprom
-	return EVENT_HANDLED;
-}
-
-CREATE_EVENT_LISTENER(settings_erase, i2c_eeprom_settings_erase);
 #endif
 
 DECL_MODULE(i2c_eeprom)
@@ -241,7 +231,6 @@ DECL_MODULE(i2c_eeprom)
 #ifdef ENABLE_SETTINGS_MODULES
 	ADD_EVENT_LISTENER(settings_load, i2c_eeprom_settings_load);
 	ADD_EVENT_LISTENER(settings_save, i2c_eeprom_settings_save);
-	ADD_EVENT_LISTENER(settings_erase, i2c_eeprom_settings_erase);
 #else
 #warning "Settings extension not enabled. I2C EEPROM stored settings will not work."
 #endif

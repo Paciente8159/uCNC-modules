@@ -28,10 +28,12 @@
 #define FAT_FS 2
 
 #ifdef ENABLE_SETTINGS_MODULES
-#ifdef SD_FAT_FS
+#ifdef ENABLE_SETTINGS_ON_SD_SDCARD
 #undef SD_FAT_FS
-#endif
 #define SD_FAT_FS FAT_FS
+#endif
+#else
+#undef ENABLE_SETTINGS_ON_SD_SDCARD
 #endif
 
 #ifndef SD_FAT_FS
@@ -465,18 +467,19 @@ CREATE_EVENT_LISTENER_WITHLOCK(cnc_dotasks, sd_card_dotasks, SD_CARD_BUS_LOCK);
 
 #endif
 
-#ifdef ENABLE_SETTINGS_MODULES
+#ifdef ENABLE_SETTINGS_ON_SD_SDCARD
 bool sd_settings_load(void *args)
 // OVERRIDE_EVENT_HANDLER(settings_load)
 {
+	settings_args_t *p = args;
+	p->error = 1; // just to make sure
+
 	if ((sd_card_mounted != SD_MOUNTED))
 	{
-		return EVENT_CONTINUE;
+		return EVENT_HANDLED;
 	}
 
 	UINT i = 0;
-	bool result = EVENT_CONTINUE;
-	settings_args_t *p = args;
 	fs_file_t *fp = fs_open("/D/uCNC.cfg", "r");
 
 	if (fp)
@@ -487,7 +490,7 @@ bool sd_settings_load(void *args)
 		if (p->size == i)
 		{
 			protocol_send_feedback(__romstr__(SD_STR_SETTINGS_LOADED));
-			result = EVENT_HANDLED;
+			p->error = 0; // no error
 		}
 	}
 	else
@@ -496,8 +499,7 @@ bool sd_settings_load(void *args)
 	}
 
 	fs_close(fp);
-
-	return result;
+	return EVENT_HANDLED;
 }
 
 CREATE_EVENT_LISTENER_WITHLOCK(settings_load, sd_settings_load, SD_CARD_BUS_LOCK);
@@ -505,15 +507,15 @@ CREATE_EVENT_LISTENER_WITHLOCK(settings_load, sd_settings_load, SD_CARD_BUS_LOCK
 bool sd_settings_save(void *args)
 // OVERRIDE_EVENT_HANDLER(settings_save)
 {
+	settings_args_t *p = args;
+	p->error = 1; // set error just to make sure
+
 	if ((sd_card_mounted != SD_MOUNTED))
 	{
-		return EVENT_CONTINUE;
+		return EVENT_HANDLED;
 	}
 
 	UINT i = 0;
-	bool result = EVENT_CONTINUE;
-	settings_args_t *p = args;
-
 	fs_file_t *fp = fs_open("/D/uCNC.cfg", "a+");
 
 	if (fp)
@@ -523,40 +525,15 @@ bool sd_settings_save(void *args)
 		if (p->size == i)
 		{
 			protocol_send_feedback(__romstr__(SD_STR_SETTINGS_SAVED));
-			result = EVENT_HANDLED;
+			p->error = 0; // no error
 		}
 	}
 
 	fs_close(fp);
-
-	return result;
+	return EVENT_HANDLED;
 }
 
 CREATE_EVENT_LISTENER_WITHLOCK(settings_save, sd_settings_save, SD_CARD_BUS_LOCK);
-
-bool sd_settings_erase(void *args)
-// OVERRIDE_EVENT_HANDLER(settings_erase)
-{
-	bool result = EVENT_CONTINUE;
-
-	if ((sd_card_mounted != SD_MOUNTED))
-	{
-		return EVENT_CONTINUE;
-	}
-
-	fs_file_t *fp = fs_open("/D/uCNC.cfg", "w");
-	if (fp)
-	{
-		protocol_send_feedback(__romstr__(SD_STR_SETTINGS_ERASED));
-		result = EVENT_HANDLED;
-	}
-
-	fs_close(fp);
-
-	return result;
-}
-
-CREATE_EVENT_LISTENER_WITHLOCK(settings_erase, sd_settings_erase, SD_CARD_BUS_LOCK);
 #endif
 
 #ifdef ENABLE_PARSER_MODULES
@@ -620,9 +597,10 @@ DECL_MODULE(sd_card_v2)
 #warning "Parser extensions are not enabled. SD card commands will not work."
 #endif
 #ifdef ENABLE_SETTINGS_MODULES
+#ifdef ENABLE_SETTINGS_ON_SD_SDCARD
 	ADD_EVENT_LISTENER(settings_load, sd_settings_load);
 	ADD_EVENT_LISTENER(settings_save, sd_settings_save);
-	ADD_EVENT_LISTENER(settings_erase, sd_settings_erase);
+#endif
 #else
 #warning "Settings extension not enabled. SD card stored settings will not work."
 #endif
