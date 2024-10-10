@@ -23,6 +23,10 @@
 #include "../../cnc.h"
 #include "../softi2c.h"
 
+#if (UCNC_MODULE_VERSION < 11100 || UCNC_MODULE_VERSION > 99999)
+#error "This module is not compatible with the current version of µCNC"
+#endif
+
 #define SW_I2C 1
 #define HW_I2C 2
 
@@ -110,16 +114,6 @@ static uint8_t i2c_eeprom_read(uint16_t address, uint8_t *data, uint16_t len)
 	}
 
 	return I2C_OK;
-
-	// uint8_t address_bytes[2] = {(uint8_t)((address >> 8) & 0xFF),
-	// 														(address & 0xFF)};
-
-	// if (softi2c_send(EEPROM_BUS, I2C_EEPROM_ADDRESS, address_bytes, 2, true, I2C_EEPROM_RW_TIMEOUT) == I2C_OK)
-	// {
-	// 	return softi2c_receive(EEPROM_BUS, I2C_EEPROM_ADDRESS, data, len, I2C_EEPROM_RW_TIMEOUT);
-	// }
-
-	// return I2C_NOTOK;
 }
 
 static uint8_t i2c_eeprom_write(uint16_t address, uint8_t *data, uint16_t len)
@@ -140,98 +134,75 @@ static uint8_t i2c_eeprom_write(uint16_t address, uint8_t *data, uint16_t len)
 	}
 
 	return I2C_OK;
-
-	// // address byte aligned to the eeprom page size
-	// uint16_t write_address = (address & ~(I2C_EEPROM_PAGE_SIZE - 1));
-	// while (len)
-	// {
-	// 	uint8_t buffer[I2C_EEPROM_PAGE_SIZE];
-	// 	uint8_t write_offset = (address - write_address);
-	// 	uint16_t write_len = MIN(I2C_EEPROM_PAGE_SIZE - write_offset, len);
-
-	// 	// loads a page of eeprom to memory and compares it to the data to check if it's dirty or not
-	// 	i2c_eeprom_read(write_address, buffer, write_len);
-	// 	len -= write_len;
-	// 	write_address += write_offset;
-	// 	uint8_t *ptr = &buffer[write_offset];
-	// 	while (write_len)
-	// 	{
-	// 		if (*ptr != *data)
-	// 		{
-	// 			uint8_t eepromdata[3] = {(uint8_t)((write_address >> 8) & 0xFF),
-	// 															 (write_address & 0xFF), *data};
-	// 			if (softi2c_send(EEPROM_BUS, I2C_EEPROM_ADDRESS, eepromdata, 3, true, I2C_EEPROM_RW_TIMEOUT) != I2C_OK)
-	// 			{
-	// 				return I2C_NOTOK;
-	// 			}
-	// 		}
-	// 		ptr++;
-	// 		data++;
-	// 		write_len--;
-	// 		write_address++;
-	// 	}
-	// }
-
-	// return I2C_NOTOK;
 }
 
-bool i2c_eeprom_settings_load(void *args)
+void nvm_start_read(uint16_t address)
 {
-	settings_args_t *p = args;
-	p->error = 1;
-
-	if (i2c_eeprom_read(p->address, (uint8_t *)p->data, p->size) != I2C_OK)
-	{
-		protocol_send_feedback(__romstr__("External EEPROM read error"));
-	}
-	else
-	{
-		p->error = 0;
-	}
-
-	// read eeprom
-	return EVENT_HANDLED;
+	softi2c_config(EEPROM_BUS, 400000);
 }
 
-CREATE_EVENT_LISTENER(settings_load, i2c_eeprom_settings_load);
-
-bool i2c_eeprom_settings_save(void *args)
+void nvm_start_write(uint16_t address)
 {
-	settings_args_t *p = args;
-	p->error = 1;
-
-	if (i2c_eeprom_write(p->address, (uint8_t *)p->data, p->size) != I2C_OK)
-	{
-		protocol_send_feedback(__romstr__("External EEPROM write error"));
-	}
-	else
-	{
-		p->error = 0;
-	}
-
-	return EVENT_HANDLED;
+	softi2c_config(EEPROM_BUS, 400000);
 }
 
-CREATE_EVENT_LISTENER(settings_save, i2c_eeprom_settings_save);
+uint8_t nvm_getc(uint16_t address)
+{
+	uint8_t c = 255;
+	if (i2c_eeprom_read_byte(address, &c) != I2C_OK)
+	{
+		g_settings_error |= SETTINGS_READ_ERROR;
+	}
+
+	return c;
+}
+
+void nvm_putc(uint16_t address, uint8_t c)
+{
+	if (i2c_eeprom_write_byte(address, c) != I2C_OK)
+	{
+		g_settings_error |= SETTINGS_WRITE_ERROR;
+	}
+}
+
+void nvm_end_read(void)
+{
+}
+
+void nvm_end_write(void)
+{
+}
+#endif
+
+#ifdef ENABLE_MAIN_LOOP_MODULES
+bool i2c_eeprom_write_failsafe(void *args)
+{
+	static uint32_t retry = 0;
+	// the previous write failed
+	if (g_settings_error & SETTINGS_WRITE_ERROR)
+	{
+		if (retry < mcu_millis())
+		{
+			retry = mcu_millis() + 5000; // retry every 5 seconds
+			// try again
+			g_settings_error &= ~SETTINGS_WRITE_ERROR;
+			// save all settings and parameters again
+			settings_save(SETTINGS_ADDRESS_OFFSET, (uint8_t *)&g_settings, (uint8_t)sizeof(settings_t));
+			parser_parameters_save();
+		}
+	}
+
+	return EVENT_CONTINUE;
+}
+
+CREATE_EVENT_LISTENER(cnc_dotasks, i2c_eeprom_write_failsafe);
 #endif
 
 DECL_MODULE(i2c_eeprom)
 {
-	softi2c_config(EEPROM_BUS, 400000);
-
-	// test eeprom
-	uint8_t data;
-	if (i2c_eeprom_read(I2C_EEPROM_OFFSET, &data, 1) != I2C_OK)
-	{
-		// error prevents initialization
-		protocol_send_feedback(__romstr__("External EEPROM initialization error"));
-		return;
-	}
-
-#ifdef ENABLE_SETTINGS_MODULES
-	ADD_EVENT_LISTENER(settings_load, i2c_eeprom_settings_load);
-	ADD_EVENT_LISTENER(settings_save, i2c_eeprom_settings_save);
+#ifdef ENABLE_MAIN_LOOP_MODULES
+	ADD_EVENT_LISTENER(cnc_dotasks, i2c_eeprom_write_failsafe);
 #else
-#warning "Settings extension not enabled. I2C EEPROM stored settings will not work."
+#warning "Main loop extensions are not enabled. I2C EEPROM write failsafe will be disabled."
 #endif
 }
