@@ -99,6 +99,7 @@ FORCEINLINE static void mmcsd_spi_speed(bool highspeed)
 	if (highspeed)
 	{
 		softspi_set_frequency(SD_SPI_PORT, 10000000UL);
+		SD_SPI_PORT->spiconfig.enable_dma=true;
 	}
 	else
 	{

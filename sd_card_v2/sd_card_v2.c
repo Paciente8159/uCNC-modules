@@ -28,17 +28,19 @@
 #define FAT_FS 2
 
 #ifdef ENABLE_SETTINGS_MODULES
-#ifdef SD_FAT_FS
+#ifdef ENABLE_SETTINGS_ON_SD_SDCARD
 #undef SD_FAT_FS
-#endif
 #define SD_FAT_FS FAT_FS
+#endif
+#else
+#undef ENABLE_SETTINGS_ON_SD_SDCARD
 #endif
 
 #ifndef SD_FAT_FS
-#define SD_FAT_FS PETIT_FAT_FS
+#define SD_FAT_FS FAT_FS
 #endif
 
-#if (UCNC_MODULE_VERSION < 11000 || UCNC_MODULE_VERSION > 99999)
+#if (UCNC_MODULE_VERSION < 11100 || UCNC_MODULE_VERSION > 99999)
 #error "This module is not compatible with the current version of µCNC"
 #endif
 
@@ -69,12 +71,14 @@
 typedef struct
 {
 	FATFS *fs;
+	DWORD fptr;
 } FIL;
 
 // file system
 static FATFS cfs;
 // current opend file
 static FIL cwf;
+static char cwd[FS_MAX_PATH_LEN];
 
 static FORCEINLINE FRESULT sd_mount(FATFS *fs)
 {
@@ -84,7 +88,7 @@ static FORCEINLINE FRESULT sd_mount(FATFS *fs)
 
 #define sd_unmount(fs) (cwd[0] = 0)
 
-static FORCEINLINE FRESULT sd_fopen(const char *name, BYTE mode)
+static FORCEINLINE FRESULT sd_fopen(FIL *fp, const char *name, BYTE mode)
 {
 	if (pf_open(cwd) == FR_OK)
 	{
@@ -95,7 +99,7 @@ static FORCEINLINE FRESULT sd_fopen(const char *name, BYTE mode)
 	return FR_NO_FILE;
 }
 
-static FORCEINLINE FRESULT sd_fread(char *buff, UINT btr, UINT *br)
+static FORCEINLINE FRESULT sd_fread(FIL *fp, void *buff, UINT btr, UINT *br)
 {
 	if (!cwf.fs)
 	{
@@ -105,7 +109,7 @@ static FORCEINLINE FRESULT sd_fread(char *buff, UINT btr, UINT *br)
 	return pf_read(buff, btr, br);
 }
 
-static FORCEINLINE FRESULT sd_fwrite(const char *buff, UINT btw, UINT *bw)
+static FORCEINLINE FRESULT sd_fwrite(FIL *fp, const char *buff, UINT btw, UINT *bw)
 {
 	if (!cwf.fs)
 	{
@@ -114,7 +118,7 @@ static FORCEINLINE FRESULT sd_fwrite(const char *buff, UINT btw, UINT *bw)
 	return pf_write(buff, btw, bw);
 }
 
-static FORCEINLINE FRESULT sd_fseek(DWORD ofs)
+static FORCEINLINE FRESULT sd_fseek(FIL *fp, DWORD ofs)
 {
 	if (!cwf.fs)
 	{
@@ -123,20 +127,23 @@ static FORCEINLINE FRESULT sd_fseek(DWORD ofs)
 	return pf_lseek(ofs);
 }
 
-static FORCEINLINE FRESULT sd_fclose()
+static FORCEINLINE FRESULT sd_fclose(FIL *fp)
 {
 	if (cwf.fs)
 	{
 		cwf.fs = NULL;
-		return sd_chfile("..", 0);
+		return FR_OK;
 	}
 
 	return FR_NOT_OPENED;
 }
-#define sd_fsync()
-static FORCEINLINE FRESULT sd_opendir(DIR *dp, const char *path) { pf_opendir(dj, path); }
-static FORCEINLINE FRESULT sd_readdir(DIR *dp, FILINFO *fno) { pf_readdir(dj, fno); }
-#define sd_closedir(fno)
+#define sd_fsync(x)
+#define sd_fileinfo(x, y) FR_OK
+#define sd_closedir(x)
+#define sd_remove(X) FR_OK
+#define sd_mkdir(x) FR_OK
+static FORCEINLINE FRESULT sd_opendir(DIR *dp, const char *path) { return pf_opendir(dp, path); }
+static FORCEINLINE FRESULT sd_readdir(DIR *dp, FILINFO *fno) { return pf_readdir(dp, fno); }
 bool sd_eof()
 {
 	if (cwf.fs)
@@ -299,7 +306,7 @@ void sd_fs_close(fs_file_t *fp)
 	{
 		if (fp->file_info.is_dir)
 		{
-			f_closedir(fp->file_ptr);
+			sd_closedir(fp->file_ptr);
 		}
 		else
 		{
@@ -391,7 +398,7 @@ void sd_card_mount(void)
 	{
 		if ((sd_mount(&cfs) == FR_OK))
 		{
-			protocol_send_feedback(__romstr__(SD_STR_SD_PREFIX SD_STR_SD_MOUNTED));
+			proto_feedback(SD_STR_SD_PREFIX SD_STR_SD_MOUNTED);
 			sd_fs.drive = 'D';
 			sd_fs.open = sd_fs_open;
 			sd_fs.read = sd_fs_read;
@@ -408,13 +415,20 @@ void sd_card_mount(void)
 			sd_fs.next = NULL;
 			fs_mount(&sd_fs);
 			sd_card_mounted = SD_MOUNTED;
-#ifdef ENABLE_SETTINGS_MODULES
+#ifdef ENABLE_SETTINGS_ON_SD_SDCARD
+			// clear the read error
+			g_settings_error &= ~SETTINGS_READ_ERROR;
+			// reload all stored settings
 			settings_init();
+			// reload all non volatile parser parameters
+			parser_parameters_load();
+			// reinitialize kinematics since some kinematics depend on settings data
+			kinematics_init();
 #endif
 			return;
 		}
 
-		protocol_send_feedback(__romstr__(SD_STR_SD_PREFIX SD_STR_SD_ERROR));
+		proto_feedback(SD_STR_SD_PREFIX SD_STR_SD_ERROR);
 	}
 }
 
@@ -440,12 +454,12 @@ bool sd_card_dotasks(void *args)
 #if (ASSERT_PIN(SD_CARD_DETECT_PIN))
 	if (mcu_get_input(SD_CARD_DETECT_PIN) && sd_card_mounted)
 	{
-		protocol_send_feedback(__romstr__(SD_STR_SD_PREFIX SD_STR_SD_NOT_FOUND));
+		proto_feedback(SD_STR_SD_PREFIX SD_STR_SD_NOT_FOUND);
 		if (sd_card_mounted == SD_MOUNTED)
 		{
 			sd_unmount(&cfs);
 			fs_unmount('D');
-			protocol_send_feedback(__romstr__(SD_STR_SD_PREFIX SD_STR_SD_UNMOUNTED));
+			proto_feedback(SD_STR_SD_PREFIX SD_STR_SD_UNMOUNTED);
 		}
 		sd_card_mounted = SD_UNDETECTED;
 		g_system_menu.flags |= SYSTEM_MENU_MODE_REDRAW;
@@ -458,6 +472,22 @@ bool sd_card_dotasks(void *args)
 		g_system_menu.flags |= SYSTEM_MENU_MODE_REDRAW;
 	}
 #endif
+#ifdef ENABLE_SETTINGS_ON_SD_SDCARD
+	static uint32_t retry = 0;
+	// the previous write failed
+	if (g_settings_error & SETTINGS_WRITE_ERROR)
+	{
+		if (retry < mcu_millis())
+		{
+			retry = mcu_millis() + 5000; // retry every 5 seconds
+			// try again
+			g_settings_error &= ~SETTINGS_WRITE_ERROR;
+			// save all settings and parameters again
+			settings_save(SETTINGS_ADDRESS_OFFSET, (uint8_t *)&g_settings, (uint8_t)sizeof(settings_t));
+			parser_parameters_save();
+		}
+	}
+#endif
 	return EVENT_CONTINUE;
 }
 
@@ -465,98 +495,82 @@ CREATE_EVENT_LISTENER_WITHLOCK(cnc_dotasks, sd_card_dotasks, SD_CARD_BUS_LOCK);
 
 #endif
 
-#ifdef ENABLE_SETTINGS_MODULES
-bool sd_settings_load(void *args)
-// OVERRIDE_EVENT_HANDLER(settings_load)
+#ifdef ENABLE_SETTINGS_ON_SD_SDCARD
+fs_file_t *settings_fp;
+void nvm_start_read(uint16_t address)
 {
 	if ((sd_card_mounted != SD_MOUNTED))
 	{
-		return EVENT_CONTINUE;
+		g_settings_error |= SETTINGS_READ_ERROR;
+		return;
 	}
 
-	UINT i = 0;
-	bool result = EVENT_CONTINUE;
-	settings_args_t *p = args;
-	fs_file_t *fp = fs_open("/D/uCNC.cfg", "r");
-
-	if (fp)
+	settings_fp = fs_open("/D/uCNC.cfg", "r");
+	if (!settings_fp)
 	{
-		protocol_send_feedback(__romstr__(SD_STR_SETTINGS_FOUND));
-		fs_seek(fp, p->address);
-		i = fs_read(fp, p->data, p->size);
-		if (p->size == i)
-		{
-			protocol_send_feedback(__romstr__(SD_STR_SETTINGS_LOADED));
-			result = EVENT_HANDLED;
-		}
-	}
-	else
-	{
-		protocol_send_feedback(__romstr__(SD_STR_SETTINGS_NOT_FOUND));
+		g_settings_error |= SETTINGS_READ_ERROR;
 	}
 
-	fs_close(fp);
-
-	return result;
+	fs_seek(settings_fp, address);
 }
 
-CREATE_EVENT_LISTENER_WITHLOCK(settings_load, sd_settings_load, SD_CARD_BUS_LOCK);
-
-bool sd_settings_save(void *args)
-// OVERRIDE_EVENT_HANDLER(settings_save)
+void nvm_start_write(uint16_t address)
 {
 	if ((sd_card_mounted != SD_MOUNTED))
 	{
-		return EVENT_CONTINUE;
+		g_settings_error |= SETTINGS_WRITE_ERROR;
+		return;
 	}
 
-	UINT i = 0;
-	bool result = EVENT_CONTINUE;
-	settings_args_t *p = args;
-
-	fs_file_t *fp = fs_open("/D/uCNC.cfg", "a+");
-
-	if (fp)
+	settings_fp = fs_open("/D/uCNC.cfg", "a+");
+	if (!settings_fp)
 	{
-		fs_seek(fp, p->address);
-		i = fs_write(fp, p->data, p->size);
-		if (p->size == i)
+		g_settings_error |= SETTINGS_WRITE_ERROR;
+	}
+
+	fs_seek(settings_fp, address);
+}
+
+uint8_t nvm_getc(uint16_t address)
+{
+	uint8_t c = 255;
+	if (settings_fp)
+	{
+		if (!fs_read(settings_fp, &c, 1))
 		{
-			protocol_send_feedback(__romstr__(SD_STR_SETTINGS_SAVED));
-			result = EVENT_HANDLED;
+			g_settings_error |= SETTINGS_READ_ERROR;
 		}
 	}
 
-	fs_close(fp);
-
-	return result;
+	return c;
 }
 
-CREATE_EVENT_LISTENER_WITHLOCK(settings_save, sd_settings_save, SD_CARD_BUS_LOCK);
-
-bool sd_settings_erase(void *args)
-// OVERRIDE_EVENT_HANDLER(settings_erase)
+void nvm_putc(uint16_t address, uint8_t c)
 {
-	bool result = EVENT_CONTINUE;
-
-	if ((sd_card_mounted != SD_MOUNTED))
+	if (settings_fp)
 	{
-		return EVENT_CONTINUE;
+		if (!fs_write(settings_fp, &c, 1))
+		{
+			g_settings_error |= SETTINGS_WRITE_ERROR;
+		}
 	}
-
-	fs_file_t *fp = fs_open("/D/uCNC.cfg", "w");
-	if (fp)
-	{
-		protocol_send_feedback(__romstr__(SD_STR_SETTINGS_ERASED));
-		result = EVENT_HANDLED;
-	}
-
-	fs_close(fp);
-
-	return result;
 }
 
-CREATE_EVENT_LISTENER_WITHLOCK(settings_erase, sd_settings_erase, SD_CARD_BUS_LOCK);
+void nvm_end_read(void)
+{
+	if (settings_fp)
+	{
+		fs_close(settings_fp);
+		settings_fp = NULL;
+	}
+}
+
+void nvm_end_write(void)
+{
+	// same thing
+	nvm_end_read();
+}
+
 #endif
 
 #ifdef ENABLE_PARSER_MODULES
@@ -618,12 +632,5 @@ DECL_MODULE(sd_card_v2)
 #endif
 #else
 #warning "Parser extensions are not enabled. SD card commands will not work."
-#endif
-#ifdef ENABLE_SETTINGS_MODULES
-	ADD_EVENT_LISTENER(settings_load, sd_settings_load);
-	ADD_EVENT_LISTENER(settings_save, sd_settings_save);
-	ADD_EVENT_LISTENER(settings_erase, sd_settings_erase);
-#else
-#warning "Settings extension not enabled. SD card stored settings will not work."
 #endif
 }
