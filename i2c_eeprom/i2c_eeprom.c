@@ -159,9 +159,19 @@ uint8_t nvm_getc(uint16_t address)
 
 void nvm_putc(uint16_t address, uint8_t c)
 {
-	if (i2c_eeprom_write_byte(address, c) != I2C_OK)
+	uint8_t old_c;
+	if (i2c_eeprom_read_byte(address, &old_c) != I2C_OK)
 	{
 		g_settings_error |= SETTINGS_WRITE_ERROR;
+		return;
+	}
+
+	if (old_c != c)
+	{
+		if (i2c_eeprom_write_byte(address, c) != I2C_OK)
+		{
+			g_settings_error |= SETTINGS_WRITE_ERROR;
+		}
 	}
 }
 
