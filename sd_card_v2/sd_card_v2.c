@@ -416,14 +416,17 @@ void sd_card_mount(void)
 			fs_mount(&sd_fs);
 			sd_card_mounted = SD_MOUNTED;
 #ifdef ENABLE_SETTINGS_ON_SD_SDCARD
-			// clear the read error
-			g_settings_error &= ~SETTINGS_READ_ERROR;
-			// reload all stored settings
-			settings_init();
-			// reload all non volatile parser parameters
-			parser_parameters_load();
-			// reinitialize kinematics since some kinematics depend on settings data
-			kinematics_init();
+			RUNONCE
+			{ // clear the read error
+				g_settings_error &= ~SETTINGS_READ_ERROR;
+				// reload all stored settings
+				settings_init();
+				// reload all non volatile parser parameters
+				parser_parameters_load();
+				// reinitialize kinematics since some kinematics depend on settings data
+				kinematics_init();
+				RUNONCE_COMPLETE();
+			}
 #endif
 			return;
 		}
@@ -493,6 +496,25 @@ bool sd_card_dotasks(void *args)
 
 CREATE_EVENT_LISTENER_WITHLOCK(cnc_dotasks, sd_card_dotasks, SD_CARD_BUS_LOCK);
 
+#ifdef ENABLE_SETTINGS_ON_SD_SDCARD
+bool sd_card_reset_settings(void *args)
+{
+	if (sd_card_mounted == SD_MOUNTED)
+	{
+		// clear the read error
+		g_settings_error &= ~SETTINGS_READ_ERROR;
+		// reload all stored settings
+		settings_init();
+		// reload all non volatile parser parameters
+		parser_parameters_load();
+		// reinitialize kinematics since some kinematics depend on settings data
+		kinematics_init();
+	}
+
+	return EVENT_CONTINUE;
+}
+CREATE_EVENT_LISTENER_WITHLOCK(cnc_reset, sd_card_reset_settings, SD_CARD_BUS_LOCK);
+#endif
 #endif
 
 #ifdef ENABLE_SETTINGS_ON_SD_SDCARD
@@ -621,6 +643,9 @@ DECL_MODULE(sd_card_v2)
 
 #ifdef ENABLE_MAIN_LOOP_MODULES
 	ADD_EVENT_LISTENER(cnc_dotasks, sd_card_dotasks);
+#ifdef ENABLE_SETTINGS_ON_SD_SDCARD
+	ADD_EVENT_LISTENER(cnc_reset, sd_card_reset_settings);
+#endif
 #else
 #warning "Main loop extensions are not enabled. SD card will not work."
 #endif

@@ -9,6 +9,11 @@ This version uses FatFs. PetitFs might be implemented in the future
 
 ### 2024-10-09
 
+- prevent settings reloading on card mount/unmount
+- allow settings reload on cnc reset
+
+### 2024-10-09
+
 - modifications to make module compatible with new settings safety features
 
 ### 2024-10-03
