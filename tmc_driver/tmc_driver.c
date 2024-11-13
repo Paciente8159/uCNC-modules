@@ -16,9 +16,9 @@
 	See the	GNU General Public License for more details.
 */
 
-#include "src/cnc.h"
-#include "src/modules/softuart.h"
-#include "src/modules/softspi.h"
+#include "../../cnc.h"
+#include "../softuart.h"
+#include "../softspi.h"
 #include "tmc.h"
 #include "tmc_driver.h"
 #include <stdint.h>
@@ -57,7 +57,7 @@
 		cnc_delay_ms(TMC_UART_TIMEOUT(STEPPER##CHANNEL##_BAUDRATE));                                      \
 	}
 // SPI
-#define TMCSPI_STEPPER_RW(CHANNEL)                                           \
+#define TMCSPI_STEPPER_RW(CHANNEL)                                         \
 	static void tmc##CHANNEL##_rw(uint8_t *data, uint8_t wlen, uint8_t rlen) \
 	{                                                                        \
 		io_clear_output(STEPPER##CHANNEL##_SPI_CS);                            \
@@ -430,7 +430,8 @@ bool m350_exec(void *args)
 #endif
 			serial_print_int(val);
 			serial_putc(']');
-			protocol_send_string(MSG_EOL);
+			serial_putc('\n');
+			serial_putc('\r');
 		}
 		else
 		{
@@ -591,7 +592,8 @@ bool m906_exec(void *args)
 #endif
 			serial_print_flt(val);
 			serial_putc(']');
-			protocol_send_string(MSG_EOL);
+			serial_putc('\n');
+			serial_putc('\r');
 		}
 		else
 		{
@@ -751,7 +753,8 @@ bool m913_exec(void *args)
 #endif
 			serial_print_int(val);
 			serial_putc(']');
-			protocol_send_string(MSG_EOL);
+			serial_putc('\n');
+			serial_putc('\r');
 		}
 		else
 		{
@@ -911,7 +914,8 @@ bool m914_exec(void *args)
 #endif
 			serial_print_int(val);
 			serial_putc(']');
-			protocol_send_string(MSG_EOL);
+			serial_putc('\n');
+			serial_putc('\r');
 		}
 		else
 		{
@@ -1059,7 +1063,8 @@ bool m920_exec(void *args)
 #endif
 			serial_print_int(reg);
 			serial_putc(']');
-			protocol_send_string(MSG_EOL);
+			serial_putc('\n');
+			serial_putc('\r');
 		}
 
 		if (CHECKFLAG(ptr->cmd->words, GCODE_WORD_Y))
@@ -1091,7 +1096,8 @@ bool m920_exec(void *args)
 #endif
 			serial_print_int(reg);
 			serial_putc(']');
-			protocol_send_string(MSG_EOL);
+			serial_putc('\n');
+			serial_putc('\r');
 		}
 
 		if (CHECKFLAG(ptr->cmd->words, GCODE_WORD_Z))
@@ -1123,7 +1129,8 @@ bool m920_exec(void *args)
 #endif
 			serial_print_int(reg);
 			serial_putc(']');
-			protocol_send_string(MSG_EOL);
+			serial_putc('\n');
+			serial_putc('\r');
 		}
 
 		if (CHECKFLAG(ptr->cmd->words, GCODE_WORD_A))
@@ -1155,7 +1162,8 @@ bool m920_exec(void *args)
 #endif
 			serial_print_int(reg);
 			serial_putc(']');
-			protocol_send_string(MSG_EOL);
+			serial_putc('\n');
+			serial_putc('\r');
 		}
 
 		if (CHECKFLAG(ptr->cmd->words, GCODE_WORD_B))
@@ -1187,7 +1195,8 @@ bool m920_exec(void *args)
 #endif
 			serial_print_int(reg);
 			serial_putc(']');
-			protocol_send_string(MSG_EOL);
+			serial_putc('\n');
+			serial_putc('\r');
 		}
 
 		if (CHECKFLAG(ptr->cmd->words, GCODE_WORD_C))
@@ -1219,7 +1228,8 @@ bool m920_exec(void *args)
 #endif
 			serial_print_int(reg);
 			serial_putc(']');
-			protocol_send_string(MSG_EOL);
+			serial_putc('\n');
+			serial_putc('\r');
 		}
 
 		if (CHECKFLAG(ptr->cmd->words, GCODE_WORD_I))
@@ -1251,7 +1261,8 @@ bool m920_exec(void *args)
 #endif
 			serial_print_int(reg);
 			serial_putc(']');
-			protocol_send_string(MSG_EOL);
+			serial_putc('\n');
+			serial_putc('\r');
 		}
 
 		if (CHECKFLAG(ptr->cmd->words, GCODE_WORD_J))
@@ -1283,7 +1294,8 @@ bool m920_exec(void *args)
 #endif
 			serial_print_int(reg);
 			serial_putc(']');
-			protocol_send_string(MSG_EOL);
+			serial_putc('\n');
+			serial_putc('\r');
 		}
 
 		*(ptr->error) = STATUS_OK;
