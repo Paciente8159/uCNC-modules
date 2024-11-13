@@ -24,7 +24,7 @@
 #include <stdint.h>
 #include <float.h>
 
-#if (UCNC_MODULE_VERSION < 10807 || UCNC_MODULE_VERSION > 99999)
+#if (UCNC_MODULE_VERSION < 11090 || UCNC_MODULE_VERSION > 99999)
 #error "This module is not compatible with the current version of µCNC"
 #endif
 
@@ -373,65 +373,65 @@ bool m350_exec(void *args)
 		{
 			int32_t val = 0;
 			// if no additional args then print the
-			protocol_send_string(__romstr__("[MICROSTEPS:"));
+			proto_print("[MICROSTEPS:");
 			val = 0;
-			serial_putc('X');
+			proto_putc('X');
 #ifdef STEPPER0_HAS_TMC
 			val = tmc_get_microstep(&tmc0_driver);
 #endif
-			serial_print_int(val);
-			serial_putc(',');
+			proto_itoa(val);
+			proto_putc(',');
 			val = 0;
-			serial_putc('Y');
+			proto_putc('Y');
 #ifdef STEPPER1_HAS_TMC
 			val = tmc_get_microstep(&tmc1_driver);
 #endif
-			serial_print_int(val);
-			serial_putc(',');
+			proto_itoa(val);
+			proto_putc(',');
 			val = 0;
-			serial_putc('Z');
+			proto_putc('Z');
 #ifdef STEPPER2_HAS_TMC
 			val = tmc_get_microstep(&tmc2_driver);
 #endif
-			serial_print_int(val);
-			serial_putc(',');
+			proto_itoa(val);
+			proto_putc(',');
 			val = 0;
-			serial_putc('A');
+			proto_putc('A');
 #ifdef STEPPER3_HAS_TMC
 			val = tmc_get_microstep(&tmc3_driver);
 #endif
-			serial_print_int(val);
-			serial_putc(',');
+			proto_itoa(val);
+			proto_putc(',');
 			val = 0;
-			serial_putc('B');
+			proto_putc('B');
 #ifdef STEPPER4_HAS_TMC
 			val = tmc_get_microstep(&tmc4_driver);
 #endif
-			serial_print_int(val);
-			serial_putc(',');
+			proto_itoa(val);
+			proto_putc(',');
 			val = 0;
-			serial_putc('C');
+			proto_putc('C');
 #ifdef STEPPER5_HAS_TMC
 			val = tmc_get_microstep(&tmc5_driver);
 #endif
-			serial_print_int(val);
-			serial_putc(',');
+			proto_itoa(val);
+			proto_putc(',');
 			val = 0;
-			serial_putc('I');
+			proto_putc('I');
 #ifdef STEPPER6_HAS_TMC
 			val = tmc_get_microstep(&tmc6_driver);
 #endif
-			serial_print_int(val);
-			serial_putc(',');
+			proto_itoa(val);
+			proto_putc(',');
 			val = 0;
-			serial_putc('J');
+			proto_putc('J');
 #ifdef STEPPER7_HAS_TMC
 			val = tmc_get_microstep(&tmc7_driver);
 #endif
-			serial_print_int(val);
-			serial_putc(']');
-			serial_putc('\n');
-			serial_putc('\r');
+			proto_itoa(val);
+			proto_putc(']');
+			proto_putc('\n');
+			proto_putc('\r');
 		}
 		else
 		{
@@ -535,65 +535,65 @@ bool m906_exec(void *args)
 		{
 			float val;
 			// if no additional args then print the
-			protocol_send_string(__romstr__("[STEPPER CURRENT:"));
+			proto_print("[STEPPER CURRENT:");
 			val = -1;
-			serial_putc('X');
+			proto_putc('X');
 #ifdef STEPPER0_HAS_TMC
 			val = tmc_get_current(&tmc0_driver, &tmc0_settings);
 #endif
-			serial_print_flt(val);
-			serial_putc(',');
+			proto_ftoa(val);
+			proto_putc(',');
 			val = -1;
-			serial_putc('Y');
+			proto_putc('Y');
 #ifdef STEPPER1_HAS_TMC
 			val = tmc_get_current(&tmc1_driver, &tmc1_settings);
 #endif
-			serial_print_flt(val);
-			serial_putc(',');
+			proto_ftoa(val);
+			proto_putc(',');
 			val = -1;
-			serial_putc('Z');
+			proto_putc('Z');
 #ifdef STEPPER2_HAS_TMC
 			val = tmc_get_current(&tmc2_driver, &tmc2_settings);
 #endif
-			serial_print_flt(val);
-			serial_putc(',');
+			proto_ftoa(val);
+			proto_putc(',');
 			val = -1;
-			serial_putc('A');
+			proto_putc('A');
 #ifdef STEPPER3_HAS_TMC
 			val = tmc_get_current(&tmc3_driver, &tmc3_settings);
 #endif
-			serial_print_flt(val);
-			serial_putc(',');
+			proto_ftoa(val);
+			proto_putc(',');
 			val = -1;
-			serial_putc('B');
+			proto_putc('B');
 #ifdef STEPPER4_HAS_TMC
 			val = tmc_get_current(&tmc4_driver, &tmc4_settings);
 #endif
-			serial_print_flt(val);
-			serial_putc(',');
+			proto_ftoa(val);
+			proto_putc(',');
 			val = -1;
-			serial_putc('C');
+			proto_putc('C');
 #ifdef STEPPER5_HAS_TMC
 			val = tmc_get_current(&tmc5_driver, &tmc5_settings);
 #endif
-			serial_print_flt(val);
-			serial_putc(',');
+			proto_ftoa(val);
+			proto_putc(',');
 			val = -1;
-			serial_putc('I');
+			proto_putc('I');
 #ifdef STEPPER6_HAS_TMC
 			val = tmc_get_current(&tmc6_driver, &tmc6_settings);
 #endif
-			serial_print_flt(val);
-			serial_putc(',');
+			proto_ftoa(val);
+			proto_putc(',');
 			val = -1;
-			serial_putc('J');
+			proto_putc('J');
 #ifdef STEPPER7_HAS_TMC
 			val = tmc_get_current(&tmc7_driver, &tmc7_settings);
 #endif
-			serial_print_flt(val);
-			serial_putc(']');
-			serial_putc('\n');
-			serial_putc('\r');
+			proto_ftoa(val);
+			proto_putc(']');
+			proto_putc('\n');
+			proto_putc('\r');
 		}
 		else
 		{
@@ -696,65 +696,65 @@ bool m913_exec(void *args)
 		{
 			int32_t val;
 			// if no additional args then print the
-			protocol_send_string(__romstr__("[STEPPER HYBRID THRESHOLD:"));
+			proto_print("[STEPPER HYBRID THRESHOLD:");
 			val = -1;
-			serial_putc('X');
+			proto_putc('X');
 #ifdef STEPPER0_HAS_TMC
 			val = tmc_get_stealthchop(&tmc0_driver);
 #endif
-			serial_print_int(val);
-			serial_putc(',');
+			proto_itoa(val);
+			proto_putc(',');
 			val = -1;
-			serial_putc('Y');
+			proto_putc('Y');
 #ifdef STEPPER1_HAS_TMC
 			val = tmc_get_stealthchop(&tmc1_driver);
 #endif
-			serial_print_int(val);
-			serial_putc(',');
+			proto_itoa(val);
+			proto_putc(',');
 			val = -1;
-			serial_putc('Z');
+			proto_putc('Z');
 #ifdef STEPPER2_HAS_TMC
 			val = tmc_get_stealthchop(&tmc2_driver);
 #endif
-			serial_print_int(val);
-			serial_putc(',');
+			proto_itoa(val);
+			proto_putc(',');
 			val = -1;
-			serial_putc('A');
+			proto_putc('A');
 #ifdef STEPPER3_HAS_TMC
 			val = tmc_get_stealthchop(&tmc3_driver);
 #endif
-			serial_print_int(val);
-			serial_putc(',');
+			proto_itoa(val);
+			proto_putc(',');
 			val = -1;
-			serial_putc('B');
+			proto_putc('B');
 #ifdef STEPPER4_HAS_TMC
 			val = tmc_get_stealthchop(&tmc4_driver);
 #endif
-			serial_print_int(val);
-			serial_putc(',');
+			proto_itoa(val);
+			proto_putc(',');
 			val = -1;
-			serial_putc('C');
+			proto_putc('C');
 #ifdef STEPPER5_HAS_TMC
 			val = tmc_get_stealthchop(&tmc5_driver);
 #endif
-			serial_print_int(val);
-			serial_putc(',');
+			proto_itoa(val);
+			proto_putc(',');
 			val = -1;
-			serial_putc('I');
+			proto_putc('I');
 #ifdef STEPPER6_HAS_TMC
 			val = tmc_get_stealthchop(&tmc6_driver);
 #endif
-			serial_print_int(val);
-			serial_putc(',');
+			proto_itoa(val);
+			proto_putc(',');
 			val = -1;
-			serial_putc('J');
+			proto_putc('J');
 #ifdef STEPPER7_HAS_TMC
 			val = tmc_get_stealthchop(&tmc7_driver);
 #endif
-			serial_print_int(val);
-			serial_putc(']');
-			serial_putc('\n');
-			serial_putc('\r');
+			proto_itoa(val);
+			proto_putc(']');
+			proto_putc('\n');
+			proto_putc('\r');
 		}
 		else
 		{
@@ -857,65 +857,65 @@ bool m914_exec(void *args)
 		{
 			int32_t val;
 			// if no additional args then print the
-			protocol_send_string(__romstr__("[STEPPER STALL SENSITIVITY:"));
+			proto_print("[STEPPER STALL SENSITIVITY:");
 			val = -255;
-			serial_putc('X');
+			proto_putc('X');
 #ifdef STEPPER0_HAS_TMC
 			val = tmc_get_stallguard(&tmc0_driver);
 #endif
-			serial_print_int(val);
-			serial_putc(',');
+			proto_itoa(val);
+			proto_putc(',');
 			val = -255;
-			serial_putc('Y');
+			proto_putc('Y');
 #ifdef STEPPER1_HAS_TMC
 			val = tmc_get_stallguard(&tmc1_driver);
 #endif
-			serial_print_int(val);
-			serial_putc(',');
+			proto_itoa(val);
+			proto_putc(',');
 			val = -255;
-			serial_putc('Z');
+			proto_putc('Z');
 #ifdef STEPPER2_HAS_TMC
 			val = tmc_get_stallguard(&tmc2_driver);
 #endif
-			serial_print_int(val);
-			serial_putc(',');
+			proto_itoa(val);
+			proto_putc(',');
 			val = -255;
-			serial_putc('A');
+			proto_putc('A');
 #ifdef STEPPER3_HAS_TMC
 			val = tmc_get_stallguard(&tmc3_driver);
 #endif
-			serial_print_int(val);
-			serial_putc(',');
+			proto_itoa(val);
+			proto_putc(',');
 			val = -255;
-			serial_putc('B');
+			proto_putc('B');
 #ifdef STEPPER4_HAS_TMC
 			val = tmc_get_stallguard(&tmc4_driver);
 #endif
-			serial_print_int(val);
-			serial_putc(',');
+			proto_itoa(val);
+			proto_putc(',');
 			val = -255;
-			serial_putc('C');
+			proto_putc('C');
 #ifdef STEPPER5_HAS_TMC
 			val = tmc_get_stallguard(&tmc5_driver);
 #endif
-			serial_print_int(val);
-			serial_putc(',');
+			proto_itoa(val);
+			proto_putc(',');
 			val = -255;
-			serial_putc('I');
+			proto_putc('I');
 #ifdef STEPPER6_HAS_TMC
 			val = tmc_get_stallguard(&tmc6_driver);
 #endif
-			serial_print_int(val);
-			serial_putc(',');
+			proto_itoa(val);
+			proto_putc(',');
 			val = -255;
-			serial_putc('J');
+			proto_putc('J');
 #ifdef STEPPER7_HAS_TMC
 			val = tmc_get_stallguard(&tmc7_driver);
 #endif
-			serial_print_int(val);
-			serial_putc(']');
-			serial_putc('\n');
-			serial_putc('\r');
+			proto_itoa(val);
+			proto_putc(']');
+			proto_putc('\n');
+			proto_putc('\r');
 		}
 		else
 		{
@@ -1036,10 +1036,10 @@ bool m920_exec(void *args)
 
 		if (CHECKFLAG(ptr->cmd->words, GCODE_WORD_X))
 		{
-			protocol_send_string(__romstr__("[TMCREG X:"));
+			proto_print("[TMCREG X:");
 			reg = (uint32_t)ptr->words->xyzabc[0];
-			serial_print_int(reg);
-			serial_putc(',');
+			proto_itoa(reg);
+			proto_putc(',');
 #ifdef STEPPER0_HAS_TMC
 			if (wordreg >= 0)
 			{
@@ -1061,18 +1061,18 @@ bool m920_exec(void *args)
 #else
 			reg = 0xFFFFFFFFUL;
 #endif
-			serial_print_int(reg);
-			serial_putc(']');
-			serial_putc('\n');
-			serial_putc('\r');
+			proto_itoa(reg);
+			proto_putc(']');
+			proto_putc('\n');
+			proto_putc('\r');
 		}
 
 		if (CHECKFLAG(ptr->cmd->words, GCODE_WORD_Y))
 		{
-			protocol_send_string(__romstr__("[TMCREG Y:"));
+			proto_print("[TMCREG Y:");
 			reg = (uint32_t)ptr->words->xyzabc[1];
-			serial_print_int(reg);
-			serial_putc(',');
+			proto_itoa(reg);
+			proto_putc(',');
 #ifdef STEPPER1_HAS_TMC
 			if (wordreg >= 0)
 			{
@@ -1094,18 +1094,18 @@ bool m920_exec(void *args)
 #else
 			reg = 0xFFFFFFFFUL;
 #endif
-			serial_print_int(reg);
-			serial_putc(']');
-			serial_putc('\n');
-			serial_putc('\r');
+			proto_itoa(reg);
+			proto_putc(']');
+			proto_putc('\n');
+			proto_putc('\r');
 		}
 
 		if (CHECKFLAG(ptr->cmd->words, GCODE_WORD_Z))
 		{
-			protocol_send_string(__romstr__("[TMCREG Z:"));
+			proto_print("[TMCREG Z:");
 			reg = (uint32_t)ptr->words->xyzabc[2];
-			serial_print_int(reg);
-			serial_putc(',');
+			proto_itoa(reg);
+			proto_putc(',');
 #ifdef STEPPER2_HAS_TMC
 			if (wordreg >= 0)
 			{
@@ -1127,18 +1127,18 @@ bool m920_exec(void *args)
 #else
 			reg = 0xFFFFFFFFUL;
 #endif
-			serial_print_int(reg);
-			serial_putc(']');
-			serial_putc('\n');
-			serial_putc('\r');
+			proto_itoa(reg);
+			proto_putc(']');
+			proto_putc('\n');
+			proto_putc('\r');
 		}
 
 		if (CHECKFLAG(ptr->cmd->words, GCODE_WORD_A))
 		{
-			protocol_send_string(__romstr__("[TMCREG A:"));
+			proto_print("[TMCREG A:");
 			reg = (uint32_t)ptr->words->xyzabc[3];
-			serial_print_int(reg);
-			serial_putc(',');
+			proto_itoa(reg);
+			proto_putc(',');
 #ifdef STEPPER3_HAS_TMC
 			if (wordreg >= 0)
 			{
@@ -1160,18 +1160,18 @@ bool m920_exec(void *args)
 #else
 			reg = 0xFFFFFFFFUL;
 #endif
-			serial_print_int(reg);
-			serial_putc(']');
-			serial_putc('\n');
-			serial_putc('\r');
+			proto_itoa(reg);
+			proto_putc(']');
+			proto_putc('\n');
+			proto_putc('\r');
 		}
 
 		if (CHECKFLAG(ptr->cmd->words, GCODE_WORD_B))
 		{
-			protocol_send_string(__romstr__("[TMCREG B:"));
+			proto_print("[TMCREG B:");
 			reg = (uint32_t)ptr->words->xyzabc[4];
-			serial_print_int(reg);
-			serial_putc(',');
+			proto_itoa(reg);
+			proto_putc(',');
 #ifdef STEPPER4_HAS_TMC
 			if (wordreg >= 0)
 			{
@@ -1193,18 +1193,18 @@ bool m920_exec(void *args)
 #else
 			reg = 0xFFFFFFFFUL;
 #endif
-			serial_print_int(reg);
-			serial_putc(']');
-			serial_putc('\n');
-			serial_putc('\r');
+			proto_itoa(reg);
+			proto_putc(']');
+			proto_putc('\n');
+			proto_putc('\r');
 		}
 
 		if (CHECKFLAG(ptr->cmd->words, GCODE_WORD_C))
 		{
-			protocol_send_string(__romstr__("[TMCREG C:"));
+			proto_print("[TMCREG C:");
 			reg = (uint32_t)ptr->words->xyzabc[5];
-			serial_print_int(reg);
-			serial_putc(',');
+			proto_itoa(reg);
+			proto_putc(',');
 #ifdef STEPPER5_HAS_TMC
 			if (wordreg >= 0)
 			{
@@ -1226,18 +1226,18 @@ bool m920_exec(void *args)
 #else
 			reg = 0xFFFFFFFFUL;
 #endif
-			serial_print_int(reg);
-			serial_putc(']');
-			serial_putc('\n');
-			serial_putc('\r');
+			proto_itoa(reg);
+			proto_putc(']');
+			proto_putc('\n');
+			proto_putc('\r');
 		}
 
 		if (CHECKFLAG(ptr->cmd->words, GCODE_WORD_I))
 		{
-			protocol_send_string(__romstr__("[TMCREG I:"));
+			proto_print("[TMCREG I:");
 			reg = (uint32_t)ptr->words->ijk[0];
-			serial_print_int(reg);
-			serial_putc(',');
+			proto_itoa(reg);
+			proto_putc(',');
 #ifdef STEPPER6_HAS_TMC
 			if (wordreg >= 0)
 			{
@@ -1259,18 +1259,18 @@ bool m920_exec(void *args)
 #else
 			reg = 0xFFFFFFFFUL;
 #endif
-			serial_print_int(reg);
-			serial_putc(']');
-			serial_putc('\n');
-			serial_putc('\r');
+			proto_itoa(reg);
+			proto_putc(']');
+			proto_putc('\n');
+			proto_putc('\r');
 		}
 
 		if (CHECKFLAG(ptr->cmd->words, GCODE_WORD_J))
 		{
-			protocol_send_string(__romstr__("[TMCREG J:"));
+			proto_print("[TMCREG J:");
 			reg = (uint32_t)ptr->words->ijk[1];
-			serial_print_int(reg);
-			serial_putc(',');
+			proto_itoa(reg);
+			proto_putc(',');
 #ifdef STEPPER7_HAS_TMC
 			if (wordreg >= 0)
 			{
@@ -1292,10 +1292,10 @@ bool m920_exec(void *args)
 #else
 			reg = 0xFFFFFFFFUL;
 #endif
-			serial_print_int(reg);
-			serial_putc(']');
-			serial_putc('\n');
-			serial_putc('\r');
+			proto_itoa(reg);
+			proto_putc(']');
+			proto_putc('\n');
+			proto_putc('\r');
 		}
 
 		*(ptr->error) = STATUS_OK;

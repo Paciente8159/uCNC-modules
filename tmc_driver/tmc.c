@@ -102,26 +102,32 @@ uint32_t tmc_read_register(tmc_driver_t *driver, uint8_t address)
 	case 2209:
 	case 2226:
 		/* code */
-		data[0] = 0x05;
+		 = 0x05;
 		data[1] = driver->slave;
 		data[2] = address & 0x7F;
 		data[3] = tmc_crc8(data, 3);
+		DBGMSG("MCU->TMC: %#X, %#X, %#X, %#X", data[0], data[1], data[2], data[3]);
 		driver->rw(data, 4, 8);
 		crc = tmc_crc8(data, 7);
+		DBGMSG("TMC->MCU: %#X, %#X, %#X, %#X, %#X, %#X, %#X", data[0], data[1], data[2], data[3], data[4], data[5], data[6]);
 		if (data[0] != 0x05)
 		{
+			DBGMSG("TMC start byte error");
 			return TMC_READ_ERROR;
 		}
 		if (data[1] != 0xFF)
 		{
+			DBGMSG("TMC padding byte  error");
 			return TMC_READ_ERROR;
 		}
 		if (data[2] != address)
 		{
+			DBGMSG("TMC address error");
 			return TMC_READ_ERROR;
 		}
 		if (crc != data[7])
 		{
+			DBGMSG("TMC crc response error");
 			return TMC_READ_ERROR;
 		}
 		result = ((uint32_t)data[3] << 24) | ((uint32_t)data[4] << 16) | (data[5] << 8) | data[6];
