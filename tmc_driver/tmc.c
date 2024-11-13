@@ -102,14 +102,14 @@ uint32_t tmc_read_register(tmc_driver_t *driver, uint8_t address)
 	case 2209:
 	case 2226:
 		/* code */
-		 = 0x05;
+		data[0] = 0x05;
 		data[1] = driver->slave;
 		data[2] = address & 0x7F;
 		data[3] = tmc_crc8(data, 3);
-		DBGMSG("MCU->TMC: %#X, %#X, %#X, %#X", data[0], data[1], data[2], data[3]);
+		DBGMSG("MCU-R->TMC: %#X, %#X, %#X, %#X", data[0], data[1], data[2], data[3]);
 		driver->rw(data, 4, 8);
 		crc = tmc_crc8(data, 7);
-		DBGMSG("TMC->MCU: %#X, %#X, %#X, %#X, %#X, %#X, %#X", data[0], data[1], data[2], data[3], data[4], data[5], data[6]);
+		DBGMSG("TMC-R->MCU: %#X, %#X, %#X, %#X, %#X, %#X, %#X, %#X", data[0], data[1], data[2], data[3], data[4], data[5], data[6], data[7]);
 		if (data[0] != 0x05)
 		{
 			DBGMSG("TMC start byte error");
@@ -138,7 +138,9 @@ uint32_t tmc_read_register(tmc_driver_t *driver, uint8_t address)
 		data[2] = 0;
 		data[3] = 0;
 		data[4] = 0;
+		DBGMSG("MCU-R->TMC: %#X, %#X, %#X, %#X, %#X", data[0], data[1], data[2], data[3], data[4]);
 		driver->rw(data, 5, 5);
+		DBGMSG("TMC-R->MCU: %#X, %#X, %#X, %#X, %#X", data[0], data[1], data[2], data[3], data[4]);
 		result = ((uint32_t)data[1] << 24) | ((uint32_t)data[2] << 16) | (data[3] << 8) | data[4];
 	}
 
@@ -238,6 +240,7 @@ uint32_t tmc_write_register(tmc_driver_t *driver, uint8_t address, uint32_t val)
 			data[5] = (val >> 8) & 0xFF;
 			data[6] = (val) & 0xFF;
 			data[7] = tmc_crc8(data, 7);
+			DBGMSG("MCU-W->TMC: %#X, %#X, %#X, %#X, %#X, %#X, %#X, %#X", data[0], data[1], data[2], data[3], data[4], data[5], data[6], data[7]);
 			driver->rw(data, 8, 0);
 			break;
 		case 2130:
