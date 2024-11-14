@@ -174,13 +174,13 @@ extern "C"
 
 	typedef struct
 	{
-		uint8_t ifcnt;
-		uint32_t ihold_irun;
-		uint32_t tpwmthrs;
-		uint32_t tcoolthrs;
-		uint8_t sgthrs;
-		uint32_t coolconf;
-		uint8_t tpowerdown;
+		uint8_t ifcnt /*R2*/;
+		uint32_t ihold_irun /*R10*/;
+		uint8_t tpowerdown /*R11*/;
+		uint32_t tpwmthrs /*R13*/;
+		uint32_t tcoolthrs /*R14*/;
+		uint8_t sgthrs /*R40*/;
+		uint32_t coolconf /*R6D*/;
 	} tmc_driver_reg_t;
 
 	typedef struct
