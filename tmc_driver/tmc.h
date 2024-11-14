@@ -115,6 +115,48 @@ extern "C"
 #define COOLCONF_SGT_MASK 0x007F0000
 #define COOLCONF_SGT_SHIFT 16
 
+#define GCONF_PDN_DISABLE
+#define GCONF_MSTEP_REG_SELECT
+#define GCONF_I_SCALE_ANALOG
+#define GCONF_EN_SPREADCYCLE
+// TMC2130
+#define GCONF_EN_PWM_MODE
+
+#define CHOPCONF_TBL
+#define CHOPCONF_TOFF
+#define CHOPCONF_HEND
+#define CHOPCONF_HSTRT
+#define CHOPCONF_VSENSE
+#define CHOPCONF_MRES
+#define CHOPCONF_INTPOL
+
+#define IHOLD_IRUN_IHOLD
+#define IHOLD_IRUN_IRUN
+#define IHOLD_IRUN_IHOLDDELAY
+
+#define PWMCONF_PWM_OFS
+#define PWMCONF_PWM_GRAD
+#define PWMCONF_PWM_FREQ
+#define PWMCONF_PWM_AUTOSCALE
+#define PWMCONF_PWM_AUTOGRAD
+#define PWMCONF_PWM_REG
+#define PWMCONF_PWM_LIM
+#define PWMCONF_PWM_SCALE_SUM
+#define PWMCONF_PWM_SCALE_AUTO
+#define PWMCONF_PWM_OFS_AUTO
+#define PWMCONF_PWM_GRAD_AUTO
+// TMC2130
+#define PWMCONF_PWM_FREQ
+#define PWMCONF_PWM_AUTOSCALE
+#define PWMCONF_PWM_GRAD
+#define PWMCONF_PWM_AMPL
+
+// TMC2130
+#define COOLCONF_SGT
+
+#define TMC_SET_FIELD(reg, tmcreg, val) SET_FIELD(reg, tmcreg##_MASK, tmcreg##_SHIFT, val)
+#define TMC_GET_FIELD(reg, tmcreg) GET_FIELD(reg, tmcreg##_MASK, tmcreg##_SHIFT)
+
 	typedef void (*tmc_rw)(uint8_t *, uint8_t, uint8_t);
 	typedef void (*tmc_startup)(void);
 
