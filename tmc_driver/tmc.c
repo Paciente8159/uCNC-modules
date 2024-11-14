@@ -106,22 +106,28 @@ uint32_t tmc_read_register(tmc_driver_t *driver, uint8_t address)
 		data[1] = driver->slave;
 		data[2] = address & 0x7F;
 		data[3] = tmc_crc8(data, 3);
+		DBGMSG("MCU-R->TMC: %#4hX", data);
 		driver->rw(data, 4, 8);
 		crc = tmc_crc8(data, 7);
+		DBGMSG("TMC-R->MCU: %#7hX,%hX", data, crc);
 		if (data[0] != 0x05)
 		{
+			DBGMSG("TMC start byte error");
 			return TMC_READ_ERROR;
 		}
 		if (data[1] != 0xFF)
 		{
+			DBGMSG("TMC padding byte  error");
 			return TMC_READ_ERROR;
 		}
 		if (data[2] != address)
 		{
+			DBGMSG("TMC address error");
 			return TMC_READ_ERROR;
 		}
 		if (crc != data[7])
 		{
+			DBGMSG("TMC crc response error");
 			return TMC_READ_ERROR;
 		}
 		result = ((uint32_t)data[3] << 24) | ((uint32_t)data[4] << 16) | (data[5] << 8) | data[6];
@@ -132,7 +138,9 @@ uint32_t tmc_read_register(tmc_driver_t *driver, uint8_t address)
 		data[2] = 0;
 		data[3] = 0;
 		data[4] = 0;
+		DBGMSG("MCU-R->TMC: %#5hX", data);
 		driver->rw(data, 5, 5);
+		DBGMSG("TMC-R->MCU: %#5hX", data);
 		result = ((uint32_t)data[1] << 24) | ((uint32_t)data[2] << 16) | (data[3] << 8) | data[4];
 	}
 
@@ -232,6 +240,7 @@ uint32_t tmc_write_register(tmc_driver_t *driver, uint8_t address, uint32_t val)
 			data[5] = (val >> 8) & 0xFF;
 			data[6] = (val) & 0xFF;
 			data[7] = tmc_crc8(data, 7);
+			DBGMSG("MCU-W->TMC: %#8hX", data);
 			driver->rw(data, 8, 0);
 			break;
 		case 2130:
