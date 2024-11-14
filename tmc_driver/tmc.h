@@ -43,7 +43,7 @@ extern "C"
 #define TPOWERDOWN 0x11 // W
 
 #define GET_FIELD(reg, mask, offset) (((reg) & (mask)) >> (offset))
-#define SET_FIELD(reg, mask, offset, value) ({(reg) &= ~(mask); (reg) |= (((value)<<(offset)) & (mask)); })
+#define SET_FIELD(reg, mask, offset, value) ({(reg) &= ~(mask); (reg) |= ((((uint32_t)value)<<(offset)) & (mask)); })
 
 #define GCONF_PDN_DISABLE_MASK 0x00000040
 #define GCONF_PDN_DISABLE_SHIFT 6
@@ -182,6 +182,9 @@ extern "C"
 		uint8_t sgthrs /*R40*/;
 		uint32_t coolconf /*R6D*/;
 	} tmc_driver_reg_t;
+
+#define TMC22XX_DEFAULTS(x) ({(x).ihold_irun = 0x00071703; (x).tpowerdown = 0x00000014;})
+#define TMC2130_DEFAULTS(x) ({(x).ihold_irun = 0x00071703;})
 
 	typedef struct
 	{

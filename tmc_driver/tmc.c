@@ -343,7 +343,11 @@ void tmc_init(tmc_driver_t *driver, tmc_driver_setting_t *settings)
 	case 2225:
 	case 2209:
 	case 2226:
+		TMC22XX_DEFAULTS(driver->reg);
 		tmc22xx_init(driver);
+		break;
+	case 2130:
+		TMC2130_DEFAULTS(driver->reg);
 		break;
 	}
 
