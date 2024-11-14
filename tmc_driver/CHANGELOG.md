@@ -7,6 +7,10 @@ They can be interfaced either via UART or SPI (all software emulated)
 
 ### 2024-11-15
 
+- fix one wire transmission (replaced input weak pullup by output driven in output communication) (#86)
+
+### 2024-11-15
+
 - replace all TMC registers struct enums and bit fields by bit shifting operations since GCC does not garantee bit field order during optimization (#85)
 - added defaults to write only shadow registers (#85)
 
