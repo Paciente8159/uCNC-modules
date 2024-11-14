@@ -79,12 +79,13 @@
 		stepper##CHANNEL##_select();                                                                      \
 		__ATOMIC__                                                                                        \
 		{                                                                                                 \
-			io_config_input(STEPPER##CHANNEL##_UART_RX);                                                    \
-			io_config_pullup(STEPPER##CHANNEL##_UART_RX);                                                   \
+			io_config_output(STEPPER##CHANNEL##_UART_RX);                                                   \
+			io_set_output(STEPPER##CHANNEL##_UART_RX);                                                      \
 			for (uint8_t i = 0; i < wlen; i++)                                                              \
 			{                                                                                               \
 				softuart_putc(&tmc##CHANNEL##_uart, data[i]);                                                 \
 			}                                                                                               \
+			io_config_input(STEPPER##CHANNEL##_UART_RX);                                                    \
 			for (uint8_t i = 0; i < rlen; i++)                                                              \
 			{                                                                                               \
 				data[i] = softuart_getc(&tmc##CHANNEL##_uart, TMC_UART_TIMEOUT(STEPPER##CHANNEL##_BAUDRATE)); \
