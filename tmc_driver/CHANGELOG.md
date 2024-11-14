@@ -5,6 +5,11 @@ They can be interfaced either via UART or SPI (all software emulated)
 
 ## Changelog
 
+### 2024-11-13
+
+- fix TMC commands status print
+- fix ONEWIRE default configurations
+
 ### 2024-02-16
 
 - added support for HW UART2 and SPI ports (#50)
