@@ -20,6 +20,62 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+#ifndef AUX_IC74HC595_COUNT
+#define AUX_IC74HC595_COUNT 0
+#endif
+
+#ifndef AUX_IC74HC595_DATA
+#define AUX_IC74HC595_DATA DOUT40
+#endif
+
+#ifndef AUX_IC74HC595_CLK
+#define AUX_IC74HC595_CLK DOUT41
+#endif
+
+#ifndef AUX_IC74HC595_LATCH
+#define AUX_IC74HC595_LATCH DOUT42
+#endif
+
+#ifndef AUX_IC74HC595_DELAY_CYCLES
+#define AUX_IC74HC595_DELAY_CYCLES 0
+#endif
+
+#define aux_ic74hc595_delay() mcu_delay_cycles(AUX_IC74HC595_DELAY_CYCLES)
+MCU_CALLBACK void aux_ic74hc595_update_pins(uint8_t pinoffset, bool value)
+{
+	static uint8_t pin_values;
+	if (((pin_values & (1 << (pinoffset & 0x7))) != 0) == value)
+	{
+		// pin did not change. exit
+		return;
+	}
+	__ATOMIC__
+	{
+		mcu_clear_output(AUX_IC74HC595_LATCH);
+		uint8_t pinbyte = pin_values;
+		for (uint8_t j = 0x80; j != 0; j >>= 1)
+		{
+#if (IC74HC595_DELAY_CYCLES)
+			mcu_delay_cycles(AUX_IC74HC595_DELAY_CYCLES);
+#endif
+			mcu_clear_output(AUX_IC74HC595_CLK);
+			if (pinbyte & j)
+			{
+				mcu_set_output(AUX_IC74HC595_DATA);
+			}
+			else
+			{
+				mcu_clear_output(AUX_IC74HC595_DATA);
+			}
+			mcu_set_output(AUX_IC74HC595_CLK);
+		}
+#if (IC74HC595_DELAY_CYCLES)
+		mcu_delay_cycles(AUX_IC74HC595_DELAY_CYCLES);
+#endif
+		mcu_set_output(AUX_IC74HC595_LATCH);
+	}
+}
+
 #ifdef ENABLE_PARSER_MODULES
 
 #if (UCNC_MODULE_VERSION < 10800 || UCNC_MODULE_VERSION > 99999)
@@ -96,14 +152,13 @@ bool m62_m65_exec(void *args)
 
 		*(ptr->error) = STATUS_INVALID_STATEMENT;
 
-		// pins 50-63 will be reserved
-
-		if (ptr->words->p < 50)
-		{
-			io_set_pinvalue(ptr->words->p + DOUT_PINS_OFFSET, pinstate);
-			*(ptr->error) = STATUS_OK;
-		}
-		else if (ptr->words->p >= 64)
+		// pins 64 to 71 will use the extended 74HC595
+		if (ptr->words->p >= 64 && ptr->words->p <= 71)
+			{
+				aux_ic74hc595_update_pins(ptr->words->p - 64, pinstate);
+				*(ptr->error) = STATUS_OK;
+			}
+		else
 		{
 			// allow propagation
 			return EVENT_CONTINUE;
