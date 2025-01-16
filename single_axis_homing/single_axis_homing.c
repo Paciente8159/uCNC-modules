@@ -43,54 +43,68 @@
  * @return bool 	a boolean that tells the handler if the event should continue to propagate through additional listeners or is handled by the current listener an should stop propagation
  */
 
-static uint8_t single_axis_homing_motion(uint8_t axis, uint8_t axis_mask, uint8_t axis_limit)
+static void FORCEINLINE single_axis_homing_finnish(uint8_t error)
 {
-	float target[AXIS_COUNT];
-
-	if (!g_settings.homing_enabled)
-	{
-		return STATUS_SETTING_DISABLED;
-	}
-
-	cnc_set_exec_state(EXEC_HOMING);
-	if (mc_home_axis(axis_mask, axis_limit))
-	{
-		return STATUS_CRITICAL_FAIL;
-	}
-
+	// disables homing and reenables limits alarm messages
+	cnc_clear_exec_state(EXEC_HOMING);
 	io_invert_limits(0);
 	// sync's the motion control with the real time position
 	// this flushes the homing motion before returning from error or home success
 	itp_clear();
 	planner_clear();
 	mc_sync_position();
-	cnc_unlock(true);
+	cnc_unlock((error == STATUS_OK));
+}
+
+static uint8_t single_axis_homing_motion(uint8_t axis, uint8_t axis_mask, uint8_t axis_limit)
+{
+	float target[AXIS_COUNT];
+	if (!g_settings.homing_enabled)
+	{
+		return STATUS_SETTING_DISABLED;
+	}
+
 	motion_data_t block_data = {0};
-	mc_get_position(target);
-	target[axis] += ((g_settings.homing_dir_invert_mask & (1 << axis)) ? -g_settings.homing_offset : g_settings.homing_offset);
-	block_data.feed = g_settings.homing_fast_feed_rate;
-	block_data.spindle = 0;
-	block_data.dwell = 0;
-	// starts offset and waits to finnish
-	mc_line(target, &block_data);
-	itp_sync();
+
+	cnc_set_exec_state(EXEC_HOMING);
+	uint8_t error = mc_home_axis(axis_mask, axis_limit);
+	switch (error)
+	{
+	case STATUS_OK:
+		io_invert_limits(0);
+		// sync's the motion control with the real time position
+		// this flushes the homing motion before returning from error or home success
+		itp_clear();
+		planner_clear();
+		mc_sync_position();
+		cnc_unlock(true);
+
+		mc_get_position(target);
+		target[axis] += ((g_settings.homing_dir_invert_mask & (1 << axis)) ? -g_settings.homing_offset : g_settings.homing_offset);
+		block_data.feed = g_settings.homing_fast_feed_rate;
+		block_data.spindle = 0;
+		block_data.dwell = 0;
+		// starts offset and waits to finnish
+		mc_line(target, &block_data);
+		itp_sync();
 
 #ifdef SET_ORIGIN_AT_HOME_POS
-	target[axis] = 0;
+		target[axis] = 0;
 #else
-	target[axis] = (!(g_settings.homing_dir_invert_mask & (1 << axis)) ? 0 : g_settings.max_distance[axis]);
+		target[axis] = (!(g_settings.homing_dir_invert_mask & (1 << axis)) ? 0 : g_settings.max_distance[axis]);
 #endif
 
-	// reset position
-	itp_reset_rt_position(target);
-	// disables homing and reenables limits alarm messages
-	cnc_clear_exec_state(EXEC_HOMING);
-	itp_clear();
-	planner_clear();
-	mc_sync_position();
-	cnc_unlock(true);
+		// reset position
+		itp_reset_rt_position(target);
+		__FALL_THROUGH__
+	case STATUS_HARDLIMITS_DISABLED:
+		single_axis_homing_finnish(error);
+		break;
+	default:
+		return STATUS_CRITICAL_FAIL;
+	}
 
-	return STATUS_OK;
+	return error;
 }
 
 bool single_axis_homing_system_cmd(void *args)
