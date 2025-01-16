@@ -43,139 +43,115 @@
  * @return bool 	a boolean that tells the handler if the event should continue to propagate through additional listeners or is handled by the current listener an should stop propagation
  */
 
-static uint8_t single_axis_homing_motion(uint8_t axis, uint8_t axis_mask, uint8_t axis_limit)
+static void FORCEINLINE single_axis_homing_finnish(uint8_t error)
 {
-	float target[AXIS_COUNT];
-
-	cnc_set_exec_state(EXEC_HOMING);
-	if (mc_home_axis(axis_mask, axis_limit))
-	{
-		return STATUS_CRITICAL_FAIL;
-	}
-
+	// disables homing and reenables limits alarm messages
+	cnc_clear_exec_state(EXEC_HOMING);
 	io_invert_limits(0);
 	// sync's the motion control with the real time position
 	// this flushes the homing motion before returning from error or home success
 	itp_clear();
 	planner_clear();
 	mc_sync_position();
-	cnc_unlock(true);
+	cnc_unlock((error == STATUS_OK));
+}
+
+static uint8_t single_axis_homing_motion(uint8_t axis, uint8_t axis_mask, uint8_t axis_limit)
+{
+	float target[AXIS_COUNT];
+	if (!g_settings.homing_enabled)
+	{
+		return STATUS_SETTING_DISABLED;
+	}
+
 	motion_data_t block_data = {0};
-	mc_get_position(target);
-	target[axis] += ((g_settings.homing_dir_invert_mask & (1 << axis)) ? -g_settings.homing_offset : g_settings.homing_offset);
-	block_data.feed = g_settings.homing_fast_feed_rate;
-	block_data.spindle = 0;
-	block_data.dwell = 0;
-	// starts offset and waits to finnish
-	mc_line(target, &block_data);
-	itp_sync();
+
+	cnc_set_exec_state(EXEC_HOMING);
+	uint8_t error = mc_home_axis(axis_mask, axis_limit);
+	switch (error)
+	{
+	case STATUS_OK:
+		io_invert_limits(0);
+		// sync's the motion control with the real time position
+		// this flushes the homing motion before returning from error or home success
+		itp_clear();
+		planner_clear();
+		mc_sync_position();
+		cnc_unlock(true);
+
+		mc_get_position(target);
+		target[axis] += ((g_settings.homing_dir_invert_mask & (1 << axis)) ? -g_settings.homing_offset : g_settings.homing_offset);
+		block_data.feed = g_settings.homing_fast_feed_rate;
+		block_data.spindle = 0;
+		block_data.dwell = 0;
+		// starts offset and waits to finnish
+		mc_line(target, &block_data);
+		itp_sync();
 
 #ifdef SET_ORIGIN_AT_HOME_POS
-	target[axis] = 0;
+		target[axis] = 0;
 #else
-	target[axis] = (!(g_settings.homing_dir_invert_mask & (1 << axis)) ? 0 : g_settings.max_distance[axis]);
+		target[axis] = (!(g_settings.homing_dir_invert_mask & (1 << axis)) ? 0 : g_settings.max_distance[axis]);
 #endif
 
-	// reset position
-	itp_reset_rt_position(target);
-	// disables homing and reenables limits alarm messages
-	cnc_clear_exec_state(EXEC_HOMING);
-	itp_clear();
-	planner_clear();
-	mc_sync_position();
-	cnc_unlock(true);
+		// reset position
+		itp_reset_rt_position(target);
+		__FALL_THROUGH__
+	case STATUS_HARDLIMITS_DISABLED:
+		single_axis_homing_finnish(error);
+		break;
+	default:
+		return STATUS_CRITICAL_FAIL;
+	}
 
-	return STATUS_OK;
+	return error;
 }
 
 bool single_axis_homing_system_cmd(void *args)
 {
 	// this is just to cast the void* args to the used struct by the parse event
 	grbl_cmd_args_t *ptr = (grbl_cmd_args_t *)args;
-
 	strupr((char *)ptr->cmd);
 
 #if AXIS_X_HOMING_MASK != 0
 	if (!strcmp((char *)ptr->cmd, "HX"))
 	{
-		if (single_axis_homing_motion(AXIS_X, AXIS_X_HOMING_MASK, LINACT0_LIMIT_MASK) != STATUS_OK)
-		{
-			// system command should return GRBL_SYSTEM_CMD_EXTENDED
-			*(ptr->error) = STATUS_CRITICAL_FAIL;
-			return EVENT_HANDLED;
-		}
-		// system command should return GRBL_SYSTEM_CMD_EXTENDED
-		*(ptr->error) = GRBL_SYSTEM_CMD_EXTENDED;
+		*(ptr->error) = single_axis_homing_motion(AXIS_X, AXIS_X_HOMING_MASK, LINACT0_LIMIT_MASK);
 		return EVENT_HANDLED;
 	}
 #endif
 #if AXIS_Y_HOMING_MASK != 0
 	if (!strcmp((char *)ptr->cmd, "HY"))
 	{
-		if (single_axis_homing_motion(AXIS_Y, AXIS_Y_HOMING_MASK, LINACT1_LIMIT_MASK) != STATUS_OK)
-		{
-			// system command should return GRBL_SYSTEM_CMD_EXTENDED
-			*(ptr->error) = STATUS_CRITICAL_FAIL;
-			return EVENT_HANDLED;
-		}
-		// system command should return GRBL_SYSTEM_CMD_EXTENDED
-		*(ptr->error) = GRBL_SYSTEM_CMD_EXTENDED;
+		*(ptr->error) = single_axis_homing_motion(AXIS_Y, AXIS_Y_HOMING_MASK, LINACT1_LIMIT_MASK);
 		return EVENT_HANDLED;
 	}
 #endif
 #if AXIS_Z_HOMING_MASK != 0
 	if (!strcmp((char *)ptr->cmd, "HZ"))
 	{
-		if (single_axis_homing_motion(AXIS_Z, AXIS_Z_HOMING_MASK, LINACT2_LIMIT_MASK) != STATUS_OK)
-		{
-			// system command should return GRBL_SYSTEM_CMD_EXTENDED
-			*(ptr->error) = STATUS_CRITICAL_FAIL;
-			return EVENT_HANDLED;
-		}
-		// system command should return GRBL_SYSTEM_CMD_EXTENDED
-		*(ptr->error) = GRBL_SYSTEM_CMD_EXTENDED;
+		*(ptr->error) = single_axis_homing_motion(AXIS_Z, AXIS_Z_HOMING_MASK, LINACT2_LIMIT_MASK);
 		return EVENT_HANDLED;
 	}
 #endif
 #if AXIS_A_HOMING_MASK != 0
 	if (!strcmp((char *)ptr->cmd, "HA"))
 	{
-		if (single_axis_homing_motion(AXIS_A, AXIS_A_HOMING_MASK, LINACT3_LIMIT_MASK) != STATUS_OK)
-		{
-			// system command should return GRBL_SYSTEM_CMD_EXTENDED
-			*(ptr->error) = STATUS_CRITICAL_FAIL;
-			return EVENT_HANDLED;
-		}
-		// system command should return GRBL_SYSTEM_CMD_EXTENDED
-		*(ptr->error) = GRBL_SYSTEM_CMD_EXTENDED;
+		*(ptr->error) = single_axis_homing_motion(AXIS_A, AXIS_A_HOMING_MASK, LINACT3_LIMIT_MASK);
 		return EVENT_HANDLED;
 	}
 #endif
 #if AXIS_B_HOMING_MASK != 0
 	if (!strcmp((char *)ptr->cmd, "HB"))
 	{
-		if (single_axis_homing_motion(AXIS_B, AXIS_B_HOMING_MASK, LINACT4_LIMIT_MASK) != STATUS_OK)
-		{
-			// system command should return GRBL_SYSTEM_CMD_EXTENDED
-			*(ptr->error) = STATUS_CRITICAL_FAIL;
-			return EVENT_HANDLED;
-		}
-		// system command should return GRBL_SYSTEM_CMD_EXTENDED
-		*(ptr->error) = GRBL_SYSTEM_CMD_EXTENDED;
+		*(ptr->error) = single_axis_homing_motion(AXIS_B, AXIS_B_HOMING_MASK, LINACT4_LIMIT_MASK);
 		return EVENT_HANDLED;
 	}
 #endif
 #if AXIS_C_HOMING_MASK != 0
 	if (!strcmp((char *)ptr->cmd, "HC"))
 	{
-		if (single_axis_homing_motion(AXIS_C, AXIS_C_HOMING_MASK, LINACT5_LIMIT_MASK) != STATUS_OK)
-		{
-			// system command should return GRBL_SYSTEM_CMD_EXTENDED
-			*(ptr->error) = STATUS_CRITICAL_FAIL;
-			return EVENT_HANDLED;
-		}
-		// system command should return GRBL_SYSTEM_CMD_EXTENDED
-		*(ptr->error) = GRBL_SYSTEM_CMD_EXTENDED;
+		*(ptr->error) = single_axis_homing_motion(AXIS_C, AXIS_C_HOMING_MASK, LINACT5_LIMIT_MASK);
 		return EVENT_HANDLED;
 	}
 #endif
