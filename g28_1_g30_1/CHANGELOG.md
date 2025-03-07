@@ -4,6 +4,10 @@ This module adds custom G28.1-G30.1 code to the µCNC parser. This similar to Li
 
 ## Changelog
 
+### 2025-03-07
+
+- fixed G28.1 G30.1 not updating imediatly issue
+
 ### 2023-10-19
 
 - initial version

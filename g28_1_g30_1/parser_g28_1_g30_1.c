@@ -83,13 +83,21 @@ bool g28_1_g30_1_exec(void *args)
 	{
 	case G28_1:
 		parser_get_coordsys(253, axis);
+#if (UCNC_MODULE_VERSION < 11200)
 		settings_save(G28ADDRESS, (uint8_t *)axis, sizeof(axis));
+#else
+		parser_coordinate_system_save(G28HOME, axis);
+#endif
 		// stops event propagation
 		*(ptr->error) = STATUS_OK;
 		return EVENT_HANDLED;
 	case G30_1:
 		parser_get_coordsys(253, axis);
+#if (UCNC_MODULE_VERSION < 11200)
 		settings_save(G30ADDRESS, (uint8_t *)axis, sizeof(axis));
+#else
+		parser_coordinate_system_save(G30HOME, axis);
+#endif
 		// stops event propagation
 		*(ptr->error) = STATUS_OK;
 		return EVENT_HANDLED;
