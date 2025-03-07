@@ -83,7 +83,7 @@ bool g28_1_g30_1_exec(void *args)
 	{
 	case G28_1:
 		parser_get_coordsys(253, axis);
-#if (UCNC_MODULE_VERSION < 11200)
+#if (UCNC_MODULE_VERSION < 11179) //version 1.11.x-bugfix
 		settings_save(G28ADDRESS, (uint8_t *)axis, sizeof(axis));
 #else
 		parser_coordinate_system_save(G28HOME, axis);
