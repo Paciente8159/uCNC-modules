@@ -1,9 +1,6 @@
 # About I2C EEPROM for µCNC
 
-SD card allows to add an SD card read/write support to µCNC.
-The SD card can be navigated using grbl commands similar to shell commands
-For best performance the hardware SPI should be used.
-This version uses FatFs. PetitFs might be implemented in the future
+I2C EEPROM allows to add external I2C EEPROM support to µCNC via hardware/software I2C.
 
 ## Changelog
 
