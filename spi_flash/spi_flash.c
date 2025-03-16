@@ -33,11 +33,11 @@
 #define FLASH_SPI_HW_SPI2 4
 
 #ifndef FLASH_SPI_FREQ
-#define FLASH_SPI_FREQ 20000000UL
+#define FLASH_SPI_FREQ 10000000UL
 #endif
 
 #ifndef FLASH_SPI_INTERFACE
-#define FLASH_SPI_INTERFACE FLASH_SPI_HW_SPI
+#define FLASH_SPI_INTERFACE FLASH_SPI_SW_SPI
 #endif
 
 #if (FLASH_SPI_INTERFACE == FLASH_SPI_SW_SPI)
@@ -112,14 +112,27 @@ static bool eeprom_initialized;
 #define __ADDRESS0__(X) ((uint8_t)(X & 0xff))
 #define ADDRESS(X, Y) __ADDRESS##Y##__(X)
 
-static inline uint8_t norflash_send_cmd(uint8_t cmd)
+static inline void norflash_send_cmd(uint8_t cmd)
 {
+	softspi_start(&flash_spi);
 	io_clear_output(FLASH_SPI_CS);
 	mcu_delay_us(1);
-	uint8_t res = softspi_xmit(&flash_spi, cmd);
+	softspi_xmit(&flash_spi, cmd);
 	mcu_delay_us(1);
 	io_set_output(FLASH_SPI_CS);
+	softspi_stop(&flash_spi);
+}
 
+static inline uint8_t norflash_get_status(void)
+{
+	softspi_start(&flash_spi);
+	io_clear_output(FLASH_SPI_CS);
+	mcu_delay_us(1);
+	softspi_xmit(&flash_spi, CMD_FLASH_STATUS);
+	uint8_t res = softspi_xmit(&flash_spi, 0xFF);
+	mcu_delay_us(1);
+	io_set_output(FLASH_SPI_CS);
+	softspi_stop(&flash_spi);
 	return res;
 }
 
@@ -128,8 +141,7 @@ static inline void norflash_write_enable(void)
 	do
 	{
 		norflash_send_cmd(CMD_FLASH_WRITE_ENABLE);
-		uint8_t res = norflash_send_cmd(CMD_FLASH_STATUS);
-		if (res & 0x03 == 0x02)
+		if ((norflash_get_status() & 0x03) == 0x02)
 		{
 			break;
 		}
@@ -138,6 +150,7 @@ static inline void norflash_write_enable(void)
 
 static inline void norflash_send_cmd_address(uint8_t cmd, uint32_t address, uint8_t stop)
 {
+	softspi_start(&flash_spi);
 	uint8_t data[4] = {cmd, ADDRESS(address, 2), ADDRESS(address, 1), ADDRESS(address, 0)};
 	io_clear_output(FLASH_SPI_CS);
 	mcu_delay_us(1);
@@ -146,6 +159,7 @@ static inline void norflash_send_cmd_address(uint8_t cmd, uint32_t address, uint
 	if (stop)
 	{
 		io_set_output(FLASH_SPI_CS);
+		softspi_stop(&flash_spi);
 	}
 }
 
@@ -154,6 +168,7 @@ static inline void norflash_send_cmd_data(uint8_t cmd, uint32_t address, uint8_t
 	norflash_send_cmd_address(cmd, address, 0);
 	softspi_bulk_xmit(&flash_spi, data, NULL, len);
 	io_set_output(FLASH_SPI_CS); // terminate command
+	softspi_stop(&flash_spi);
 }
 
 static inline void norflash_get_cmd_data(uint8_t cmd, uint32_t address, uint8_t *data, uint16_t len)
@@ -161,32 +176,33 @@ static inline void norflash_get_cmd_data(uint8_t cmd, uint32_t address, uint8_t 
 	norflash_send_cmd_address(cmd, address, 0);
 	softspi_bulk_xmit(&flash_spi, data, data, len);
 	io_set_output(FLASH_SPI_CS); // terminate command
+	softspi_stop(&flash_spi);
 }
 
 static inline uint32_t norflash_get_size(void)
 {
-	uint8_t data[6] = {CMD_FLASH_DEV_ID, 0, 0, 0, 0, 0, 0};
+	uint8_t data[6] = {CMD_FLASH_DEV_ID, 0, 0, 0, 0, 0};
 	io_clear_output(FLASH_SPI_CS);
 	mcu_delay_us(1);
-	softspi_bulk_xmit(&flash_spi, data, NULL, 6);
+	softspi_bulk_xmit(&flash_spi, data, data, 6);
 	mcu_delay_us(1);
 	io_set_output(FLASH_SPI_CS);
 	switch (data[5])
 	{
+	case 0x12:
+		return (4UL << 17);
 	case 0x13:
-		return (1UL << 19);
+		return (8UL << 17);
 	case 0x14:
-		return (2UL << 19);
+		return (16UL << 17);
 	case 0x15:
-		return (3UL << 19);
+		return (32UL << 17);
 	case 0x16:
-		return (4UL << 19);
+		return (64UL << 17);
 	case 0x17:
-		return (5UL << 19);
+		return (128UL << 17);
 	case 0x18:
-		return (6UL << 19);
-	case 0x19:
-		return (7UL << 19);
+		return (256UL << 17);
 	default:
 		// unkowned assume one single 64K sector
 		return (SPI_FLASH_SEC_OFFSET + (64UL << 10));
@@ -200,7 +216,7 @@ static inline void norflash_erase_sector(uint32_t address)
 	address = address & ~(SPI_FLASH_SEC_SIZE - 1);
 	norflash_write_enable();
 	norflash_send_cmd_address(CMD_FLASH_ERASE_64K, address, 1);
-	while ((norflash_send_cmd(CMD_FLASH_STATUS) & 0x01))
+	while ((norflash_get_status() & 0x01))
 	{
 		// while flash is busy
 		mcu_dotasks();
@@ -209,11 +225,9 @@ static inline void norflash_erase_sector(uint32_t address)
 
 static inline uint8_t norflash_read(uint32_t address)
 {
-	softspi_start(&flash_spi);
-	while (norflash_send_cmd(CMD_FLASH_STATUS) & 0x1)
+	while (norflash_get_status() & 0x1)
 		; // flash busy
 	norflash_get_cmd_data(CMD_FLASH_READ, address, eeprom_data, EEPROM_DATA_SIZE);
-	softspi_end(&flash_spi);
 }
 
 static inline uint8_t norflash_write(uint32_t address)
@@ -222,49 +236,45 @@ static inline uint8_t norflash_write(uint32_t address)
 	{
 		address = SPI_FLASH_SEC_OFFSET;
 	}
+	if (!(address & (SPI_FLASH_SEC_SIZE - 1)))
+	{
+		// at start of sector erase it
+		norflash_erase_sector(SPI_FLASH_SEC_OFFSET);
+	}
 
 	eeprom_current_address = address;
 
-	softspi_start(&flash_spi);
-	uint8_t c = 0xFF;
-	norflash_get_cmd_data(CMD_FLASH_READ, address, &c, 1);
-	c = FLASH_VALUE(c);
-	if (c) // flash is dirty. erase sector
-	{
-		norflash_erase_sector(address);
-	}
-
-	uint32_t remaining = EEPROM_DATA_SIZE;
+	int32_t remaining = EEPROM_DATA_SIZE;
 	uint8_t *ptr = eeprom_data;
-	while (remaining)
+	while (remaining > 0)
 	{
-		uint16_t len = MIN(remaining, SPI_FLASH_PAGE_SIZE);
 		norflash_write_enable();
-		norflash_send_cmd_data(CMD_FLASH_PAGE_PROG, address, ptr, len);
-		while ((norflash_send_cmd(CMD_FLASH_STATUS) & 0x01))
+		norflash_send_cmd_data(CMD_FLASH_PAGE_PROG, address, ptr, MIN(remaining, SPI_FLASH_PAGE_SIZE));
+		while ((norflash_get_status() & 0x01))
 		{
 			// while flash is busy
 			cnc_dotasks();
 		}
-		remaining -= len;
-		ptr += len;
+		remaining -= SPI_FLASH_PAGE_SIZE;
+		ptr += SPI_FLASH_PAGE_SIZE;
+		address += SPI_FLASH_PAGE_SIZE;
 	}
-	softspi_end(&flash_spi);
 }
 
-static bool eeprom_dirty;
-void nvm_start_read(uint16_t address) {}
-void nvm_start_write(uint16_t address) {}
+void nvm_start_read(uint16_t address)
+{
+	if (eeprom_initialized)
+	{
+		norflash_read(eeprom_current_address);
+	}
+}
+void nvm_start_write(uint16_t address)
+{
+}
 uint8_t nvm_getc(uint16_t address) { return FLASH_VALUE(eeprom_data[address]); }
 void nvm_putc(uint16_t address, uint8_t c)
 {
-	c = FLASH_VALUE(c);
-	if (c != eeprom_data[address])
-	{
-		eeprom_dirty = true;
-	}
-
-	eeprom_data[address] = c;
+	eeprom_data[address] = FLASH_VALUE(c);
 }
 void nvm_end_read(void) {}
 void nvm_end_write(void)
@@ -277,6 +287,8 @@ void nvm_end_write(void)
 	{
 		norflash_write(SPI_FLASH_SEC_OFFSET);
 	}
+
+	eeprom_initialized = true;
 }
 
 DECL_MODULE(spi_flash)
@@ -288,13 +300,13 @@ DECL_MODULE(spi_flash)
 	io_clear_output(FLASH_SPI_CS);
 	softspi_xmit(&flash_spi, CMD_FLASH_RESET);
 	io_set_output(FLASH_SPI_CS);
-	softspi_end(&flash_spi);
 	cnc_delay_ms(1);
 	flash_capacity = norflash_get_size();
+	softspi_stop(&flash_spi);
 	uint32_t eeprom_start = 0;
 
 	// search the last sector with data
-	for (uint32_t i = SPI_FLASH_SEC_OFFSET; i < flash_capacity; i += SPI_FLASH_SEC_OFFSET)
+	for (uint32_t i = SPI_FLASH_SEC_OFFSET; i < flash_capacity; i += SPI_FLASH_SEC_SIZE)
 	{
 		uint8_t c = 0xFF;
 		norflash_get_cmd_data(CMD_FLASH_READ, i, &c, 1);
@@ -318,10 +330,11 @@ DECL_MODULE(spi_flash)
 		if (c == 'V')
 		{
 			eeprom_start = i;
+			eeprom_initialized = true;
 		}
 		else
 		{
-			eeprom_initialized = (eeprom_start != SPI_FLASH_SEC_OFFSET);
+			eeprom_initialized |= (eeprom_start != SPI_FLASH_SEC_OFFSET);
 			break;
 		}
 	}
@@ -331,5 +344,6 @@ DECL_MODULE(spi_flash)
 	{
 		norflash_read(eeprom_start);
 	}
+	
 }
 #endif
