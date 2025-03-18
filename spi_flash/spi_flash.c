@@ -261,37 +261,7 @@ static inline uint8_t norflash_write(uint32_t address)
 	}
 }
 
-void nvm_start_read(uint16_t address)
-{
-	if (eeprom_initialized)
-	{
-		norflash_read(eeprom_current_address);
-	}
-}
-void nvm_start_write(uint16_t address)
-{
-}
-uint8_t nvm_getc(uint16_t address) { return FLASH_VALUE(eeprom_data[address]); }
-void nvm_putc(uint16_t address, uint8_t c)
-{
-	eeprom_data[address] = FLASH_VALUE(c);
-}
-void nvm_end_read(void) {}
-void nvm_end_write(void)
-{
-	if (eeprom_initialized)
-	{
-		norflash_write(eeprom_current_address + EEPROM_DATA_SIZE);
-	}
-	else
-	{
-		norflash_write(SPI_FLASH_SEC_OFFSET);
-	}
-
-	eeprom_initialized = true;
-}
-
-DECL_MODULE(spi_flash)
+bool norflash_reset(void *args)
 {
 	softspi_start(&flash_spi);
 	io_clear_output(FLASH_SPI_CS);
@@ -343,7 +313,60 @@ DECL_MODULE(spi_flash)
 	if (eeprom_initialized)
 	{
 		norflash_read(eeprom_start);
+		// clear the read error
+		g_settings_error &= ~SETTINGS_READ_ERROR;
+		// reload all stored settings
+		settings_init();
+		// reload all non volatile parser parameters
+		parser_parameters_load();
+		// reinitialize kinematics since some kinematics depend on settings data
+		kinematics_init();
 	}
-	
+
+	return EVENT_CONTINUE;
+}
+
+CREATE_EVENT_LISTENER_WITHLOCK(cnc_reset, norflash_reset, LISTENER_SWSPI_LOCK);
+
+void nvm_start_read(uint16_t address)
+{
+	if (eeprom_initialized)
+	{
+		norflash_read(eeprom_current_address);
+	}
+}
+void nvm_start_write(uint16_t address)
+{
+}
+uint8_t nvm_getc(uint16_t address) { return FLASH_VALUE(eeprom_data[address]); }
+void nvm_putc(uint16_t address, uint8_t c)
+{
+	eeprom_data[address] = FLASH_VALUE(c);
+}
+void nvm_end_read(void) {}
+void nvm_end_write(void)
+{
+	if (eeprom_initialized)
+	{
+		norflash_write(eeprom_current_address + EEPROM_DATA_SIZE);
+	}
+	else
+	{
+		norflash_write(SPI_FLASH_SEC_OFFSET);
+	}
+
+	eeprom_initialized = true;
+}
+
+DECL_MODULE(spi_flash)
+{
+	norflash_reset(NULL);
+#ifdef ENABLE_MAIN_LOOP_MODULES
+	// Makes the event handler 'mycustom_system_cmd' listen to the event 'grbl_cmd'
+	ADD_EVENT_LISTENER(cnc_reset, norflash_reset);
+#else
+// just a warning in case you disabled the PARSER_MODULES option on build
+#warning "Main loop modules are not enabled. Flash settings will not be reloaded on reset."
+#endif
 }
 #endif
