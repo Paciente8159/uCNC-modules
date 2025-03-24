@@ -184,6 +184,8 @@ static FORCEINLINE FRESULT sd_mkdir(const char *path) { return f_mkdir(path); }
 #define SD_CARD_BUS_LOCK LISTENER_HWSPI_LOCK
 #elif (SD_CARD_INTERFACE == SD_CARD_HW_SPI2)
 #define SD_CARD_BUS_LOCK LISTENER_HWSPI2_LOCK
+#else
+#define SD_CARD_BUS_LOCK LISTENER_NO_LOCK
 #endif
 
 enum SD_CARD_STATUS

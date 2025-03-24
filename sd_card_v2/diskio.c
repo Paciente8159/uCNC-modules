@@ -49,6 +49,8 @@
 #define MMCSD_MAX_BUFFER_SIZE 512
 #endif
 
+#if (SD_CARD_INTERFACE != SD_CARD_HW_CUSTOM)
+
 #if (SD_CARD_INTERFACE == SD_CARD_SW_SPI)
 #ifndef SD_SPI_CLK
 #define SD_SPI_CLK DOUT30
@@ -780,3 +782,5 @@ DRESULT disk_writep(
 
 	return error;
 }
+
+#endif
