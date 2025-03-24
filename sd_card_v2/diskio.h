@@ -74,7 +74,6 @@ extern "C"
 #define SD_CARD_SW_SPI 1
 #define SD_CARD_HW_SPI 2
 #define SD_CARD_HW_SPI2 4
-#define SD_CARD_HW_CUSTOM 8
 
 #ifndef SD_CARD_INTERFACE
 #define SD_CARD_INTERFACE SD_CARD_HW_SPI
