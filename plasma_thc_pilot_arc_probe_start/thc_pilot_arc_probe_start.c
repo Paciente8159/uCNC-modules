@@ -32,7 +32,7 @@ extern uint8_t plasma_thc_arc_ok(void);
 
 bool plasma_thc_pilot_arc_probe()
 {
-	return (bool)(plasma_thc_arc_ok() || plasma_thc_down());
+	return (bool)((plasma_thc_arc_ok()) ? (!plasma_thc_down()) : false);
 }
 
 bool plasma_thc_probe_and_start(void)
