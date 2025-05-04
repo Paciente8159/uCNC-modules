@@ -643,6 +643,11 @@ DECL_MODULE(sd_card_v2)
 	// sd card file system rendering menu
 	DECL_DYNAMIC_MENU(10, 1, system_menu_fs_render, system_menu_fs_action);
 
+// try to mount the SD card automatically if card is present
+#if (!ASSERT_PIN(SD_CARD_DETECT_PIN))
+	sd_card_mount();
+#endif
+
 #ifdef ENABLE_MAIN_LOOP_MODULES
 	ADD_EVENT_LISTENER(cnc_dotasks, sd_card_dotasks);
 #ifdef ENABLE_SETTINGS_ON_SD_SDCARD

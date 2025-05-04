@@ -7,6 +7,11 @@ This version uses FatFs. PetitFs might be implemented in the future
 
 ## Changelog
 
+### 2025-05-04
+
+- enable macro to control SPI DMA usage (#95)
+- added SD card automount on startup is available (#95)
+
 ### 2025-03-24
 
 - integration of custom SD card interface driver implementations (STM32 SDIO)
