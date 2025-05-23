@@ -11,6 +11,7 @@
 	the Free Software Foundation, either version 3 of the License, or
 	(at your option) any later version. Please see <http://www.gnu.org/licenses/>
 
+
 	µCNC is distributed WITHOUT ANY WARRANTY;
 	Also without the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 	See the GNU General Public License for more details.
@@ -47,48 +48,12 @@
 #define JOYSTICK_INPUT_5 UNDEF_PIN
 #endif
 
-// Axis mapping
-#ifndef JOYSTICK_INPUT_0_AXIS
-#define JOYSTICK_INPUT_0_AXIS 255
-#endif
-
-#ifndef JOYSTICK_INPUT_1_AXIS
-#define JOYSTICK_INPUT_1_AXIS 255
-#endif
-
-#ifndef JOYSTICK_INPUT_2_AXIS
-#define JOYSTICK_INPUT_2_AXIS 255
-#endif
-
-#ifndef JOYSTICK_INPUT_3_AXIS
-#define JOYSTICK_INPUT_3_AXIS 255
-#endif
-
-#ifndef JOYSTICK_INPUT_4_AXIS
-#define JOYSTICK_INPUT_4_AXIS 255
-#endif
-
-#ifndef JOYSTICK_INPUT_5_AXIS
-#define JOYSTICK_INPUT_5_AXIS 255
-#endif
-
 // Axis count
 #ifndef JOYSTICK_AXIS_COUNT
-#if JOYSTICK_INPUT_5_AXIS != 255
-#define JOYSTICK_AXIS_COUNT 6
-#elif JOYSTICK_INPUT_4_AXIS != 255
-#define JOYSTICK_AXIS_COUNT 5
-#elif JOYSTICK_INPUT_3_AXIS != 255
-#define JOYSTICK_AXIS_COUNT 4
-#elif JOYSTICK_INPUT_2_AXIS != 255
-#define JOYSTICK_AXIS_COUNT 3
-#elif JOYSTICK_INPUT_1_AXIS != 255
-#define JOYSTICK_AXIS_COUNT 2
-#elif JOYSTICK_INPUT_0_AXIS != 255
-#define JOYSTICK_AXIS_COUNT 1
-#else
 #define JOYSTICK_AXIS_COUNT 0
 #endif
+#if JOYSTICK_AXIS_COUNT > AXIS_COUNT
+#error "Joystick axis count cannot be higher then the controller total axis count"
 #endif
 
 // Other configuration options
@@ -97,7 +62,7 @@
 #endif
 
 #ifndef JOYSTICK_ALLOW_MULTI_AXIS_JOG
-#define JOYSTICK_ALLOW_MULTI_AXIS_JOG 0
+#define JOYSTICK_ALLOW_MULTI_AXIS_JOG false
 #endif
 
 #ifndef JOYSTICK_DEAD_ZONE
@@ -113,12 +78,24 @@
 #endif
 
 // Other macros
-#define JOYSTICK_AXIS_LETTER_0 'X'
-#define JOYSTICK_AXIS_LETTER_1 'Y'
-#define JOYSTICK_AXIS_LETTER_2 'Z'
-#define JOYSTICK_AXIS_LETTER_3 'A'
-#define JOYSTICK_AXIS_LETTER_4 'B'
-#define JOYSTICK_AXIS_LETTER_5 'C'
+#ifndef JOYSTICK_INPUT_0_AXIS
+#define JOYSTICK_INPUT_0_AXIS AXIS_X
+#endif
+#ifndef JOYSTICK_INPUT_1_AXIS
+#define JOYSTICK_INPUT_1_AXIS AXIS_Y
+#endif
+#ifndef JOYSTICK_INPUT_2_AXIS
+#define JOYSTICK_INPUT_2_AXIS AXIS_Z
+#endif
+#ifndef JOYSTICK_INPUT_3_AXIS
+#define JOYSTICK_INPUT_3_AXIS AXIS_A
+#endif
+#ifndef JOYSTICK_INPUT_4_AXIS
+#define JOYSTICK_INPUT_4_AXIS AXIS_B
+#endif
+#ifndef JOYSTICK_INPUT_5_AXIS
+#define JOYSTICK_INPUT_5_AXIS AXIS_C
+#endif
 
 #define __helper_ex__(left, mid, right) left##mid##right
 #define __helper__(left, mid, right) __helper_ex__(left, mid, right)
@@ -134,25 +111,6 @@
 #error "Joystick sensitivity value should be between 1 and 100"
 #endif
 #define JOYSTICK_SENSITIVITY_REV ((float)(1.0f / JOYSTICK_SENSITIVITY))
-
-static const char joystick_axis_map[JOYSTICK_AXIS_COUNT] = {
-		JOYSTICK_MAP_AXIS(JOYSTICK_INPUT_0_AXIS),
-#if JOYSTICK_AXIS_COUNT > 1
-		JOYSTICK_MAP_AXIS(JOYSTICK_INPUT_1_AXIS),
-#endif
-#if JOYSTICK_AXIS_COUNT > 2
-		JOYSTICK_MAP_AXIS(JOYSTICK_INPUT_2_AXIS),
-#endif
-#if JOYSTICK_AXIS_COUNT > 3
-		JOYSTICK_MAP_AXIS(JOYSTICK_INPUT_3_AXIS),
-#endif
-#if JOYSTICK_AXIS_COUNT > 4
-		JOYSTICK_MAP_AXIS(JOYSTICK_INPUT_4_AXIS),
-#endif
-#if JOYSTICK_AXIS_COUNT > 5
-		JOYSTICK_MAP_AXIS(JOYSTICK_INPUT_5_AXIS),
-#endif
-};
 
 __attribute__((weak)) float joystick_virtual_input(uint8_t index)
 {
@@ -222,15 +180,6 @@ __attribute__((weak)) float joystick_transform_axis(float value)
 
 static float joystick_process_axis(uint8_t axis_index)
 {
-	if (JOYSTICK_DEAD_ZONE == 0)
-	{
-#if JOYSTICK_LINEAR_RESPONSE
-		return joystick_read_axis(axis_index);
-#else
-		return joystick_transform_axis(joystick_read_axis(axis_index));
-#endif
-	}
-
 	float raw = CLAMP(-1.0f, joystick_read_axis(axis_index), 1.0f);
 
 	// Work with absolute values (sign gets applied at the end)
@@ -240,13 +189,16 @@ static float joystick_process_axis(uint8_t axis_index)
 		raw = -raw;
 	}
 
-	if (raw < JOYSTICK_DEAD_ZONE)
+	if (JOYSTICK_DEAD_ZONE == 0)
 	{
-		return 0;
-	}
+		if (raw < JOYSTICK_DEAD_ZONE)
+		{
+			return 0;
+		}
 
-	// Remap values outside of dead zone back to the <0.0; 1.0> range
-	raw = (raw - JOYSTICK_DEAD_ZONE) / (1.0f - JOYSTICK_DEAD_ZONE);
+		// Remap values outside of dead zone back to the <0.0; 1.0> range
+		raw = (raw - JOYSTICK_DEAD_ZONE) / (1.0f - JOYSTICK_DEAD_ZONE);
+	}
 
 #if JOYSTICK_SENSITIVITY > 1
 	uint8_t aprox_raw = (uint8_t)(JOYSTICK_SENSITIVITY * raw);
@@ -289,18 +241,22 @@ static FORCEINLINE void joystick_update()
 		return;
 	}
 
+#if !JOYSTICK_ALLOW_MULTI_AXIS_JOG
+	static int8_t prev_index = 0;
+#endif
 	int8_t index = -1;
 	float value = 0;
 	float values[AXIS_COUNT];
+	memset(values, 0, sizeof(values));
 
 	// Find which axis to use (the one with the higher value wins)
 	// This means the the most "intentional" joystick change wins
-	for (uint8_t i = 0; i < JOYSTICK_AXIS_COUNT; ++i)
+	for (uint8_t i = 0; i < JOYSTICK_AXIS_COUNT; i++)
 	{
 		float axis_value = joystick_process_axis(i);
 		if (axis_value != 0)
 		{
-			if (axis_value > value)
+			if (ABS(axis_value) > ABS(value))
 			{
 				value = axis_value;
 				index = i;
@@ -308,6 +264,15 @@ static FORCEINLINE void joystick_update()
 		}
 		values[i] = axis_value;
 	}
+
+#if !JOYSTICK_ALLOW_MULTI_AXIS_JOG
+	// force a stop to swith directions
+	if (prev_index != index)
+	{
+		prev_index = index;
+		index = -1;
+	}
+#endif
 
 	if (index == -1)
 	{
@@ -321,69 +286,6 @@ static FORCEINLINE void joystick_update()
 		return;
 	}
 
-#if JOYSTICK_ALLOW_MULTI_AXIS_JOG
-	float axis_values[JOYSTICK_AXIS_COUNT];
-	float max_value = 0;
-
-	for (uint8_t i = 0; i < JOYSTICK_AXIS_COUNT; ++i)
-	{
-		float axis_value = joystick_process_axis(i);
-		axis_values[i] = axis_value;
-
-		float abs_value = ABS(axis_value);
-		if (abs_value > max_value)
-			max_value = abs_value;
-	}
-
-	if (max_value == 0)
-	{
-		// Rest position, stop jogging
-		if (joystick_jog)
-		{
-			joystick_jog = false;
-			cnc_call_rt_command(CMD_CODE_JOG_CANCEL);
-		}
-		return;
-	}
-
-	// Only send new command if planner buffer has less than 3 commands
-	if (!js_empty() || PLANNER_BUFFER_SIZE - planner_get_buffer_freeblocks() >= 3)
-		return;
-
-	float feed = max_value * JOYSTICK_MAX_FEED_RATE;
-	float distance = feed * ((float)JOYSTICK_DELTA_TIME_MS / 1000) * (1.0 / 60.0);
-
-	float square_sum = 0;
-	for (uint8_t i = 0; i < JOYSTICK_AXIS_COUNT; ++i)
-		square_sum += fast_flt_pow2(axis_values[i]);
-	float vec_inv_length = fast_flt_invsqrt(square_sum);
-
-	// Header
-	js_putc('$');
-	js_putc('J');
-	js_putc('=');
-	js_putc('G');
-	js_putc('9');
-	js_putc('1');
-
-	// Append every non-zero axis
-	for (uint8_t i = 0; i < JOYSTICK_AXIS_COUNT; ++i)
-	{
-		if (axis_values[i] == 0)
-			continue;
-		float axis_distance = axis_values[i] * distance * vec_inv_length;
-		js_putc(joystick_axis_map[i]);
-		print_flt(js_putc, axis_distance);
-	}
-
-	// Feed rate
-	js_putc('F');
-	print_flt(js_putc, feed);
-
-	js_putc('\r');
-	joystick_jog = true;
-#else
-	
 	// If does not hold control of the protocol stream tries to grab it
 	if (!has_stream_handle)
 	{
@@ -398,20 +300,93 @@ static FORCEINLINE void joystick_update()
 	}
 
 	float feed = ABS(value) * JOYSTICK_MAX_FEED_RATE;
-	float distance = 1;
+#if JOYSTICK_ALLOW_MULTI_AXIS_JOG
+	// squared distance
+	float distance = (((float)(JOYSTICK_DELTA_TIME_MS << 1)) / (float)JOYSTICK_MAX_FEED_RATE / 60000.0f) * (((float)(JOYSTICK_DELTA_TIME_MS << 1)) / / (float)JOYSTICK_MAX_FEED_RATE / 60000.0f);
+#else
+	float distance = ((float)(JOYSTICK_DELTA_TIME_MS << 1)) / (float)JOYSTICK_MAX_FEED_RATE / 60.0f;
+#endif
 
 	if (!planner_buffer_is_full())
 	{
 		float target[AXIS_COUNT];
-		target[index] = value;
+		memset(target, 0, sizeof(target));
+#if JOYSTICK_ALLOW_MULTI_AXIS_JOG
+		for (uint8_t i = 0; i < JOYSTICK_AXIS_COUNT; i++)
+		{
+			float d = fast_flt_sqrt((values[i] * distance));
+			switch (i)
+			{
+			case JOYSTICK_INPUT_0_AXIS:
+				target[JOYSTICK_INPUT_0_AXIS] = d;
+				break;
+#if JOYSTICK_AXIS_COUNT > 1
+			case JOYSTICK_INPUT_1_AXIS:
+				target[JOYSTICK_INPUT_1_AXIS] = d;
+				break;
+#endif
+#if JOYSTICK_AXIS_COUNT > 2
+			case JOYSTICK_INPUT_2_AXIS:
+				target[JOYSTICK_INPUT_2_AXIS] = d;
+				break;
+#endif
+#if JOYSTICK_AXIS_COUNT > 2
+			case JOYSTICK_INPUT_3_AXIS:
+				target[JOYSTICK_INPUT_3_AXIS] = d;
+				break;
+#endif
+#if JOYSTICK_AXIS_COUNT > 3
+			case JOYSTICK_INPUT_4_AXIS:
+				target[JOYSTICK_INPUT_4_AXIS] = d;
+				break;
+#endif
+#if JOYSTICK_AXIS_COUNT > 4
+			case JOYSTICK_INPUT_5_AXIS:
+				target[JOYSTICK_INPUT_5_AXIS] = d;
+				break;
+#endif
+			}
+		}
+#else
+		float d = (value > 0) ? distance : -distance;
+		switch (index)
+		{
+		case JOYSTICK_INPUT_0_AXIS:
+			target[JOYSTICK_INPUT_0_AXIS] = d;
+			break;
+#if JOYSTICK_AXIS_COUNT > 1
+		case JOYSTICK_INPUT_1_AXIS:
+			target[JOYSTICK_INPUT_1_AXIS] = d;
+			break;
+#endif
+#if JOYSTICK_AXIS_COUNT > 2
+		case JOYSTICK_INPUT_2_AXIS:
+			target[JOYSTICK_INPUT_2_AXIS] = d;
+			break;
+#endif
+#if JOYSTICK_AXIS_COUNT > 2
+		case JOYSTICK_INPUT_3_AXIS:
+			target[JOYSTICK_INPUT_3_AXIS] = d;
+			break;
+#endif
+#if JOYSTICK_AXIS_COUNT > 3
+		case JOYSTICK_INPUT_4_AXIS:
+			target[JOYSTICK_INPUT_4_AXIS] = d;
+			break;
+#endif
+#if JOYSTICK_AXIS_COUNT > 4
+		case JOYSTICK_INPUT_5_AXIS:
+			target[JOYSTICK_INPUT_5_AXIS] = d;
+			break;
+#endif
+		}
+#endif
 		motion_data_t block = {0};
 		block.feed = feed;
 		block.spindle = planner_get_spindle_speed(1);
 		block.motion_flags.bit.spindle_running = (block.spindle != 0) ? 1 : 0;
 		mc_incremental_jog(target, &block);
 	}
-
-#endif
 }
 
 static bool joystick_dotasks(void *arg)
@@ -431,17 +406,13 @@ static bool joystick_dotasks(void *arg)
 CREATE_EVENT_LISTENER(cnc_dotasks, joystick_dotasks);
 #endif
 
-DECL_MODULE(joystick)
+DECL_MODULE(joystick_v2)
 {
 	// inital read to fix adc read diff
 	for (uint8_t i = 0; i < JOYSTICK_AXIS_COUNT; ++i)
 	{
 		joystick_process_axis(i);
 	}
-#ifdef DECL_SERIAL_STREAM
-	BUFFER_INIT(uint8_t, joystick_buffer, JOYSTICK_BUFFER_SIZE);
-	serial_stream_register(&joystick_serial_stream);
-#endif
 
 #ifdef ENABLE_MAIN_LOOP_MODULES
 	ADD_EVENT_LISTENER(cnc_dotasks, joystick_dotasks);
