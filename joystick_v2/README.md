@@ -14,7 +14,7 @@ This feature allows other modules to act as "virtual analog inputs" for the joys
 have to define a custom `float joystick_virtual_input(uint8_t index)` function where `index` is the input index. This function should return
 a `float` value in **<-1.0; 1.0>** range.
 
-It's also possible to create a custom `float joystick_transform_axis(float value)` function to customize your own response curve. This will only take effect if `JOYSTICK_LINEAR_RESPONSE` is set to true
+It's also possible to create a custom `float joystick_transform_axis(float value)` function to customize your own response curve. This will only take effect if `JOYSTICK_LINEAR_RESPONSE` is set to false
 
 ## Adding joystick_v2 to µCNC
 
