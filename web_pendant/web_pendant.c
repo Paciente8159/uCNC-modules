@@ -17,14 +17,15 @@
 */
 
 #include "../../cnc.h"
-#include "../../modules/endpoint.h"
-#include "../../modules/websocket.h"
+#include "../../modules/net/socket.h"
+#include "../../modules/net/http.h"
+#include "../../modules/net/websocket.h"
 #include <stdint.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
 
-#if defined(MCU_HAS_WIFI) && defined(MCU_HAS_ENDPOINTS) && defined(MCU_HAS_WEBSOCKETS)
+#if 1
 
 #ifndef WEB_PENDANT_REFRESH_MS
 #define WEB_PENDANT_REFRESH_MS 200
@@ -36,70 +37,73 @@
 
 DECL_BUFFER(uint8_t, web_pendant_rx, 128);
 DECL_BUFFER(uint8_t, web_pendant_tx, 128);
-// DECL_BUFFER(uint8_t, web_pendant_tx, 128);
-static websocket_client_t ws_web_pendant_client;
+static websocket_protocol_t ws;
 
-void web_pendant_request(void)
+// DECL_BUFFER(uint8_t, web_pendant_tx, 128);
+// static websocket_client_t ws_web_pendant_client;
+
+void web_pendant_request(int client_idx)
 {
 	// if does not have args return the page
-	if (!endpoint_request_hasargs())
+	if (!http_request_hasargs(client_idx))
 	{
-		if (!endpoint_send_file("/index.html.gz", "text/html"))
+		http_send_header(client_idx, "Content-Encoding", "gzip", true);
+		if (!http_send_file(client_idx, "/C/index.html.gz", "text/html"))
 		{
 			protocol_send_string(__romstr__("Server error. File not found"));
-			endpoint_send_str(404, "text/plain", "FileNotFound");
+			http_send_str(client_idx, 404, "text/plain", "FileNotFound");
 		}
 	}
 }
 
-bool web_pendant_ws_connected(void *args)
-{
-	websocket_event_t *e = args;
-	ws_web_pendant_client.id = e->id;
-	ws_web_pendant_client.ip = e->ip;
+// bool web_pendant_ws_connected(void *args)
+// {
+// 	websocket_event_t *e = args;
+// 	ws_web_pendant_client.id = e->id;
+// 	ws_web_pendant_client.ip = e->ip;
 
-	return EVENT_CONTINUE;
-}
-CREATE_EVENT_LISTENER(websocket_client_connected, web_pendant_ws_connected);
+// 	return EVENT_CONTINUE;
+// }
+// CREATE_EVENT_LISTENER(websocket_client_connected, web_pendant_ws_connected);
 
-bool web_pendant_ws_disconnected(void *args)
-{
-	websocket_event_t *e = args;
-	if (ws_web_pendant_client.id == e->id)
-	{
-		ws_web_pendant_client.ip = 0;
-		ws_web_pendant_client.id = 0;
-	}
+// bool web_pendant_ws_disconnected(void *args)
+// {
+// 	websocket_event_t *e = args;
+// 	if (ws_web_pendant_client.id == e->id)
+// 	{
+// 		ws_web_pendant_client.ip = 0;
+// 		ws_web_pendant_client.id = 0;
+// 	}
 
-	return EVENT_CONTINUE;
-}
-CREATE_EVENT_LISTENER(websocket_client_disconnected, web_pendant_ws_disconnected);
+// 	return EVENT_CONTINUE;
+// }
+// CREATE_EVENT_LISTENER(websocket_client_disconnected, web_pendant_ws_disconnected);
 
-bool web_pendant_ws_receive(void *args)
-{
-	websocket_event_t *e = args;
-	if (ws_web_pendant_client.ip)
-	{
-		if (e->event == WS_EVENT_TEXT)
-		{
-			for (size_t i = 0; i < e->length; i++)
-			{
-				uint8_t c = e->data[i];
-				if (mcu_com_rx_cb(c))
-				{
-					if (BUFFER_FULL(web_pendant_rx))
-					{
-						c = OVF;
-					}
+// bool web_pendant_ws_receive(void *args)
+// {
+// 	websocket_event_t *e = args;
+// 	if (ws_web_pendant_client.ip)
+// 	{
+// 		if (e->event == WS_EVENT_TEXT)
+// 		{
+// 			for (size_t i = 0; i < e->length; i++)
+// 			{
+// 				uint8_t c = e->data[i];
+// 				if (mcu_com_rx_cb(c))
+// 				{
+// 					if (BUFFER_FULL(web_pendant_rx))
+// 					{
+// 						c = OVF;
+// 					}
 
-					BUFFER_ENQUEUE(web_pendant_rx, &c);
-				}
-			}
-		}
-	}
-	return EVENT_CONTINUE;
-}
-CREATE_EVENT_LISTENER(websocket_client_receive, web_pendant_ws_receive);
+// 					BUFFER_ENQUEUE(web_pendant_rx, &c);
+// 				}
+// 			}
+// 		}
+// 	}
+// 	return EVENT_CONTINUE;
+// }
+// CREATE_EVENT_LISTENER(websocket_client_receive, web_pendant_ws_receive);
 
 /**
  * Creates the serial stream handler functions
@@ -130,7 +134,7 @@ void web_pendant_flush(void)
 		uint8_t r = 0;
 
 		BUFFER_READ(web_pendant_tx, tmp, 128, r);
-		websocket_send(ws_web_pendant_client.id, (uint8_t *)tmp, r, WS_SEND_TXT);
+		websocket_send(&ws, 0, (char *)tmp, r, WS_SEND_TXT);
 	}
 }
 
@@ -145,18 +149,46 @@ void web_pendant_putc(uint8_t c)
 
 DECL_SERIAL_STREAM(web_pendant_stream, web_pendant_getc, web_pendant_available, web_pendant_clear, web_pendant_putc, web_pendant_flush);
 
+static void ws_onrecv_handler(uint8_t client_idx, void *data, size_t data_len, uint8_t flags)
+{
+	// echo
+	// websocket_send(&ws, client_idx, data, data_len, WS_SEND_TXT);
+	uint8_t *pdata = (uint8_t *)data;
+	for (size_t i = 0; i < data_len; i++)
+	{
+		uint8_t c = pdata[i];
+		if (mcu_com_rx_cb(c))
+		{
+			if (BUFFER_FULL(web_pendant_rx))
+			{
+				c = OVF;
+			}
+
+			BUFFER_ENQUEUE(web_pendant_rx, &c);
+		}
+	}
+}
+
 DECL_MODULE(web_pendant)
 {
-	// serial_stream_register(&web_pendant_stream);
-	endpoint_add("/", 0, &web_pendant_request, NULL);
+	RUNONCE
+	{
+		LOAD_MODULE(http_server);
+		// serial_stream_register(&web_pendant_stream);
+		http_add("/", HTTP_REQ_ANY, &web_pendant_request, NULL);
 
-	ADD_EVENT_LISTENER(websocket_client_connected, web_pendant_ws_connected);
-	ADD_EVENT_LISTENER(websocket_client_disconnected, web_pendant_ws_disconnected);
-	ADD_EVENT_LISTENER(websocket_client_receive, web_pendant_ws_receive);
+		ws.ws_onrecv_cb = ws_onrecv_handler;
+		websocket_start_listen(&ws, 8080);
 
-	serial_stream_register(&web_pendant_stream);
+		// ADD_EVENT_LISTENER(websocket_client_connected, web_pendant_ws_connected);
+		// ADD_EVENT_LISTENER(websocket_client_disconnected, web_pendant_ws_disconnected);
+		// ADD_EVENT_LISTENER(websocket_client_receive, web_pendant_ws_receive);
 
-	// ADD_EVENT_LISTENER(cnc_dotasks, web_pendant_status_update);
+		 serial_stream_register(&web_pendant_stream);
+
+		// ADD_EVENT_LISTENER(cnc_dotasks, web_pendant_status_update);
+		RUNONCE_COMPLETE();
+	}
 }
 
 #endif
