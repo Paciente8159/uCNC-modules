@@ -25,7 +25,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#if 1
+#if ENABLE_SOCKETS
 
 #ifndef WEB_PENDANT_REFRESH_MS
 #define WEB_PENDANT_REFRESH_MS 200
@@ -55,55 +55,6 @@ void web_pendant_request(int client_idx)
 		}
 	}
 }
-
-// bool web_pendant_ws_connected(void *args)
-// {
-// 	websocket_event_t *e = args;
-// 	ws_web_pendant_client.id = e->id;
-// 	ws_web_pendant_client.ip = e->ip;
-
-// 	return EVENT_CONTINUE;
-// }
-// CREATE_EVENT_LISTENER(websocket_client_connected, web_pendant_ws_connected);
-
-// bool web_pendant_ws_disconnected(void *args)
-// {
-// 	websocket_event_t *e = args;
-// 	if (ws_web_pendant_client.id == e->id)
-// 	{
-// 		ws_web_pendant_client.ip = 0;
-// 		ws_web_pendant_client.id = 0;
-// 	}
-
-// 	return EVENT_CONTINUE;
-// }
-// CREATE_EVENT_LISTENER(websocket_client_disconnected, web_pendant_ws_disconnected);
-
-// bool web_pendant_ws_receive(void *args)
-// {
-// 	websocket_event_t *e = args;
-// 	if (ws_web_pendant_client.ip)
-// 	{
-// 		if (e->event == WS_EVENT_TEXT)
-// 		{
-// 			for (size_t i = 0; i < e->length; i++)
-// 			{
-// 				uint8_t c = e->data[i];
-// 				if (mcu_com_rx_cb(c))
-// 				{
-// 					if (BUFFER_FULL(web_pendant_rx))
-// 					{
-// 						c = OVF;
-// 					}
-
-// 					BUFFER_ENQUEUE(web_pendant_rx, &c);
-// 				}
-// 			}
-// 		}
-// 	}
-// 	return EVENT_CONTINUE;
-// }
-// CREATE_EVENT_LISTENER(websocket_client_receive, web_pendant_ws_receive);
 
 /**
  * Creates the serial stream handler functions
@@ -174,19 +125,11 @@ DECL_MODULE(web_pendant)
 	RUNONCE
 	{
 		LOAD_MODULE(http_server);
-		// serial_stream_register(&web_pendant_stream);
 		http_add("/", HTTP_REQ_ANY, &web_pendant_request, NULL);
 
 		ws.ws_onrecv_cb = ws_onrecv_handler;
 		websocket_start_listen(&ws, 8080);
-
-		// ADD_EVENT_LISTENER(websocket_client_connected, web_pendant_ws_connected);
-		// ADD_EVENT_LISTENER(websocket_client_disconnected, web_pendant_ws_disconnected);
-		// ADD_EVENT_LISTENER(websocket_client_receive, web_pendant_ws_receive);
-
 		 serial_stream_register(&web_pendant_stream);
-
-		// ADD_EVENT_LISTENER(cnc_dotasks, web_pendant_status_update);
 		RUNONCE_COMPLETE();
 	}
 }
