@@ -29,7 +29,12 @@
 bool mycustom_task(void *args)
 {
 	// just do whatever you need here
-
+	static uint32_t timeout = 5000;
+	uint32_t millis = mcu_millis();
+	if(millis>timeout){
+		proto_info("System time %llu", millis);
+		timeout += 5000;
+	}
 	// you must return EVENT_CONTINUE to enable other tasks to run or return EVENT_HANDLED to terminate the event handling within this callback
 	return EVENT_CONTINUE;
 }
