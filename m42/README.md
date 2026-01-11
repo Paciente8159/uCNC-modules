@@ -29,7 +29,7 @@ M42 P<µCNC pin number> S<value from 0-255>
 
 This is the list of output pins that can be used with this command at the date of release of this module.
 Trying to command any other pin will have no effect.
-To view the current updated IO list please [go to the wiki](https://github.com/Paciente8159/uCNC/wiki/Porting-%C2%B5CNC-and-adding-custom-HAL#pin-naming-conventions)
+To view the current updated IO list please [go to the wiki](https://github.com/Paciente8159/uCNC/tree/master/uCNC/src/hal/mcus#pin-naming-conventions)
 
 | Pin number | Alias | Pin name |
 | ---------- | ----- | -------- |
