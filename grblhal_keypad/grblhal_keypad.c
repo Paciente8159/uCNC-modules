@@ -145,11 +145,13 @@ SOFTUART(keypad_uart, 115200, KEYPAD_TX, KEYPAD_RX);
 
 #if (UCNC_MODULE_VERSION < 10801 || UCNC_MODULE_VERSION > 99999)
 #error "This module is not compatible with the current version of µCNC"
-#elif (UCNC_MODULE_VERSION < 11400 || UCNC_MODULE_VERSION > 999999)
+#elif (UCNC_MODULE_VERSION >= 11400 && UCNC_MODULE_VERSION < 999999)
 // backward compatibility
 #ifndef __ATOMIC__
 #define __ATOMIC__ ATOMIC_CODEBLOCK
 #endif
+#else
+#error "This module is not compatible with the current version of µCNC"
 #endif
 
 #if (KEYPAD_MAX_MACROS > 0)
