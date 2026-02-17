@@ -32,6 +32,16 @@
 #error "G33 requires to have an assigned encoder"
 #endif
 
+#ifdef G33_INDEX_PIN
+#define G33_INDEX_MASK (1 << (G33_INDEX_PIN - DIN_PINS_OFFSET))
+#ifndef ENABLE_IO_MODULES
+#error "G33 requires ENABLE_IO_MODULES to use a custom index pin"
+#endif
+#if (G33_INDEX_PIN < DIN_PINS_OFFSET || G33_INDEX_PIN > (DIN_PINS_OFFSET + 7))
+#error "G33 index pin must be an interruptable pin DIN0-DIN7"
+#endif
+#endif
+
 // uncomment to allow data verbose of sync constants
 // the message output is
 // [MSG:<tool_step_position>:<spindle index counter>:<spindle_step_position>:<encoder_rpm>]
@@ -55,6 +65,9 @@ static uint64_t steps_per_index_inv_fixed;
 #endif
 static uint32_t motion_total_steps;
 static float rpm_to_stepfeed_constant;
+#ifdef G33_INDEX_PIN
+static bool g33_wait_for_sync;
+#endif
 
 void itp_rt_stepcount_cb_handler(uint8_t stepbits, uint8_t itp_flags)
 {
@@ -64,33 +77,52 @@ void itp_rt_stepcount_cb_handler(uint8_t stepbits, uint8_t itp_flags)
 	}
 }
 
+#ifdef G33_INDEX_PIN
+bool spindle_index_cb_handler(void *args)
+#else
 void spindle_index_cb_handler(void)
+#endif
 {
-	switch (synched_motion_status)
+#ifdef G33_INDEX_PIN
+	if (g33_wait_for_sync)
 	{
-	case SYNC_READY:
-		itp_start(false);
-		synched_motion_status = SYNC_STARTING;
-		break;
-	case SYNC_STARTING:
-		if (itp_sync_ready())
+		uint8_t *inputs = (uint8_t *)args;
+		uint8_t pinstate = inputs[0] & inputs[1];
+		if (pinstate & G33_INDEX_MASK)
 		{
+#endif
+			switch (synched_motion_status)
+			{
+			case SYNC_READY:
+				itp_start(false);
+				synched_motion_status = SYNC_STARTING;
+				break;
+			case SYNC_STARTING:
+				if (itp_sync_ready())
+				{
 #ifndef REPLACE_FP_OPERATION_IN_ISR
-			spindle_index_counter = lroundf(steps_per_index_inv * itp_sync_step_counter);
+					spindle_index_counter = lroundf(steps_per_index_inv * itp_sync_step_counter);
 #else
 			int32_t counter = itp_sync_step_counter;
 			int64_t prod = (int64_t)counter * (int64_t)steps_per_index_inv_fixed;
 			prod += (prod >= 0) ? (int64_t)(1 << 31) : -(int64_t)(1 << 31);
 			spindle_index_counter = (int32_t)(prod >> 32);
 #endif
-			synched_motion_status = SYNC_RUNNING;
+					synched_motion_status = SYNC_RUNNING;
+				}
+				break;
+			case SYNC_RUNNING:
+				spindle_index_counter++;
+				break;
+			}
+#ifdef G33_INDEX_PIN
 		}
-		break;
-	case SYNC_RUNNING:
-		spindle_index_counter++;
-		break;
 	}
+	return EVENT_CONTINUE;
+#endif
 }
+
+CREATE_EVENT_LISTENER(input_change, spindle_index_cb_handler);
 
 // this ID must be unique for each code
 #define G33 33
@@ -290,6 +322,9 @@ bool g33_exec(void *args)
 			return EVENT_HANDLED;
 		}
 
+#ifdef G33_INDEX_PIN
+		g33_wait_for_sync = true;
+#else
 // attach the index event callback
 #if (G33_ENCODER == ENC0)
 		HOOK_ATTACH_CALLBACK(enc0_index, spindle_index_cb_handler);
@@ -308,6 +343,7 @@ bool g33_exec(void *args)
 #elif (G33_ENCODER == ENC7)
 		HOOK_ATTACH_CALLBACK(enc7_index, spindle_index_cb_handler);
 #endif
+#endif
 		// attach the stepcounter callback
 		HOOK_ATTACH_CALLBACK(itp_rt_stepbits, itp_rt_stepcount_cb_handler);
 
@@ -323,7 +359,10 @@ bool g33_exec(void *args)
 
 		synched_motion_status = SYNC_DISABLED;
 
-		// encoder_dettach_index_cb();
+// encoder_dettach_index_cb();
+#ifdef G33_INDEX_PIN
+		g33_wait_for_sync = false;
+#else
 #if (G33_ENCODER == ENC0)
 		HOOK_RELEASE(enc0_index);
 #elif (G33_ENCODER == ENC1)
@@ -340,6 +379,7 @@ bool g33_exec(void *args)
 		HOOK_RELEASE(enc6_index);
 #elif (G33_ENCODER == ENC7)
 		HOOK_RELEASE(enc7_index);
+#endif
 #endif
 		HOOK_RELEASE(itp_rt_stepbits);
 
@@ -419,6 +459,9 @@ DECL_MODULE(g33)
 	ADD_EVENT_LISTENER(cnc_dotasks, spindle_sync_update_loop);
 #else
 #error "Main loop extensions are not enabled. G33 code extension will not work."
+#endif
+#ifdef G33_INDEX_PIN
+	ADD_EVENT_LISTENER(input_change, spindle_index_cb_handler);
 #endif
 #ifndef ENABLE_RT_SYNC_MOTIONS
 #error "ENABLE_RT_SYNC_MOTIONS must be enabled to allow realtime step counting in sync motions."
