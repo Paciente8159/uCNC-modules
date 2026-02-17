@@ -17,21 +17,19 @@
 */
 
 #include "../../cnc.h"
+#include "../encoder.h"
 #include <stdint.h>
 #include <stdbool.h>
 #include <float.h>
 
 #ifdef ENABLE_PARSER_MODULES
 
-#if (UCNC_MODULE_VERSION < 10800)
+#if (UCNC_MODULE_VERSION < 11501 || UCNC_MODULE_VERSION > 99999)
 #error "This module is not compatible with the current version of µCNC"
-#elif (UCNC_MODULE_VERSION >= 11400 && UCNC_MODULE_VERSION < 999999)
-// backward compatibility
-#ifndef __ATOMIC__
-#define __ATOMIC__ ATOMIC_CODEBLOCK
 #endif
-#else
-#error "This module is not compatible with the current version of µCNC"
+
+#ifndef G33_ENCODER
+#error "G33 requires to have an assigned encoder"
 #endif
 
 // uncomment to allow data verbose of sync constants
@@ -39,7 +37,7 @@
 // [MSG:<tool_step_position>:<spindle index counter>:<spindle_step_position>:<encoder_rpm>]
 // #define G33_DEBUG
 
-#define RPM_PPR_INV (1.0f / (float)RPM_PPR)
+// #define RPM_PPR_INV (1.0f / (float)RPM_PPR)
 
 #define SYNC_DISABLED 0
 #define SYNC_READY 1
@@ -50,7 +48,11 @@ static volatile int32_t itp_sync_step_counter;
 static volatile uint8_t synched_motion_status;
 static volatile int32_t spindle_index_counter;
 static uint32_t steps_per_index;
+#ifndef REPLACE_FP_OPERATION_IN_ISR
 static float steps_per_index_inv;
+#else
+static uint64_t steps_per_index_inv_fixed;
+#endif
 static uint32_t motion_total_steps;
 static float rpm_to_stepfeed_constant;
 
@@ -73,7 +75,14 @@ void spindle_index_cb_handler(void)
 	case SYNC_STARTING:
 		if (itp_sync_ready())
 		{
+#ifndef REPLACE_FP_OPERATION_IN_ISR
 			spindle_index_counter = lroundf(steps_per_index_inv * itp_sync_step_counter);
+#else
+			int32_t counter = itp_sync_step_counter;
+			int64_t prod = (int64_t)counter * (int64_t)steps_per_index_inv_fixed;
+			prod += (prod >= 0) ? (int64_t)(1 << 31) : -(int64_t)(1 << 31);
+			spindle_index_counter = (int32_t)(prod >> 32);
+#endif
 			synched_motion_status = SYNC_RUNNING;
 		}
 		break;
@@ -183,12 +192,8 @@ bool g33_exec(void *args)
 		float average_rpm = 0;
 		for (uint8_t i = 10; i != 0; i--)
 		{
-			while (!encoder_rpm_updated)
-			{
-				cnc_dotasks();
-			}
-
-			average_rpm += (float)encoder_get_rpm();
+			cnc_delay_ms(100);
+			average_rpm += (float)encoder_get_rpm(G33_ENCODER);
 		}
 
 		average_rpm *= 0.1f;
@@ -273,7 +278,11 @@ bool g33_exec(void *args)
 		// calculates the expected number of steps per revolution
 		float steps_per_rev = (float)motion_total_steps / total_revs;
 		steps_per_index = lroundf(steps_per_rev);
+#ifndef REPLACE_FP_OPERATION_IN_ISR
 		steps_per_index_inv = 1.0f / steps_per_index;
+#else
+		steps_per_index_inv_fixed = ((uint64_t)1 << 32) / (uint64_t)steps_per_index;
+#endif
 
 		if (mc_line(ptr->target, ptr->block_data) != STATUS_OK)
 		{
@@ -281,8 +290,24 @@ bool g33_exec(void *args)
 			return EVENT_HANDLED;
 		}
 
-		// attach the index event callback
-		HOOK_ATTACH_CALLBACK(encoder_index, spindle_index_cb_handler);
+// attach the index event callback
+#if (G33_ENCODER == ENC0)
+		HOOK_ATTACH_CALLBACK(enc0_index, spindle_index_cb_handler);
+#elif (G33_ENCODER == ENC1)
+		HOOK_ATTACH_CALLBACK(enc1_index, spindle_index_cb_handler);
+#elif (G33_ENCODER == ENC2)
+		HOOK_ATTACH_CALLBACK(enc2_index, spindle_index_cb_handler);
+#elif (G33_ENCODER == ENC3)
+		HOOK_ATTACH_CALLBACK(enc3_index, spindle_index_cb_handler);
+#elif (G33_ENCODER == ENC4)
+		HOOK_ATTACH_CALLBACK(enc4_index, spindle_index_cb_handler);
+#elif (G33_ENCODER == ENC5)
+		HOOK_ATTACH_CALLBACK(enc5_index, spindle_index_cb_handler);
+#elif (G33_ENCODER == ENC6)
+		HOOK_ATTACH_CALLBACK(enc6_index, spindle_index_cb_handler);
+#elif (G33_ENCODER == ENC7)
+		HOOK_ATTACH_CALLBACK(enc7_index, spindle_index_cb_handler);
+#endif
 		// attach the stepcounter callback
 		HOOK_ATTACH_CALLBACK(itp_rt_stepbits, itp_rt_stepcount_cb_handler);
 
@@ -299,7 +324,23 @@ bool g33_exec(void *args)
 		synched_motion_status = SYNC_DISABLED;
 
 		// encoder_dettach_index_cb();
-		HOOK_RELEASE(encoder_index);
+#if (G33_ENCODER == ENC0)
+		HOOK_RELEASE(enc0_index);
+#elif (G33_ENCODER == ENC1)
+		HOOK_RELEASE(enc1_index);
+#elif (G33_ENCODER == ENC2)
+		HOOK_RELEASE(enc2_index);
+#elif (G33_ENCODER == ENC3)
+		HOOK_RELEASE(enc3_index);
+#elif (G33_ENCODER == ENC4)
+		HOOK_RELEASE(enc4_index);
+#elif (G33_ENCODER == ENC5)
+		HOOK_RELEASE(enc5_index);
+#elif (G33_ENCODER == ENC6)
+		HOOK_RELEASE(enc6_index);
+#elif (G33_ENCODER == ENC7)
+		HOOK_RELEASE(enc7_index);
+#endif
 		HOOK_RELEASE(itp_rt_stepbits);
 
 		*(ptr->error) = STATUS_OK;
@@ -316,7 +357,7 @@ bool spindle_sync_update_loop(void *ptr)
 {
 	if ((synched_motion_status == SYNC_RUNNING))
 	{
-		float rpm = (float)encoder_get_rpm();
+		float rpm = (float)encoder_get_rpm(G33_ENCODER);
 
 		if (rpm < 1)
 		{
@@ -327,14 +368,14 @@ bool spindle_sync_update_loop(void *ptr)
 
 #ifndef RPM_SYNC_UPDATE_ON_INDEX_ONLY
 		int32_t error, rt_pulse_counter, spindle_pulse_counter, index_counter;
-		__ATOMIC__
+		ATOMIC_CODEBLOCK
 		{
 			index_counter = spindle_index_counter;
 			rt_pulse_counter = itp_sync_step_counter;
 		}
 
 		// calculate the spindle position
-		float counts = (float)index_counter + ((float)encoder_get_position(RPM_ENCODER) * RPM_PPR_INV);
+		float counts = (float)index_counter + ((float)encoder_get_position(G33_ENCODER) / g_settings.encoders_resolution[G33_ENCODER]);
 		spindle_pulse_counter = lroundf(counts * steps_per_index);
 
 		// if negative the axis are ahead of spindle and need to slow down
@@ -373,9 +414,6 @@ DECL_MODULE(g33)
 	ADD_EVENT_LISTENER(gcode_exec, g33_exec);
 #else
 #error "Parser extensions are not enabled. G33 code extension will not work."
-#endif
-#ifndef ENABLE_IO_MODULES
-#error "IO extensions are not enabled. G33 code extension will not work."
 #endif
 #ifdef ENABLE_MAIN_LOOP_MODULES
 	ADD_EVENT_LISTENER(cnc_dotasks, spindle_sync_update_loop);
