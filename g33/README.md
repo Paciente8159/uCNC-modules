@@ -38,6 +38,10 @@ LOAD_MODULE(g33);
 #define G33_ENCODER ENC0
 ```
 
+Inside the index ISR a floating point math operation is performed. If this causes issues on a specific architecture you can enable an option to replace it by a fixed point operation.
+
+`#define G33_REPLACE_FP_OPERATION_IN_ISR`
+
 4. You should also enable RPM counter on the tool `cnc_hal_config.h`. This will allow reading the tool actual speed and not the programmed speed. For example for spindle_pwm tool it's done like this:
 
 ```

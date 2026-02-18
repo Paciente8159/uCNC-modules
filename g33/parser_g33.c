@@ -58,7 +58,7 @@ static volatile int32_t itp_sync_step_counter;
 static volatile uint8_t synched_motion_status;
 static volatile int32_t spindle_index_counter;
 static uint32_t steps_per_index;
-#ifndef REPLACE_FP_OPERATION_IN_ISR
+#ifndef G33_REPLACE_FP_OPERATION_IN_ISR
 static float steps_per_index_inv;
 #else
 static uint64_t steps_per_index_inv_fixed;
@@ -100,7 +100,7 @@ void spindle_index_cb_handler(void)
 			case SYNC_STARTING:
 				if (itp_sync_ready())
 				{
-#ifndef REPLACE_FP_OPERATION_IN_ISR
+#ifndef G33_REPLACE_FP_OPERATION_IN_ISR
 					spindle_index_counter = lroundf(steps_per_index_inv * itp_sync_step_counter);
 #else
 			int32_t counter = itp_sync_step_counter;
@@ -310,7 +310,7 @@ bool g33_exec(void *args)
 		// calculates the expected number of steps per revolution
 		float steps_per_rev = (float)motion_total_steps / total_revs;
 		steps_per_index = lroundf(steps_per_rev);
-#ifndef REPLACE_FP_OPERATION_IN_ISR
+#ifndef G33_REPLACE_FP_OPERATION_IN_ISR
 		steps_per_index_inv = 1.0f / steps_per_index;
 #else
 		steps_per_index_inv_fixed = ((uint64_t)1 << 32) / (uint64_t)steps_per_index;
