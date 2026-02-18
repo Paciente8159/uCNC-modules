@@ -122,7 +122,9 @@ void spindle_index_cb_handler(void)
 #endif
 }
 
+#ifdef G33_INDEX_PIN
 CREATE_EVENT_LISTENER(input_change, spindle_index_cb_handler);
+#endif
 
 // this ID must be unique for each code
 #define G33 33
