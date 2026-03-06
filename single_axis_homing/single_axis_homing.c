@@ -45,8 +45,6 @@
 
 static void FORCEINLINE single_axis_homing_finnish(uint8_t error)
 {
-	// disables homing and reenables limits alarm messages
-	cnc_clear_exec_state(EXEC_HOMING);
 	// sync's the motion control with the real time position
 	// this flushes the homing motion before returning from error or home success
 	itp_clear();
@@ -58,7 +56,7 @@ static void FORCEINLINE single_axis_homing_finnish(uint8_t error)
 static uint8_t single_axis_homing_motion(uint8_t axis, uint8_t axis_mask, uint8_t axis_limit)
 {
 	float target[AXIS_COUNT];
-	
+
 	if (!g_settings.homing_enabled)
 	{
 		return STATUS_SETTING_DISABLED;
@@ -97,9 +95,12 @@ static uint8_t single_axis_homing_motion(uint8_t axis, uint8_t axis_mask, uint8_
 		single_axis_homing_finnish(error);
 		break;
 	default:
-		return STATUS_CRITICAL_FAIL;
+		error = STATUS_CRITICAL_FAIL;
+		break;
 	}
 
+	// disables homing and reenables limits alarm messages
+	cnc_clear_exec_state(EXEC_HOMING);
 	return error;
 }
 
