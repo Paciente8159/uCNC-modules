@@ -25,7 +25,7 @@
 /**
  * @brief	Check if your current module is up to date with the current core version of module
  */
-#if (UCNC_MODULE_VERSION < 10800 || UCNC_MODULE_VERSION > 99999)
+#if (UCNC_MODULE_VERSION < 11600 || UCNC_MODULE_VERSION > 99999)
 #error "This module is not compatible with the current version of µCNC"
 #endif
 
@@ -47,7 +47,6 @@ static void FORCEINLINE single_axis_homing_finnish(uint8_t error)
 {
 	// disables homing and reenables limits alarm messages
 	cnc_clear_exec_state(EXEC_HOMING);
-	io_invert_limits(0);
 	// sync's the motion control with the real time position
 	// this flushes the homing motion before returning from error or home success
 	itp_clear();
@@ -71,22 +70,14 @@ static uint8_t single_axis_homing_motion(uint8_t axis, uint8_t axis_mask, uint8_
 	switch (error)
 	{
 	case STATUS_OK:
-		io_invert_limits(0);
-		// sync's the motion control with the real time position
-		// this flushes the homing motion before returning from error or home success
-		itp_clear();
-		planner_clear();
-		mc_sync_position();
-		cnc_unlock(true);
-
-		mc_get_position(target);
-		target[axis] += ((g_settings.homing_dir_invert_mask & (1 << axis)) ? -g_settings.homing_offset : g_settings.homing_offset);
-		block_data.feed = g_settings.homing_fast_feed_rate;
-		block_data.spindle = 0;
-		block_data.dwell = 0;
-		// starts offset and waits to finnish
-		mc_line(target, &block_data);
-		itp_sync();
+// sync's the motion control with the real time position
+// this flushes the homing motion before returning from error or home success
+#ifndef ENABLE_GRBL_STYLE_HOMING
+		if (!mc_home_motion_pulloff(axis_mask, true))
+		{
+			return STATUS_CRITICAL_FAIL;
+		}
+#endif
 
 #ifdef SET_ORIGIN_AT_HOME_POS
 		target[axis] = 0;

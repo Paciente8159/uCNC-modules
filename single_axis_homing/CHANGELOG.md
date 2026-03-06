@@ -4,6 +4,10 @@ Individual axis homing support for µCNC. Each axis can be homed via $H<axis let
 
 ## Changelog
 
+### 2026-03-06
+
+- code update to match code v1.16
+
 ### 2025-01-16
 
 - code simplication (#89)
