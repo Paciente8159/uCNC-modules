@@ -58,6 +58,7 @@ static void FORCEINLINE single_axis_homing_finnish(uint8_t error)
 static uint8_t single_axis_homing_motion(uint8_t axis, uint8_t axis_mask, uint8_t axis_limit)
 {
 	float target[AXIS_COUNT];
+	
 	if (!g_settings.homing_enabled)
 	{
 		return STATUS_SETTING_DISABLED;
@@ -78,6 +79,10 @@ static uint8_t single_axis_homing_motion(uint8_t axis, uint8_t axis_mask, uint8_
 			return STATUS_CRITICAL_FAIL;
 		}
 #endif
+
+		// Sync motion control with real time positon
+		mc_sync_position();
+		mc_get_position(target);
 
 #ifdef SET_ORIGIN_AT_HOME_POS
 		target[axis] = 0;
