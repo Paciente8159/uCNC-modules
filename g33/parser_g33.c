@@ -55,7 +55,7 @@
 // #define G33_DEBUG
 
 // #define RPM_PPR_INV (1.0f / (float)RPM_PPR)
-#define G33_DEBUG
+
 #define SYNC_DISABLED 0
 #define SYNC_READY 1
 #define SYNC_STARTING 2
@@ -78,18 +78,21 @@ static float rpm_to_stepfeed_constant;
 static bool g33_wait_for_sync;
 #endif
 
-// void mcu_stimul_inputs(volatile VIRTUAL_MAP *virtualmap, uint64_t micros)
-// {
-// 	static uint64_t last_stim = 0;
-// 	uint64_t next_stim = last_stim + 250000; // 120RPM
-//
-// 	if (micros >= next_stim)
-// 	{
-// 		last_stim = next_stim;
-// 		virtualmap->inputs ^= (1 << 1); // index pin
-// 		mcu_inputs_changed_cb();
-// 	}
-// }
+#if (MCU == MCU_VIRTUAL_WIN)
+// used with the virtual emulator to simulate pulses
+void mcu_stimul_inputs(volatile VIRTUAL_MAP *virtualmap, uint64_t micros)
+{
+	static uint64_t last_stim = 0;
+	uint64_t next_stim = last_stim + 250000; // 120RPM
+
+	if (micros >= next_stim)
+	{
+		last_stim = next_stim;
+		virtualmap->inputs ^= (1 << G33_INDEX_MASK); // index pin
+		mcu_inputs_changed_cb();
+	}
+}
+#endif
 
 static uint16_t g33_get_tool_rpm(void)
 {
