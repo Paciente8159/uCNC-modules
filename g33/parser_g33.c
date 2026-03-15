@@ -28,28 +28,6 @@
 #error "This module is not compatible with the current version of ÂµCNC"
 #endif
 
-#ifndef G33_ENCODER
-#error "G33 requires to have an assigned encoder"
-#endif
-
-#ifdef G33_INDEX_PIN
-#define G33_INDEX_MASK (1 << (G33_INDEX_PIN - DIN_PINS_OFFSET))
-#ifndef ENABLE_IO_MODULES
-#error "G33 requires ENABLE_IO_MODULES to use a custom index pin"
-#endif
-#if (G33_INDEX_PIN < DIN_PINS_OFFSET || G33_INDEX_PIN > (DIN_PINS_OFFSET + 7))
-#error "G33 index pin must be an interruptable pin DIN0-DIN7"
-#endif
-
-#ifndef G33_INDEX_RPM_RPM_MIN
-#define G33_INDEX_RPM_RPM_MIN 4
-#endif
-#ifndef G33_INDEX_RPM_SAMPLE_SIZE
-#define G33_INDEX_RPM_SAMPLE_SIZE 1
-#endif
-#endif
-
-// taken from the motion_control.c
 #ifndef AXIS_DIR_VECTORS
 #ifdef ABC_INDEP_FEED_CALC
 #define AXIS_DIR_VECTORS MIN(AXIS_COUNT, 3)
@@ -58,24 +36,35 @@
 #endif
 #endif
 
+#ifndef G33_ENCODER
+#error "G33 requires to have an assigned encoder"
+#endif
+
+// enable this to use the encoder pulse as the feedback loop marker/trigger
+//  #define G33_FEEDBACK_LOOP_USE_ENC_PULSE
+
 // uncomment to allow data verbose of sync constants
 // the message output is
 // [MSG:<spindle index counter>:<expected_step_position>:<current_step_position>:<error>:<encoder_rpm>]
 // #define G33_DEBUG
 
-// #define RPM_PPR_INV (1.0f / (float)RPM_PPR)
-
 #define SYNC_DISABLED 0
 #define SYNC_READY 1
 #define SYNC_STARTING 2
 #define SYNC_RUNNING 4
+#define SYNC_UPDATED 8
 
-static volatile int32_t itp_sync_step_counter;
-static volatile uint8_t synched_motion_status;
-static volatile int32_t spindle_index_counter;
-static volatile int32_t spindle_index_step_counter;
-static volatile int32_t spindle_index_time;
-static uint32_t steps_per_index;
+static volatile int32_t itp_sync_step_counter;		// step distance counter for synched motions
+static volatile uint8_t synched_motion_status;		// synched motion status/phase
+static volatile int32_t spindle_index_counter;		// spindle index pulse counter
+static int32_t spindle_index_counter_start;			// spindle index pulse initial offset when motion starts
+static volatile int32_t spindle_index_step_counter; // step distance counter when the spindle index pulses
+static volatile int32_t spindle_index_time;			// index pulse timestamp in us
+static volatile int32_t spindle_index_last_time;	// index pulse previous timestamp in us
+static uint32_t steps_per_index;					// motion steps per index pulse
+#ifdef G33_FEEDBACK_LOOP_USE_ENC_PULSE
+static uint32_t update_loop_index_counter; // keeps the last update loop index counter
+#endif
 #ifndef G33_REPLACE_FP_OPERATION_IN_ISR
 static float steps_per_index_inv;
 #else
@@ -85,75 +74,34 @@ static uint32_t motion_total_steps;
 static float motion_total_distance;
 static int32_t current_error;
 static float rpm_to_stepfeed_constant;
-#ifdef G33_INDEX_PIN
-static bool g33_wait_for_sync;
-#endif
 
 #if (MCU == MCU_VIRTUAL_WIN)
 // used with the virtual emulator to simulate pulses
 void mcu_stimul_inputs(volatile VIRTUAL_MAP *virtualmap, uint64_t micros)
 {
-	static uint64_t last_stim = 0;
-	uint64_t next_stim = last_stim + 25000; // 120RPM
+	static uint64_t last_stim = 0, last_stimsync = 0;
+	uint64_t next_stim = last_stim + 120000;			 // 120RPM
+	uint64_t next_stimsync = last_stimsync + 120000 / 4; // 120RPM
+
+	if (micros >= next_stimsync)
+	{
+		last_stimsync = next_stimsync;
+		virtualmap->inputs ^= 1; // index pin
+		mcu_inputs_changed_cb();
+	}
 
 	if (micros >= next_stim)
 	{
 		last_stim = next_stim;
-		virtualmap->inputs ^= G33_INDEX_MASK; // index pin
+		virtualmap->inputs ^= 2; // index pin
 		mcu_inputs_changed_cb();
 	}
 }
 #endif
 
-static uint16_t g33_get_tool_rpm(void)
+void g33_start_motion(void)
 {
-	static uint32_t last_spindle_pos, last_spindle_time;
-	static uint16_t last_rpm;
-	uint32_t pos, time, now, last_pos, last_time;
-	ATOMIC_CODEBLOCK
-	{
-		pos = spindle_index_counter;
-		time = spindle_index_time;
-		now = mcu_millis();
-	}
-
-	uint32_t elapsed = (now - time);
-
-	if (elapsed > (60000 / G33_INDEX_RPM_RPM_MIN))
-	{
-		return 0;
-	}
-
-	last_pos = last_spindle_pos;
-	int32_t pcount = pos - last_pos;
-
-	last_time = last_spindle_time;
-	elapsed = (time - last_time);
-
-	if (pcount <= 0 || !elapsed)
-	{
-		if (pcount < 0)
-		{
-			last_spindle_pos = pos;
-			last_spindle_time = time;
-		}
-		return last_rpm;
-	}
-
-	last_spindle_pos = pos;
-	last_spindle_time = time;
-
-	uint16_t rpm = (uint16_t)(60000 * pcount / elapsed);
-
-	// if (rpm > 200)
-	// {
-
-	// 	proto_info("pos %lu last pos %lu time %lu last time %lu pcount %ld elapsed %lu", pos, last_pos, time, last_time, pcount, elapsed);
-	// 	cnc_alarm(EXEC_ALARM_SPINDLE_SYNC_FAIL);
-	// }
-
-	last_rpm = rpm;
-	return rpm;
+	itp_start(false);
 }
 
 void itp_rt_stepcount_cb_handler(uint8_t stepbits, uint8_t itp_flags)
@@ -164,54 +112,62 @@ void itp_rt_stepcount_cb_handler(uint8_t stepbits, uint8_t itp_flags)
 	}
 }
 
-#ifdef G33_INDEX_PIN
-bool spindle_index_cb_handler(void *args)
-#else
-void spindle_index_cb_handler(void)
-#endif
+#ifdef G33_FEEDBACK_LOOP_USE_ENC_PULSE
+#define _g33_enc_pulse_(X) enc##X##_pulse(void)
+#define _g33_enc_pulse(X) _g33_enc_pulse_(X)
+#define g33_enc_pulse(X) _g33_enc_pulse(X)
+
+void g33_enc_pulse(G33_ENCODER)
 {
-#ifdef G33_INDEX_PIN
-
-	// gets the pin states
-	uint8_t *inputs = (uint8_t *)args;
-	uint8_t pinstate = inputs[0] & inputs[1];
-
-	// the index pin changed from low to high
-	if (pinstate & G33_INDEX_MASK)
+	if (synched_motion_status >= SYNC_RUNNING)
 	{
-#endif
-		// this measures the amount of time it took to do X full turns of the tool
-		// allow to measure RPM (using the index pin instead of the encoder)
-		spindle_index_time = mcu_millis();
-		spindle_index_counter++;
-#ifdef G33_INDEX_PIN
-		if (g33_wait_for_sync)
-		{
-#endif
-			switch (synched_motion_status)
-			{
-			case SYNC_READY:
-				// the spindle index starts synchronized motion
-				itp_start(false);
-				synched_motion_status = SYNC_STARTING;
-				spindle_index_counter = 0;
-				break;
-			case SYNC_STARTING:
-				if (itp_sync_ready())
-				{
-					synched_motion_status = SYNC_RUNNING;
-				}
-				__FALL_THROUGH__;
-			case SYNC_RUNNING:
-				// store the step position at the time the index pulse happens
-				spindle_index_step_counter = itp_sync_step_counter;
-				break;
-			}
-#ifdef G33_INDEX_PIN
-		}
+		spindle_index_step_counter = itp_sync_step_counter;
+		synched_motion_status = SYNC_UPDATED;
 	}
-	return EVENT_CONTINUE;
+}
 #endif
+
+void spindle_index_cb_handler(void)
+{
+	// this measures the amount of time it took to do X full turns of the tool
+	// allow to measure RPM (using the index pin instead of the encoder)
+	uint32_t now = mcu_micros();
+	int32_t index = spindle_index_counter;
+	spindle_index_last_time = spindle_index_time;
+	spindle_index_time = now;
+	index++;
+
+	switch (synched_motion_status)
+	{
+	case SYNC_READY:
+		// the spindle index starts synchronized motion
+		mcu_start_timeout();
+		synched_motion_status = SYNC_STARTING;
+		index = spindle_index_counter_start;
+		break;
+	case SYNC_STARTING:
+		if (itp_sync_ready())
+		{
+			synched_motion_status = SYNC_RUNNING;
+		}
+		__FALL_THROUGH__;
+	case SYNC_RUNNING:
+	case SYNC_UPDATED:
+#ifdef G33_FEEDBACK_LOOP_USE_ENC_PULSE
+		encoder_reset_position(G33_ENCODER, index * g_settings.encoders_resolution[G33_ENCODER]); // syncs the pulse counter with the index counter
+#else
+		if (index > 0 && synched_motion_status >= SYNC_RUNNING)
+		{
+			synched_motion_status = SYNC_UPDATED;
+			// store the step position at the time the index pulse happens
+			spindle_index_step_counter = itp_sync_step_counter;
+		}
+
+#endif
+		break;
+	}
+
+	spindle_index_counter = index;
 }
 
 #ifdef G33_INDEX_PIN
@@ -289,6 +245,25 @@ bool g33_exec(void *args)
 			return EVENT_HANDLED;
 		}
 
+		// attach the index event callback
+#if (G33_ENCODER == ENC0)
+		HOOK_ATTACH_CALLBACK(enc0_index, spindle_index_cb_handler);
+#elif (G33_ENCODER == ENC1)
+		HOOK_ATTACH_CALLBACK(enc1_index, spindle_index_cb_handler);
+#elif (G33_ENCODER == ENC2)
+		HOOK_ATTACH_CALLBACK(enc2_index, spindle_index_cb_handler);
+#elif (G33_ENCODER == ENC3)
+		HOOK_ATTACH_CALLBACK(enc3_index, spindle_index_cb_handler);
+#elif (G33_ENCODER == ENC4)
+		HOOK_ATTACH_CALLBACK(enc4_index, spindle_index_cb_handler);
+#elif (G33_ENCODER == ENC5)
+		HOOK_ATTACH_CALLBACK(enc5_index, spindle_index_cb_handler);
+#elif (G33_ENCODER == ENC6)
+		HOOK_ATTACH_CALLBACK(enc6_index, spindle_index_cb_handler);
+#elif (G33_ENCODER == ENC7)
+		HOOK_ATTACH_CALLBACK(enc7_index, spindle_index_cb_handler);
+#endif
+
 		// this code can be removed as the initial reading of the G33 RPM ensures the spindle is running
 
 		// if (!ptr->block_data->motion_flags.bit.spindle_running)
@@ -307,7 +282,7 @@ bool g33_exec(void *args)
 
 		// wait for tool at speed
 		uint32_t start_spindle_time = mcu_millis();
-		while (ABS(programmed_speed - g33_get_tool_rpm()) > at_speed_threshold)
+		while (ABS(programmed_speed - encoder_get_rpm(G33_ENCODER)) > at_speed_threshold)
 		{
 			if (!cnc_dotasks() || (mcu_millis() - start_spindle_time) > (DELAY_ON_RESUME_SPINDLE * 1000))
 			{
@@ -316,9 +291,27 @@ bool g33_exec(void *args)
 			}
 		}
 #endif
-		uint16_t average_rpm = g33_get_tool_rpm();
+		uint32_t t = 0, delta_t = 0;
+
+		for (;;)
+		{
+			ATOMIC_CODEBLOCK
+			{
+				delta_t = spindle_index_time;
+				t = spindle_index_last_time;
+			}
+			if (t)
+			{
+				break;
+			}
+			cnc_dotasks();
+		}
+
+		delta_t -= t;
+		float index_rpm = 1000000.0f / ((float)delta_t * MIN_SEC_MULT);
+
 		// spindle speed ins not valid
-		if (average_rpm < 1)
+		if (index_rpm < 1)
 		{
 			*(ptr->error) = STATUS_SPINDLE_RPM_ERROR;
 			return EVENT_HANDLED;
@@ -392,7 +385,7 @@ bool g33_exec(void *args)
 		// calculates the feedrate based in the K factor and the programmed spindle RPM
 		// spindle is in Rev/min and K is in units(mm) per Rev Rev/min * mm/Rev = mm/min
 		float total_revs = line_dist / ptr->words->ijk[2];
-		float feed = ptr->words->ijk[2] * average_rpm;
+		float feed = ptr->words->ijk[2] * index_rpm;
 		if (feed > max_feed)
 		{
 			*(ptr->error) = STATUS_MAX_STEP_RATE_EXCEEDED;
@@ -406,17 +399,30 @@ bool g33_exec(void *args)
 		// convert feed to mm/s
 		feed *= MIN_SEC_MULT;
 
+		float accel_time = feed / max_accel;
+
+		uint32_t start_delay = (uint32_t)(accel_time * 1000000); // estimated acceleration time in microseconds
+
+		spindle_index_counter_start = -(1 + (start_delay / delta_t)); // will take at least one index count to start motion
+		start_delay = (delta_t - (start_delay % delta_t));
+		mcu_config_timeout(g33_start_motion, start_delay); // programs the necessary delay in us
+
 		// resets indexes
 		spindle_index_counter = 0;
 		itp_sync_step_counter = 0;
 
 		// calculates the expected number of steps per revolution
-		float steps_per_rev = (float)motion_total_steps / total_revs;
+		float steps_per_rev = (float)total_steps / total_revs;
 		steps_per_index = lroundf(steps_per_rev);
 #ifndef G33_REPLACE_FP_OPERATION_IN_ISR
 		steps_per_index_inv = 1.0f / steps_per_index;
 #else
 		steps_per_index_inv_fixed = ((uint64_t)1 << 32) / (uint64_t)steps_per_index;
+#endif
+
+// resets the correction loop
+#ifdef G33_FEEDBACK_LOOP_USE_ENC_PULSE
+		update_loop_index_counter = 0;
 #endif
 
 		if (mc_line(ptr->target, ptr->block_data) != STATUS_OK)
@@ -425,28 +431,6 @@ bool g33_exec(void *args)
 			return EVENT_HANDLED;
 		}
 
-#ifdef G33_INDEX_PIN
-		g33_wait_for_sync = true;
-#else
-// attach the index event callback
-#if (G33_ENCODER == ENC0)
-		HOOK_ATTACH_CALLBACK(enc0_index, spindle_index_cb_handler);
-#elif (G33_ENCODER == ENC1)
-		HOOK_ATTACH_CALLBACK(enc1_index, spindle_index_cb_handler);
-#elif (G33_ENCODER == ENC2)
-		HOOK_ATTACH_CALLBACK(enc2_index, spindle_index_cb_handler);
-#elif (G33_ENCODER == ENC3)
-		HOOK_ATTACH_CALLBACK(enc3_index, spindle_index_cb_handler);
-#elif (G33_ENCODER == ENC4)
-		HOOK_ATTACH_CALLBACK(enc4_index, spindle_index_cb_handler);
-#elif (G33_ENCODER == ENC5)
-		HOOK_ATTACH_CALLBACK(enc5_index, spindle_index_cb_handler);
-#elif (G33_ENCODER == ENC6)
-		HOOK_ATTACH_CALLBACK(enc6_index, spindle_index_cb_handler);
-#elif (G33_ENCODER == ENC7)
-		HOOK_ATTACH_CALLBACK(enc7_index, spindle_index_cb_handler);
-#endif
-#endif
 		// attach the stepcounter callback
 		HOOK_ATTACH_CALLBACK(itp_rt_stepbits, itp_rt_stepcount_cb_handler);
 
@@ -463,9 +447,6 @@ bool g33_exec(void *args)
 		synched_motion_status = SYNC_DISABLED;
 
 // encoder_dettach_index_cb();
-#ifdef G33_INDEX_PIN
-		g33_wait_for_sync = false;
-#else
 #if (G33_ENCODER == ENC0)
 		HOOK_RELEASE(enc0_index);
 #elif (G33_ENCODER == ENC1)
@@ -483,7 +464,6 @@ bool g33_exec(void *args)
 #elif (G33_ENCODER == ENC7)
 		HOOK_RELEASE(enc7_index);
 #endif
-#endif
 		HOOK_RELEASE(itp_rt_stepbits);
 
 		*(ptr->error) = STATUS_OK;
@@ -500,7 +480,7 @@ bool g33_proto_status(void *args)
 {
 	if ((g_settings.status_report_mask & 4))
 	{
-		if ((synched_motion_status == SYNC_RUNNING))
+		if ((synched_motion_status >= SYNC_RUNNING))
 		{
 			float error = motion_total_distance * current_error;
 			error /= (float)motion_total_steps;
@@ -512,28 +492,32 @@ CREATE_EVENT_LISTENER(proto_status, g33_proto_status);
 
 bool spindle_sync_update_loop(void *ptr)
 {
-	if ((synched_motion_status == SYNC_RUNNING))
+	if ((synched_motion_status == SYNC_UPDATED))
 	{
-		static int32_t last_index_counter;
+
 		int32_t error, index_step_counter, index_counter;
+		uint32_t t = 0, delta_t = 0;
 		// gets a snapshot of the current spindle index position, and the step position at the time of the index pulse
 		ATOMIC_CODEBLOCK
 		{
+#ifdef G33_FEEDBACK_LOOP_USE_ENC_PULSE
+			index_counter = encoder_get_position(G33_ENCODER);
+#else
 			index_counter = spindle_index_counter;
+#endif
+			synched_motion_status = SYNC_RUNNING;
 			index_step_counter = spindle_index_step_counter;
+			delta_t = spindle_index_time;
+			t = spindle_index_last_time;
 		}
 
-		// no point in reapdating
-		if (last_index_counter == index_counter)
-		{
-			return EVENT_CONTINUE;
-		}
-
-		last_index_counter = index_counter;
-
-		uint16_t rpm = g33_get_tool_rpm();
-
-		if (rpm < 1)
+#ifdef G33_FEEDBACK_LOOP_USE_ENC_PULSE
+		delta_t = encoder_get_delta(G33_ENCODER) * g_settings.encoders_resolution[G33_ENCODER];
+#else
+		delta_t -= t;
+#endif
+		float index_rpm = 1000000.0f / ((float)delta_t * MIN_SEC_MULT);
+		if (index_rpm < 1)
 		{
 			cnc_alarm(EXEC_ALARM_SPINDLE_SYNC_FAIL);
 			return STATUS_CRITICAL_FAIL;
@@ -541,34 +525,47 @@ bool spindle_sync_update_loop(void *ptr)
 
 		// calculate the spindle position
 		int32_t expected_position = index_counter * steps_per_index;
+#ifdef G33_FEEDBACK_LOOP_USE_ENC_PULSE
+		expected_position /= g_settings.encoders_resolution[G33_ENCODER];
+#endif
 
 		// if negative the axis are ahead of spindle and need to slow down
 		// if positive the axis are behind the spindle and need to speed up.
 		error = expected_position - index_step_counter;
 		current_error = error;
 
+		// #ifdef G33_DEBUG
+		//  cnc_call_rt_command(CMD_CODE_REPORT);
+		// #endif
+
 		if (error)
 		{
-			float feed_steps_s = rpm_to_stepfeed_constant * rpm;
-			feed_steps_s += error;
+			float new_step_rate = rpm_to_stepfeed_constant * index_rpm;
+			new_step_rate += 2 * error; // multiply the error by 2 (to try compensate for the current and next predicted error)
 			// this updates the interpolator right on the next step and the current motion in the planner
-			itp_update_feed(feed_steps_s);
+			itp_update_feed(new_step_rate);
 		}
 
 #ifdef G33_DEBUG
-		proto_info("MSG:Spindle turns %ld, expected pos %ld, real pos %ld, error: %ld, rpm %u", index_counter, expected_position, index_step_counter, error, rpm);
+		proto_info("MSG:Spindle turns %ld, expected pos %ld, real pos %ld, error: %ld, rpm %f", index_counter, expected_position, index_step_counter, error, index_rpm);
 #endif
 	}
 	else
 	{
-		current_error = 0;
 #ifdef G33_DEBUG
 		static uint32_t prev_print = 0;
 		uint32_t elapsed = mcu_millis() - prev_print;
 		if (elapsed > 1000)
 		{
-			uint16_t rpm = g33_get_tool_rpm();
-			proto_info("MSG:G33 TOOL RPM %u", (uint16_t)rpm);
+			uint32_t t = 0, delta_t = 0;
+			ATOMIC_CODEBLOCK
+			{
+				delta_t = spindle_index_time;
+				t = spindle_index_last_time;
+			}
+			delta_t -= t;
+			float index_rpm = 1000000.0f / ((float)delta_t * MIN_SEC_MULT);
+			proto_info("MSG:G33 TOOL RPM %f", index_rpm);
 			prev_print = mcu_millis();
 		}
 #endif
@@ -594,9 +591,6 @@ DECL_MODULE(g33)
 	ADD_EVENT_LISTENER(cnc_dotasks, spindle_sync_update_loop);
 #else
 #error "Main loop extensions are not enabled. G33 code extension will not work."
-#endif
-#ifdef G33_INDEX_PIN
-	ADD_EVENT_LISTENER(input_change, spindle_index_cb_handler);
 #endif
 #ifndef ENABLE_RT_SYNC_MOTIONS
 #error "ENABLE_RT_SYNC_MOTIONS must be enabled to allow realtime step counting in sync motions."
