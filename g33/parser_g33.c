@@ -108,6 +108,13 @@ void itp_rt_stepcount_cb_handler(uint8_t stepbits, uint8_t itp_flags)
 {
 	if (itp_flags & ITP_SYNC)
 	{
+		if (itp_flags & ITP_CONST)
+	{
+	synched_motion_status |= SYNC_RUNNING;
+	}
+	else{
+		synched_motion_status &= ~SYNC_RUNNING;
+	}
 		itp_sync_step_counter++;
 	}
 }
@@ -122,7 +129,7 @@ void g33_enc_pulse(G33_ENCODER)
 	if (synched_motion_status >= SYNC_RUNNING)
 	{
 		spindle_index_step_counter = itp_sync_step_counter;
-		synched_motion_status = SYNC_UPDATED;
+		synched_motion_status |= SYNC_UPDATED;
 	}
 }
 #endif
@@ -145,20 +152,13 @@ void spindle_index_cb_handler(void)
 		synched_motion_status = SYNC_STARTING;
 		index = spindle_index_counter_start;
 		break;
-	case SYNC_STARTING:
-		if (itp_sync_ready())
-		{
-			synched_motion_status = SYNC_RUNNING;
-		}
-		__FALL_THROUGH__;
-	case SYNC_RUNNING:
-	case SYNC_UPDATED:
+	default:
 #ifdef G33_FEEDBACK_LOOP_USE_ENC_PULSE
 		encoder_reset_position(G33_ENCODER, index * g_settings.encoders_resolution[G33_ENCODER]); // syncs the pulse counter with the index counter
 #else
 		if (index > 0 && synched_motion_status >= SYNC_RUNNING)
 		{
-			synched_motion_status = SYNC_UPDATED;
+			synched_motion_status |= SYNC_UPDATED;
 			// store the step position at the time the index pulse happens
 			spindle_index_step_counter = itp_sync_step_counter;
 		}
@@ -492,7 +492,7 @@ CREATE_EVENT_LISTENER(proto_status, g33_proto_status);
 
 bool spindle_sync_update_loop(void *ptr)
 {
-	if ((synched_motion_status == SYNC_UPDATED))
+	if ((synched_motion_status & SYNC_UPDATED))
 	{
 
 		int32_t error, index_step_counter, index_counter;
@@ -505,7 +505,7 @@ bool spindle_sync_update_loop(void *ptr)
 #else
 			index_counter = spindle_index_counter;
 #endif
-			synched_motion_status = SYNC_RUNNING;
+			synched_motion_status &= ~SYNC_UPDATED;
 			index_step_counter = spindle_index_step_counter;
 			delta_t = spindle_index_time;
 			t = spindle_index_last_time;
@@ -534,14 +534,18 @@ bool spindle_sync_update_loop(void *ptr)
 		error = expected_position - index_step_counter;
 		current_error = error;
 
-		// #ifdef G33_DEBUG
-		//  cnc_call_rt_command(CMD_CODE_REPORT);
-		// #endif
+// #ifdef G33_DEBUG
+ 		//  cnc_call_rt_command(CMD_CODE_REPORT);
+// #endif
 
 		if (error)
 		{
 			float new_step_rate = rpm_to_stepfeed_constant * index_rpm;
-			new_step_rate += 2 * error; // multiply the error by 2 (to try compensate for the current and next predicted error)
+			#ifdef G33_FEEDBACK_LOOP_USE_ENC_PULSE
+			new_step_rate += error * g_settings.encoders_resolution[G33_ENCODER];
+			#else
+			new_step_rate += error;
+			#endif
 			// this updates the interpolator right on the next step and the current motion in the planner
 			itp_update_feed(new_step_rate);
 		}
