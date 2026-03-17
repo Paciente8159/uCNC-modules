@@ -26,28 +26,30 @@ LOAD_MODULE(g33);
 #define ENC0_PULSE DIN7
 #define ENC0_DIR DIN7
 
-// Assign an encoder has an RPM encoder
-#define ENABLE_ENCODER_RPM
+// define an encoder index pin if the pin also changes state synchronized with the PULSE pin
+#define ENC0_INDEX DIN8
 
-#ifdef ENABLE_ENCODER_RPM
-// Assign an encoder to work as the RPM encoder
-#define RPM_ENCODER ENC0
-// Optional set a second encoder pin has an encoder index
-// This assumes the index pulse occurs when pulse pin is also triggered
-// #define RPM_INDEX_INPUT DIN8
-// Resolution of the RPM encoder or Pulses Per Revolution
-#define RPM_PPR 24
+/** OR **/
+
+// define a custom interruptable pin that will be used to dispatch the index event for G33 like this
+#define G33_INDEX_PIN DIN6
+
+// Assign which encoder will be used by G33
+#define G33_ENCODER ENC0
 ```
 
-4. You must also enable RPM counter on the tool `cnc_hal_config.h`
+Inside the index ISR a floating point math operation is performed. If this causes issues on a specific architecture you can enable an option to replace it by a fixed point operation.
+
+`#define G33_REPLACE_FP_OPERATION_IN_ISR`
+
+4. You should also enable RPM counter on the tool `cnc_hal_config.h`. This will allow reading the tool actual speed and not the programmed speed. For example for spindle_pwm tool it's done like this:
 
 ```
 // assign the tools from 1 to 16
 #define TOOL1 spindle_pwm
 
-// enable RPM encoder for spindle_pwm
-// depends on encoders (below)
-  #define SPINDLE_PWM_HAS_RPM_ENCODER
+// assign ENC0 to the spindle rpm encoder
+  #define SPINDLE_RPM_ENCODER ENC0
 ```
 
-5. The last step is to enable `ENABLE_MAIN_LOOP_MODULES`, `ENABLE_PARSER_MODULES` and `ENABLE_RT_SYNC_MOTIONS` inside `cnc_config.h`
+5. The last step is to enable `ENABLE_MAIN_LOOP_MODULES`, `ENABLE_PARSER_MODULES`, `ENABLE_IO_MODULES` and `ENABLE_RT_SYNC_MOTIONS` inside `cnc_config.h`
