@@ -4,6 +4,10 @@ This module adds custom G33 code to the µCNC parser. This similar to Linux CNC 
 
 ## Changelog
 
+### 2026-03-23
+
+- remove FP operation from ISR (crashes on ESP32)
+
 ### 2026-02-17
 
 - updated to version 1.15.1
