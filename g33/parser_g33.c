@@ -43,6 +43,12 @@
 // enable this to use the encoder pulse as the feedback loop marker/trigger
 //  #define G33_FEEDBACK_LOOP_USE_ENC_PULSE
 
+#ifdef G33_FEEDBACK_LOOP_USE_ENC_PULSE
+#define G33_FEEDBACK_LOOP_USE_ENC_PULSE_THRESHOLD_SETTING_ID 480
+static uint16_t spindle_feedback_loop_threshold;
+DECL_EXTENDED_SETTING(G33_FEEDBACK_LOOP_USE_ENC_PULSE_THRESHOLD_SETTING_ID, &spindle_feedback_loop_threshold, uint16_t, 1, proto_gcode_setting_line_int);
+#endif
+
 // uncomment to allow data verbose of sync constants
 // the message output is
 // [MSG:<spindle index counter>:<expected_step_position>:<current_step_position>:<error>:<encoder_rpm>]
@@ -64,6 +70,7 @@ static volatile int32_t spindle_index_last_time;	// index pulse previous timesta
 static uint32_t steps_per_index;					// motion steps per index pulse
 #ifdef G33_FEEDBACK_LOOP_USE_ENC_PULSE
 static uint32_t update_loop_index_counter; // keeps the last update loop index counter
+static uint16_t spindle_target_rpm;
 #endif
 #ifndef G33_REPLACE_FP_OPERATION_IN_ISR
 static float steps_per_index_inv;
@@ -77,7 +84,7 @@ static float rpm_to_stepfeed_constant;
 static uint32_t enc_res;
 
 #if (MCU == MCU_VIRTUAL_WIN)
-// used with the virtual emulator to simulate pulses
+used with the virtual emulator to simulate pulses
 void mcu_stimul_inputs(volatile VIRTUAL_MAP *virtualmap, uint64_t micros)
 {
 	static uint64_t last_stim = 0, last_stimsync = 0;
@@ -154,18 +161,22 @@ void spindle_index_cb_handler(void)
 		synched_motion_status = SYNC_STARTING;
 		index = spindle_index_counter_start;
 #ifdef G33_FEEDBACK_LOOP_USE_ENC_PULSE
-		encoder_reset_position(G33_ENCODER, index * enc_res); // syncs the pulse counter with the index counter
+		if (spindle_target_rpm < spindle_feedback_loop_threshold)
+		{
+			encoder_reset_position(G33_ENCODER, index * enc_res); // syncs the pulse counter with the index counter
+		}
 #endif
 		break;
 	default:
-#ifndef G33_FEEDBACK_LOOP_USE_ENC_PULSE
-		if (index > 0 && synched_motion_status >= SYNC_RUNNING)
+		if (spindle_target_rpm >= spindle_feedback_loop_threshold)
 		{
-			synched_motion_status |= SYNC_UPDATED;
-			// store the step position at the time the index pulse happens
-			spindle_index_step_counter = itp_sync_step_counter;
+			if (index > 0 && synched_motion_status >= SYNC_RUNNING)
+			{
+				synched_motion_status |= SYNC_UPDATED;
+				// store the step position at the time the index pulse happens
+				spindle_index_step_counter = itp_sync_step_counter;
+			}
 		}
-#endif
 		break;
 	}
 
@@ -427,6 +438,7 @@ bool g33_exec(void *args)
 // resets the correction loop
 #ifdef G33_FEEDBACK_LOOP_USE_ENC_PULSE
 		update_loop_index_counter = 0;
+		spindle_target_rpm = (uint16_t)index_rpm;
 #endif
 
 		if (mc_line(ptr->target, ptr->block_data) != STATUS_OK)
@@ -507,9 +519,14 @@ bool spindle_sync_update_loop(void *ptr)
 		ATOMIC_CODEBLOCK
 		{
 #ifdef G33_FEEDBACK_LOOP_USE_ENC_PULSE
-			index_counter = encoder_get_position(G33_ENCODER);
-#else
-			index_counter = spindle_index_counter;
+			if (spindle_target_rpm < spindle_feedback_loop_threshold)
+			{
+				index_counter = encoder_get_position(G33_ENCODER);
+			}
+			else
+			{
+				index_counter = spindle_index_counter;
+			}
 #endif
 			synched_motion_status &= ~SYNC_UPDATED;
 			index_step_counter = spindle_index_step_counter;
@@ -518,9 +535,14 @@ bool spindle_sync_update_loop(void *ptr)
 		}
 
 #ifdef G33_FEEDBACK_LOOP_USE_ENC_PULSE
-		delta_t = encoder_get_delta(G33_ENCODER) * g_settings.encoders_resolution[G33_ENCODER];
-#else
-		delta_t -= t;
+		if (spindle_target_rpm < spindle_feedback_loop_threshold)
+		{
+			delta_t = encoder_get_delta(G33_ENCODER) * g_settings.encoders_resolution[G33_ENCODER];
+		}
+		else
+		{
+			delta_t -= t;
+		}
 #endif
 		float index_rpm = 1000000.0f / ((float)delta_t * MIN_SEC_MULT);
 		if (index_rpm < 1)
@@ -532,7 +554,10 @@ bool spindle_sync_update_loop(void *ptr)
 		// calculate the spindle position
 		int32_t expected_position = index_counter * steps_per_index;
 #ifdef G33_FEEDBACK_LOOP_USE_ENC_PULSE
-		expected_position /= g_settings.encoders_resolution[G33_ENCODER];
+		if (spindle_target_rpm < spindle_feedback_loop_threshold)
+		{
+			expected_position /= g_settings.encoders_resolution[G33_ENCODER];
+		}
 #endif
 
 		// if negative the axis are ahead of spindle and need to slow down
@@ -548,9 +573,14 @@ bool spindle_sync_update_loop(void *ptr)
 		{
 			float new_step_rate = rpm_to_stepfeed_constant * index_rpm;
 #ifdef G33_FEEDBACK_LOOP_USE_ENC_PULSE
-			new_step_rate += error * g_settings.encoders_resolution[G33_ENCODER];
-#else
-			new_step_rate += error;
+			if (spindle_target_rpm < spindle_feedback_loop_threshold)
+			{
+				new_step_rate += error * g_settings.encoders_resolution[G33_ENCODER];
+			}
+			else
+			{
+				new_step_rate += error;
+			}
 #endif
 			// this updates the interpolator right on the next step and the current motion in the planner
 			itp_update_feed(new_step_rate);
@@ -604,5 +634,14 @@ DECL_MODULE(g33)
 #endif
 #ifndef ENABLE_RT_SYNC_MOTIONS
 #error "ENABLE_RT_SYNC_MOTIONS must be enabled to allow realtime step counting in sync motions."
+#endif
+
+#ifdef G33_FEEDBACK_LOOP_USE_ENC_PULSE
+#ifdef ENABLE_SETTINGS_MODULES
+	EXTENDED_SETTING_INIT(G33_FEEDBACK_LOOP_USE_ENC_PULSE_THRESHOLD_SETTING_ID, spindle_feedback_loop_threshold);
+#else
+	spindle_feedback_loop_threshold = 0;
+#warning "ENABLE_SETTINGS_MODULES must be enabled to allow condifuration of feedback loop signal threshold. Otherwise index pin signal will always be used."
+#endif
 #endif
 }
