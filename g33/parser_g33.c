@@ -84,8 +84,7 @@ static float rpm_to_stepfeed_constant;
 static uint32_t enc_res;
 
 #if (MCU == MCU_VIRTUAL_WIN)
-used with the virtual emulator to simulate pulses
-void mcu_stimul_inputs(volatile VIRTUAL_MAP *virtualmap, uint64_t micros)
+used with the virtual emulator to simulate pulses void mcu_stimul_inputs(volatile VIRTUAL_MAP *virtualmap, uint64_t micros)
 {
 	static uint64_t last_stim = 0, last_stimsync = 0;
 	uint64_t next_stim = last_stim + 120000;			 // 120RPM
@@ -229,6 +228,31 @@ bool g33_parse(void *args)
 
 	// if this is not catched by this parser, just send back the error so other extenders can process it
 	return EVENT_CONTINUE;
+}
+
+static void g33_hook_release(void)
+{
+#if (G33_ENCODER == ENC0)
+	HOOK_RELEASE(enc0_index);
+#elif (G33_ENCODER == ENC1)
+	HOOK_RELEASE(enc1_index);
+#elif (G33_ENCODER == ENC2)
+	HOOK_RELEASE(enc2_index);
+#elif (G33_ENCODER == ENC3)
+	HOOK_RELEASE(enc3_index);
+#elif (G33_ENCODER == ENC4)
+	HOOK_RELEASE(enc4_index);
+#elif (G33_ENCODER == ENC5)
+	HOOK_RELEASE(enc5_index);
+#elif (G33_ENCODER == ENC6)
+	HOOK_RELEASE(enc6_index);
+#elif (G33_ENCODER == ENC7)
+	HOOK_RELEASE(enc7_index);
+#endif
+
+	HOOK_RELEASE(itp_rt_stepbits);
+
+	synched_motion_status = SYNC_DISABLED;
 }
 
 // this actually performs 2 steps in 1 (validation and execution)
@@ -443,6 +467,7 @@ bool g33_exec(void *args)
 
 		if (mc_line(ptr->target, ptr->block_data) != STATUS_OK)
 		{
+			g33_hook_release();
 			*(ptr->error) = STATUS_CRITICAL_FAIL;
 			return EVENT_HANDLED;
 		}
@@ -454,35 +479,13 @@ bool g33_exec(void *args)
 		synched_motion_status = SYNC_READY;
 
 		// wait for the motion to end
+		*(ptr->error) = STATUS_OK;
 		if (itp_sync() != STATUS_OK)
 		{
 			*(ptr->error) = STATUS_CRITICAL_FAIL;
-			return EVENT_HANDLED;
 		}
 
-		synched_motion_status = SYNC_DISABLED;
-
-// encoder_dettach_index_cb();
-#if (G33_ENCODER == ENC0)
-		HOOK_RELEASE(enc0_index);
-#elif (G33_ENCODER == ENC1)
-		HOOK_RELEASE(enc1_index);
-#elif (G33_ENCODER == ENC2)
-		HOOK_RELEASE(enc2_index);
-#elif (G33_ENCODER == ENC3)
-		HOOK_RELEASE(enc3_index);
-#elif (G33_ENCODER == ENC4)
-		HOOK_RELEASE(enc4_index);
-#elif (G33_ENCODER == ENC5)
-		HOOK_RELEASE(enc5_index);
-#elif (G33_ENCODER == ENC6)
-		HOOK_RELEASE(enc6_index);
-#elif (G33_ENCODER == ENC7)
-		HOOK_RELEASE(enc7_index);
-#endif
-		HOOK_RELEASE(itp_rt_stepbits);
-
-		*(ptr->error) = STATUS_OK;
+		g33_hook_release();
 		return EVENT_HANDLED;
 	}
 
