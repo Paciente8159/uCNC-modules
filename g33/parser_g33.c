@@ -352,6 +352,7 @@ bool g33_exec(void *args)
 		// spindle speed ins not valid
 		if (index_rpm < 1)
 		{
+			g33_hook_release();
 			*(ptr->error) = STATUS_SPINDLE_RPM_ERROR;
 			return EVENT_HANDLED;
 		}
@@ -427,6 +428,7 @@ bool g33_exec(void *args)
 		float feed = ptr->words->ijk[2] * index_rpm;
 		if (feed > max_feed)
 		{
+			g33_hook_release();
 			*(ptr->error) = STATUS_MAX_STEP_RATE_EXCEEDED;
 			return EVENT_HANDLED;
 		}
