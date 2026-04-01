@@ -367,7 +367,7 @@ CREATE_EVENT_LISTENER_WITHLOCK(cnc_reset, mks_display_start, TFT_DISPLAY_SPI_LOC
  */
 
 #ifdef DECL_SERIAL_STREAM
-DECL_BUFFER(uint8_t, mks_display_stream_buffer, 32);
+DECL_BUFFER(uint8_t, mks_display_stream_buffer, SYSTEM_MENU_MAX_STR_LEN * 2);
 static uint8_t mks_display_getc(void)
 {
 	uint8_t c = 0;
@@ -378,6 +378,10 @@ static uint8_t mks_display_getc(void)
 uint8_t mks_display_available(void)
 {
 	return BUFFER_READ_AVAILABLE(mks_display_stream_buffer);
+}
+
+uint8_t mks_display_write_available(void){
+	return BUFFER_WRITE_AVAILABLE(mks_display_stream_buffer);
 }
 
 void mks_display_clear(void)

@@ -130,7 +130,7 @@ static void render_status(char *buff)
 																						 _ui_theme_color_hold);
 			break;
 		case EXEC_KILL:
-		case EXEC_UNHOMED:
+		case EXEC_POSITION_MAYBE_LOST:
 			rom_strcpy(buff, MSG_STATUS_ALARM);
 			ui_object_set_themeable_style_property(ui_idle_container_statusinfo, LV_PART_MAIN | LV_STATE_DEFAULT, LV_STYLE_BG_COLOR,
 																						 _ui_theme_color_alarm);
@@ -467,7 +467,7 @@ void system_menu_render_idle(void)
 	lv_label_set_text(ui_idle_label_modalmodesvalue, buffer);
 
 	// unlock button image
-	if (cnc_get_exec_state(EXEC_UNHOMED))
+	if (cnc_get_exec_state(EXEC_POSITION_MAYBE_LOST))
 	{
 		lv_image_set_scale(ui_idle_image_image8, 256);
 		lv_image_set_scale(ui_idle_image_image17, 0);
@@ -673,9 +673,11 @@ static uint8_t str_to_float(char *str, float *value)
 	return result;
 }
 
+extern uint8_t mks_display_write_available(void);
+
 static void send_jog_cmd(bool reverse)
 {
-	if (serial_freebytes() > SYSTEM_MENU_MAX_STR_LEN)
+	if (mks_display_write_available() >= SYSTEM_MENU_MAX_STR_LEN)
 	{
 		char buffer[SYSTEM_MENU_MAX_STR_LEN];
 		memset(buffer, 0, SYSTEM_MENU_MAX_STR_LEN);
@@ -744,7 +746,7 @@ void touch_btn_close_cb(lv_event_t *e)
 
 void touch_btn_unlock_cb(lv_event_t *e)
 {
-	if (serial_freebytes() > SYSTEM_MENU_MAX_STR_LEN)
+	if (mks_display_write_available() >= SYSTEM_MENU_MAX_STR_LEN)
 	{
 		char buffer[SYSTEM_MENU_MAX_STR_LEN];
 		memset(buffer, 0, SYSTEM_MENU_MAX_STR_LEN);
@@ -774,7 +776,7 @@ void touch_btn_hold_cb(lv_event_t *e)
 void touch_btn_home_cb(lv_event_t *e)
 {
 	// Your code here
-	if (serial_freebytes() > SYSTEM_MENU_MAX_STR_LEN)
+	if (mks_display_write_available() >= SYSTEM_MENU_MAX_STR_LEN)
 	{
 		char buffer[SYSTEM_MENU_MAX_STR_LEN];
 		memset(buffer, 0, SYSTEM_MENU_MAX_STR_LEN);

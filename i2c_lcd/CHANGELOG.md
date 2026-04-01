@@ -5,6 +5,10 @@ It requires any 2 µCNC generic digital input pins of the board. It uses softwar
 
 ## Changelog
 
+### 2026-04-01
+
+- updated display code logic to match core version 1.16
+
 ### 2024-02-13
 
 - updated for v010808

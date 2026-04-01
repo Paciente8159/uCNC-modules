@@ -896,7 +896,7 @@ void system_menu_render_idle(void)
 			rom_strcpy(&buff[3], MSG_STATUS_DOOR);
 			break;
 		case EXEC_KILL:
-		case EXEC_UNHOMED:
+		case EXEC_POSITION_MAYBE_LOST:
 			rom_strcpy(&buff[3], MSG_STATUS_ALARM);
 			break;
 		case EXEC_HOLD:

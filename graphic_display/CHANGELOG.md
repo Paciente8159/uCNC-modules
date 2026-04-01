@@ -4,6 +4,10 @@ This module adds graphic display support for µCNC.
 
 ## Changelog
 
+### 2026-04-01
+
+- updated display code logic to match core version 1.16
+
 ### 2024-10-05
 
 - reverted code back to the version of 2024-04-27. The code was not producing good results. Also the abstaction for u8g2 will be dropped since there is no plans to use different libraries.

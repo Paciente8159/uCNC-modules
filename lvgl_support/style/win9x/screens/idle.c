@@ -159,7 +159,7 @@ static void update_state()
 			bg_color = status_red;
 			break;
 		case EXEC_KILL:
-		case EXEC_UNHOMED:
+		case EXEC_POSITION_MAYBE_LOST:
 		case EXEC_LIMITS:
 			rom_strcpy(str, MSG_STATUS_ALARM);
 			bg_color = status_red;
