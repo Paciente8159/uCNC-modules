@@ -4,6 +4,10 @@ This module adds support for using a tft display with the LVGL library to create
 
 ## Changelog
 
+### 2026-04-3
+
+- updated display color swap bit  function
+
 ### 2026-04-01
 
 - updated display code logic to match core version 1.16

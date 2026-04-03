@@ -183,16 +183,23 @@ static FORCEINLINE void swap_colors(uint16_t *buff, size_t pixel_count)
 	if (t < mcu_millis())
 	{
 		t = mcu_millis() + 2000;
-		p = (p + 1) & 0xF;
+		p = (p + 1) & 0x1F;
 		serial_print_int(p);
 		serial_putc('\n');
-		// lv_obj_invalidate(lv_scr_act());
 	}
 #endif
 	while (pixel_count--)
 	{
 		uint16_t pixel = *buff;
-		*buff++ = (((pixel >> (TFT_SWAP_BIT & 0x0F)) | (pixel << (16 - (TFT_SWAP_BIT & 0x0F)))) & 0xFFFF);
+
+		pixel = (((pixel >> (TFT_SWAP_BIT & 0x0F)) | (pixel << (16 - (TFT_SWAP_BIT & 0x0F)))) & 0xFFFF);
+
+		if (TFT_SWAP_BIT & 0x10) // byte swap
+		{
+			pixel = ((pixel & 0xFF00) >> 8) | ((pixel & 0xFF) << 8);
+		}
+
+		*buff++ = pixel;
 	}
 }
 

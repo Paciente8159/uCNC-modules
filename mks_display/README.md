@@ -89,6 +89,11 @@ These are the default values:
 #ifndef TFT_SWAP_BIT
 #define TFT_SWAP_BIT 8
 #endif
+
+// if you are unsure of the value for TFT_SWAP_BIT enable this option
+// this will loop every 32 possible values (every 2 or 3 seconds) and prints a number of the current bit swap value
+// once you found the correct value you can comment this option and set the correct TFT_SWAP_BIT
+#define TFT_DISPLAY_SWAP_BIT_TEST_MODE
 ```
 3. Add initialization code for modules inside the `load_modules()` function:
 ```c
