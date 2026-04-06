@@ -4,6 +4,11 @@ This module adds custom G33 code to the µCNC parser. This similar to Linux CNC 
 
 ## Changelog
 
+### 2026-04-06
+
+- new math motion equations to produce an accurate pitch threading start synchronization
+- filtered debug after threading finnishes
+
 ### 2026-03-23
 
 - remove FP operation from ISR (crashes on ESP32)
