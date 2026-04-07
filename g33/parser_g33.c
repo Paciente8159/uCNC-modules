@@ -21,6 +21,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <float.h>
+#include <math.h>
 
 #ifdef ENABLE_PARSER_MODULES
 
@@ -65,11 +66,6 @@ static uint32_t steps_per_index;					// motion steps per index pulse
 #ifdef G33_FEEDBACK_LOOP_USE_ENC_PULSE
 static uint32_t update_loop_index_counter; // keeps the last update loop index counter
 #endif
-#ifndef G33_REPLACE_FP_OPERATION_IN_ISR
-static float steps_per_index_inv;
-#else
-static uint64_t steps_per_index_inv_fixed;
-#endif
 static uint32_t motion_total_steps;
 static float motion_total_distance;
 static int32_t current_error;
@@ -99,11 +95,6 @@ void mcu_stimul_inputs(volatile VIRTUAL_MAP *virtualmap, uint64_t micros)
 	}
 }
 #endif
-
-void g33_start_motion(void)
-{
-	itp_start(false);
-}
 
 void itp_rt_stepcount_cb_handler(uint8_t stepbits, uint8_t itp_flags)
 {
@@ -150,7 +141,7 @@ void spindle_index_cb_handler(void)
 	{
 	case SYNC_READY:
 		// the spindle index starts synchronized motion
-		mcu_start_timeout();
+		itp_start(false);
 		synched_motion_status = SYNC_STARTING;
 		index = spindle_index_counter_start;
 #ifdef G33_FEEDBACK_LOOP_USE_ENC_PULSE
@@ -396,6 +387,10 @@ bool g33_exec(void *args)
 			return EVENT_HANDLED;
 		}
 
+		// calculates the expected number of steps per revolution
+		float steps_per_rev = (float)total_steps / total_revs;
+		steps_per_index = lroundf(steps_per_rev);
+
 		ptr->block_data->feed = feed;
 		ptr->block_data->motion_flags.bit.synched = 1;
 		ptr->block_data->max_accel = max_accel;
@@ -403,26 +398,43 @@ bool g33_exec(void *args)
 		// convert feed to mm/s
 		feed *= MIN_SEC_MULT;
 
+		// The thread feed is given by:
+		// vf = (RPM / 60) * K
+		// and the thread position at any given time t(s) is expressed as
+		// x = vf * t
+		// on a linear acceleration the motion will ALWAYS stay behind because of the acceleration phase
+		// the real thread path is given by:
+		// xreal = (vf^2) / (2 * a) + vf * (t - tacc)
+		// we can also express this as the ideal position version minus the acceleration triangle area (valid for constant acceleration)
+		// xreal = vf * t - (vf^2) / (2 * a)
+		// the error is expressed as
+		// e = x - xreal = (vf^2) / (2 * a)
+		// the thread correct position is a multiple of pitch K
+		// the motion will always lag behind a bit. The acceleration can be tuned so that the lag is exctly P multiples of pitch K
+		// e = P * K
+		// replacing the value of error
+		// (vf^2) / (2 * a) = P * K
+		// solving this for acceleration we get
+		// a = (vf^2) / (2 * P * K)
+		// replacing vf from the first equation we get
+		// a = (K * RPM^2) / (7200 * P)
+
+		// calculate the minimum acceleration time
 		float accel_time = feed / max_accel;
+		// calculate the time per revolution
+		float rev_time = 60 / index_rpm;
 
-		uint32_t start_delay = (uint32_t)(accel_time * 1000000); // estimated acceleration time in microseconds
+		// calculate the minimum amount of revs needed to reach the target speed
+		float p_revs = ceilf(accel_time / rev_time);
+		// calculate the new acceleration given an additional revolution to compensate for the lag
+		float new_accel = ptr->words->ijk[2] * index_rpm * index_rpm / (p_revs * 7200);
+		ptr->block_data->max_accel = new_accel;
 
-		spindle_index_counter_start = -(1 + (start_delay / delta_t)); // will take at least one index count to start motion
-		start_delay = (delta_t - (start_delay % delta_t));
-		mcu_config_timeout(g33_start_motion, start_delay); // programs the necessary delay in us
+		spindle_index_counter_start = -(uint32_t)(p_revs);
 
 		// resets indexes
 		spindle_index_counter = 0;
 		itp_sync_step_counter = 0;
-
-		// calculates the expected number of steps per revolution
-		float steps_per_rev = (float)total_steps / total_revs;
-		steps_per_index = lroundf(steps_per_rev);
-#ifndef G33_REPLACE_FP_OPERATION_IN_ISR
-		steps_per_index_inv = 1.0f / steps_per_index;
-#else
-		steps_per_index_inv_fixed = ((uint64_t)1 << 32) / (uint64_t)steps_per_index;
-#endif
 
 // resets the correction loop
 #ifdef G33_FEEDBACK_LOOP_USE_ENC_PULSE
@@ -560,7 +572,7 @@ bool spindle_sync_update_loop(void *ptr)
 		proto_info("MSG:Spindle turns %ld, expected pos %ld, real pos %ld, error: %ld, rpm %f", index_counter, expected_position, index_step_counter, error, index_rpm);
 #endif
 	}
-	else
+	else if (synched_motion_status)
 	{
 #ifdef G33_DEBUG
 		static uint32_t prev_print = 0;
@@ -574,8 +586,11 @@ bool spindle_sync_update_loop(void *ptr)
 				t = spindle_index_last_time;
 			}
 			delta_t -= t;
-			float index_rpm = 1000000.0f / ((float)delta_t * MIN_SEC_MULT);
-			proto_info("MSG:G33 TOOL RPM %f", index_rpm);
+			if (delta_t)
+			{
+				float index_rpm = 1000000.0f / ((float)delta_t * MIN_SEC_MULT);
+				proto_info("MSG:G33 TOOL RPM %f", index_rpm);
+			}
 			prev_print = mcu_millis();
 		}
 #endif
