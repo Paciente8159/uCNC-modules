@@ -41,6 +41,9 @@
 #error "G33 requires to have an assigned encoder"
 #endif
 
+#ifndef G33_SYNCHRONIZATION_SPEED
+#define G33_SYNCHRONIZATION_SPEED 0.5f
+#endif
 // enable this to use the encoder pulse as the feedback loop marker/trigger
 //  #define G33_FEEDBACK_LOOP_USE_ENC_PULSE
 
@@ -496,7 +499,7 @@ bool g33_proto_status(void *args)
 {
 	if ((g_settings.status_report_mask & 4))
 	{
-		if ((synched_motion_status >= SYNC_RUNNING))
+		if ((synched_motion_status > SYNC_DISABLED))
 		{
 			float error = motion_total_distance * current_error;
 			error /= (float)motion_total_steps;
@@ -560,9 +563,9 @@ bool spindle_sync_update_loop(void *ptr)
 		{
 			float new_step_rate = rpm_to_stepfeed_constant * index_rpm;
 #ifdef G33_FEEDBACK_LOOP_USE_ENC_PULSE
-			new_step_rate += error * g_settings.encoders_resolution[G33_ENCODER];
+			new_step_rate += error * G33_SYNCHRONIZATION_SPEED * g_settings.encoders_resolution[G33_ENCODER];
 #else
-			new_step_rate += error;
+			new_step_rate += error * G33_SYNCHRONIZATION_SPEED;
 #endif
 			// this updates the interpolator right on the next step and the current motion in the planner
 			itp_update_feed(new_step_rate);
