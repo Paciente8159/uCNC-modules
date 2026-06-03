@@ -1,17 +1,17 @@
 /*
 	Name: parser_g33.c
-	Description: Implements a parser extension for LinuxCNC G33 for ÂµCNC.
+	Description: Implements a parser extension for LinuxCNC G33 for µCNC.
 
-	Copyright: Copyright (c) JoÃ£o Martins
-	Author: JoÃ£o Martins
+	Copyright: Copyright (c) João Martins
+	Author: João Martins
 	Date: 25/11/2022
 
-	ÂµCNC is free software: you can redistribute it and/or modify
+	µCNC is free software: you can redistribute it and/or modify
 	it under the terms of the GNU General Public License as published by
 	the Free Software Foundation, either version 3 of the License, or
 	(at your option) any later version. Please see <http://www.gnu.org/licenses/>
 
-	ÂµCNC is distributed WITHOUT ANY WARRANTY;
+	µCNC is distributed WITHOUT ANY WARRANTY;
 	Also without the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 	See the	GNU General Public License for more details.
 */
@@ -26,7 +26,7 @@
 #ifdef ENABLE_PARSER_MODULES
 
 #if (UCNC_MODULE_VERSION < 11501 || UCNC_MODULE_VERSION > 99999)
-#error "This module is not compatible with the current version of ÂµCNC"
+#error "This module is not compatible with the current version of µCNC"
 #endif
 
 #ifndef AXIS_DIR_VECTORS
@@ -41,8 +41,8 @@
 #error "G33 requires to have an assigned encoder"
 #endif
 
-#ifndef G33_SYNCHRONIZATION_SPEED
-#define G33_SYNCHRONIZATION_SPEED 0.5f
+#ifndef G33_SYNCHRONIZATION_GAIN
+#define G33_SYNCHRONIZATION_GAIN 0.75f
 #endif
 // enable this to use the encoder pulse as the feedback loop marker/trigger
 //  #define G33_FEEDBACK_LOOP_USE_ENC_PULSE
@@ -50,7 +50,17 @@
 // uncomment to allow data verbose of sync constants
 // the message output is
 // [MSG:<spindle index counter>:<expected_step_position>:<current_step_position>:<error>:<encoder_rpm>]
-// #define G33_DEBUG
+#define G33_DEBUG
+
+#ifndef G33_RPM_SMOOTHING
+#define G33_RPM_SMOOTHING
+#endif
+#ifndef G33_RPM_SMOOTHING_FACTOR
+#define G33_RPM_SMOOTHING_FACTOR 0.2f
+#endif
+#ifndef G33_ERROR_DEADBAND
+#define G33_ERROR_DEADBAND 3
+#endif
 
 #define SYNC_DISABLED 0
 #define SYNC_READY 1
@@ -74,29 +84,9 @@ static float motion_total_distance;
 static int32_t current_error;
 static float rpm_to_stepfeed_constant;
 static uint32_t enc_res;
-
-#if (MCU == MCU_VIRTUAL_WIN)
-// used with the virtual emulator to simulate pulses
-void mcu_stimul_inputs(volatile VIRTUAL_MAP *virtualmap, uint64_t micros)
-{
-	static uint64_t last_stim = 0, last_stimsync = 0;
-	uint64_t next_stim = last_stim + 120000;			 // 120RPM
-	uint64_t next_stimsync = last_stimsync + 120000 / 4; // 120RPM
-
-	if (micros >= next_stimsync)
-	{
-		last_stimsync = next_stimsync;
-		virtualmap->inputs ^= 1; // index pin
-		mcu_inputs_changed_cb();
-	}
-
-	if (micros >= next_stim)
-	{
-		last_stim = next_stim;
-		virtualmap->inputs ^= 2; // index pin
-		mcu_inputs_changed_cb();
-	}
-}
+float g33_pitch_k;
+#ifdef G33_RPM_SMOOTHING
+static float filtered_rpm = 0.0f; // smoothed spindle RPM
 #endif
 
 void itp_rt_stepcount_cb_handler(uint8_t stepbits, uint8_t itp_flags)
@@ -307,7 +297,7 @@ bool g33_exec(void *args)
 
 		delta_t -= t;
 		float index_rpm = 1000000.0f / ((float)delta_t * MIN_SEC_MULT);
-
+		filtered_rpm = index_rpm;
 		// spindle speed ins not valid
 		if (index_rpm < 1)
 		{
@@ -375,6 +365,8 @@ bool g33_exec(void *args)
 		}
 
 		motion_total_steps = total_steps;
+
+		g33_pitch_k = ptr->words->ijk[2];
 
 		// from this the factor to convert from RPM to step feed can be obtained
 		// step rate = rpm_to_stepfeed_constant * RPM
@@ -515,9 +507,9 @@ bool spindle_sync_update_loop(void *ptr)
 {
 	if ((synched_motion_status & SYNC_UPDATED))
 	{
-
 		int32_t error, index_step_counter, index_counter;
 		uint32_t t = 0, delta_t = 0;
+		
 		// gets a snapshot of the current spindle index position, and the step position at the time of the index pulse
 		ATOMIC_CODEBLOCK
 		{
@@ -541,8 +533,14 @@ bool spindle_sync_update_loop(void *ptr)
 		if (index_rpm < 1)
 		{
 			cnc_alarm(EXEC_ALARM_SPINDLE_SYNC_FAIL);
-			return STATUS_CRITICAL_FAIL;
+			return EVENT_HANDLED;
 		}
+
+// add RPM smoothing factor to dampen RPM variation effects
+#ifdef G33_RPM_SMOOTHING
+		filtered_rpm = G33_RPM_SMOOTHING_FACTOR * index_rpm + (1.0f - G33_RPM_SMOOTHING_FACTOR) * filtered_rpm;
+		index_rpm = filtered_rpm;
+#endif
 
 		// calculate the spindle position
 		int32_t expected_position = index_counter * steps_per_index;
@@ -553,6 +551,13 @@ bool spindle_sync_update_loop(void *ptr)
 		// if negative the axis are ahead of spindle and need to slow down
 		// if positive the axis are behind the spindle and need to speed up.
 		error = expected_position - index_step_counter;
+
+#if G33_ERROR_DEADBAND > 0
+		if (abs(error) < G33_ERROR_DEADBAND)
+			error = 0;
+#endif
+		float gain = G33_SYNCHRONIZATION_GAIN / (1.0f + g33_pitch_k);
+
 		current_error = error;
 
 		// #ifdef G33_DEBUG
@@ -563,9 +568,9 @@ bool spindle_sync_update_loop(void *ptr)
 		{
 			float new_step_rate = rpm_to_stepfeed_constant * index_rpm;
 #ifdef G33_FEEDBACK_LOOP_USE_ENC_PULSE
-			new_step_rate += error * G33_SYNCHRONIZATION_SPEED * g_settings.encoders_resolution[G33_ENCODER];
+			new_step_rate += error * gain * g_settings.encoders_resolution[G33_ENCODER];
 #else
-			new_step_rate += error * G33_SYNCHRONIZATION_SPEED;
+			new_step_rate += error * gain;
 #endif
 			// this updates the interpolator right on the next step and the current motion in the planner
 			itp_update_feed(new_step_rate);
@@ -605,9 +610,65 @@ bool spindle_sync_update_loop(void *ptr)
 CREATE_EVENT_LISTENER(cnc_dotasks, spindle_sync_update_loop);
 #endif
 
+#if (MCU == MCU_VIRTUAL_WIN)
+
+void emulate_tool_encoder(volatile VIRTUAL_MAP *virtualmap, uint64_t micros)
+{
+	static uint64_t last_pulse = 0;
+	static uint64_t last_index = 0;
+
+	uint32_t rpm = tool_get_setpoint();
+	if (synched_motion_status >= SYNC_RUNNING)
+	{
+		// emulate a 20% rpm drop
+		rpm = (uint32_t)(0.8f * rpm);
+	}
+	uint32_t maxrpm = g_settings.spindle_max_rpm;
+
+	if (rpm == 0 || maxrpm == 0)
+		return; // spindle parado → sem pulsos
+
+	// clamp para evitar valores absurdos
+	if (rpm > maxrpm)
+		rpm = maxrpm;
+
+	/*
+		Math:
+		1 RPM period = 60.000.000us / RPM
+		pulse_interval = period
+		index_interval = period * g_settings.encoders_resolution[G33_ENCODER]
+	*/
+	uint64_t period_us = 30000000ULL / rpm;
+
+	uint64_t index_interval = period_us;
+	uint64_t pulse_interval = period_us / g_settings.encoders_resolution[G33_ENCODER];
+
+	uint64_t next_pulse = last_pulse + pulse_interval;
+	uint64_t next_index = last_index + index_interval;
+
+	// index pulse
+	if (micros >= next_index)
+	{
+		last_index = next_index;
+		virtualmap->inputs ^= 2; // index pin
+		mcu_inputs_changed_cb();
+	}
+
+	// main pulse
+	if (micros >= next_pulse)
+	{
+		last_pulse = next_pulse;
+		virtualmap->inputs ^= 1; // pulse pin
+		mcu_inputs_changed_cb();
+	}
+}
+#endif
+
 DECL_MODULE(g33)
 {
-
+#if (MCU == MCU_VIRTUAL_WIN)
+	mcu_stimul_inputs = emulate_tool_encoder;
+#endif
 #ifdef ENABLE_PARSER_MODULES
 	ADD_EVENT_LISTENER(gcode_parse, g33_parse);
 	ADD_EVENT_LISTENER(gcode_exec, g33_exec);
