@@ -38,6 +38,43 @@ LOAD_MODULE(g33);
 #define G33_ENCODER ENC0
 ```
 
+### Virtual Index Updates
+
+On ESP32 builds using the `esp32_pcnt_encoder` module, G33 can run from the
+encoder module's virtual index hook instead of a dedicated `G33_INDEX_PIN`.
+PCNT0 A/B remains the spindle position source, and the encoder module fires the
+normal `enc0_index` hook whenever the PCNT count crosses a configurable modulo
+boundary.
+
+```c
+#define G33_ENCODER ENC0
+#define ENC0_VIRTUAL_INDEX 1
+#define ENC0_VIRTUAL_INDEX_CPR 600
+#define ENC0_VIRTUAL_INDEX_OFFSET 0
+```
+
+`ENC0_VIRTUAL_INDEX_CPR` sets the encoder-count interval between synthetic
+index updates. If the encoder resolution is 3000 counts/rev and the virtual
+index CPR is 600, G33 sees 5 index updates per spindle revolution.
+
+No physical G33 index pin is required in virtual-index mode. A physical encoder
+Z/index pin may still be used by the encoder module as an optional phase
+reference, and physical index references take priority unless virtual-only mode
+is configured. G33 itself only consumes the common encoder index hook.
+
+When ENC0 virtual indexing is enabled, G33 derives its updates-per-revolution
+value from `ENC0_VIRTUAL_INDEX_CPR` and the runtime encoder resolution.
+`G33_INDEXES_PER_REV` remains available for non-ENC0 or external index sources.
+
+RP2350 builds using `rp2350_pio_encoder` should normally use
+`G33_FEEDBACK_LOOP_USE_HW_COUNTER`. In that mode the PIO encoder count is the
+spindle position truth and virtual index hooks are only synchronization/update
+triggers. Do not diagnose that setup from the standard `EC/RPM` line alone: the
+generic encoder module still prints that line even when the backend is the
+custom RP2350 PIO reader. See `src/modules/rp2350_pio_encoder/README.md` for
+the RP2350 virtual-index debug fields and the original empty-interpolator start
+race that could leave G33 stuck in `SYNC_STARTING`.
+
 Inside the index ISR a floating point math operation is performed. If this causes issues on a specific architecture you can enable an option to replace it by a fixed point operation.
 
 `#define G33_REPLACE_FP_OPERATION_IN_ISR`
