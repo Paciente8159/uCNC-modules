@@ -50,7 +50,7 @@
 // uncomment to allow data verbose of sync constants
 // the message output is
 // [MSG:<spindle index counter>:<expected_step_position>:<current_step_position>:<error>:<encoder_rpm>]
-#define G33_DEBUG
+// #define G33_DEBUG
 
 #ifndef G33_RPM_SMOOTHING
 #define G33_RPM_SMOOTHING
