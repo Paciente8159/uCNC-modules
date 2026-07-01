@@ -4,11 +4,16 @@ This module adds custom G33 code to the µCNC parser. This similar to Linux CNC 
 
 ## Changelog
 
-### 2026-06-03
+### 2026-07-01 
 
-- new RPM smoothing/filtering to prevent abrupt speed compensations and make the system more stable
-- added index error deadband preventing compensation for very low errors
-- new virtual encoder emulation with RPM drop on synched started
+- new RPM smoothing/filtering to prevent abrupt speed compensations and make the system more stable (#106)
+- added index error deadband preventing compensation for very low errors (#106)
+- new virtual encoder emulation with RPM drop on synched started (#106)
+
+### 2026-06-10 (#107) [@HuubBuis](https://github.com/HuubBuis)
+
+- improved threading synchronization speed (#107)
+- fixed threading synchronization status was not reset after a soft reset (#107)
 
 ### 2026-04-06
 
