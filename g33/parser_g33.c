@@ -272,7 +272,7 @@ bool g33_exec(void *args)
 		float index_rpm = 1000000.0f / ((float)delta_t * MIN_SEC_MULT); // Calculate RPM based on index pulse.
 		// index_rpm *= 0.75;											// For testing response to sudden RPM change.
 
-		// spindle speed to slow not valid
+		// spindle speed too slow not valid
 		if (index_rpm < 1)
 		{
 			*(ptr->error) = STATUS_SPINDLE_RPM_ERROR;
