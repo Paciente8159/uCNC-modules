@@ -23,7 +23,7 @@
 
 #if defined(ENABLE_PARSER_MODULES) && defined(ENABLE_MOTION_CONTROL_MODULES)
 
-#if (UCNC_MODULE_VERSION < 11700 || UCNC_MODULE_VERSION > 99999)
+#if (UCNC_MODULE_VERSION < 11680 || UCNC_MODULE_VERSION > 99999)
 #error "This module is not compatible with the current version of µCNC"
 #endif
 
