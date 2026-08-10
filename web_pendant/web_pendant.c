@@ -25,13 +25,13 @@
 #include <stdio.h>
 #include <string.h>
 
-#if ENABLE_SOCKETS
+#ifndef ENABLE_SOCKETS
 
 #ifndef WEB_PENDANT_REFRESH_MS
 #define WEB_PENDANT_REFRESH_MS 200
 #endif
 
-#if (UCNC_MODULE_VERSION < 11300 || UCNC_MODULE_VERSION > 99999)
+#if (UCNC_MODULE_VERSION < 11680 || UCNC_MODULE_VERSION > 99999)
 #error "This module is not compatible with the current version of µCNC"
 #endif
 
