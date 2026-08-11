@@ -325,7 +325,8 @@ bool sd_fs_remove(const char *path)
 bool sd_fs_next_file(fs_file_t *fp, fs_file_info_t *finfo)
 {
 	FILINFO info;
-	if (sd_readdir(fp->file_ptr, &info) != FR_OK)
+	memset(&info, 0, sizeof(FILINFO));
+	if (!fp || !finfo || (sd_readdir(fp->file_ptr, &info) != FR_OK))
 	{
 		return false;
 	}
