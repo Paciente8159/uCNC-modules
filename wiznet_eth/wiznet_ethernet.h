@@ -62,6 +62,12 @@ bool wiznet_hw_socket_open_tcp_server(uint8_t socket_number, uint16_t port);
 void wiznet_hw_socket_close(uint8_t socket_number);
 int wiznet_hw_socket_send(uint8_t socket_number, const uint8_t *data,
                           size_t length);
+/* Read RX bytes without advancing Sn_RX_RD. The caller must commit exactly the
+ * number of bytes it has successfully delivered. */
+int wiznet_hw_socket_receive_peek(uint8_t socket_number, uint8_t *data,
+                                  size_t capacity);
+int wiznet_hw_socket_receive_commit(uint8_t socket_number, size_t length);
+/* Compatibility helper: peek and immediately commit the returned bytes. */
 int wiznet_hw_socket_receive(uint8_t socket_number, uint8_t *data,
                              size_t capacity);
 

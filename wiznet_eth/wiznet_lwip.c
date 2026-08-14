@@ -45,6 +45,7 @@ typedef struct
     wiz_socket_role_t role;
     uint8_t listener_index;
     uint8_t socket_number;
+    uint32_t generation;
     bool tx_pending;
     bool tx_backpressured;
     uint16_t tx_head;
@@ -67,6 +68,7 @@ static wiz_hw_slot_t hw_slots[WIZNET_MAX_HW_SOCKETS];
 static wiz_listener_t listeners[MAX_SOCKETS];
 static uint8_t service_cursor;
 static uint8_t listener_cursor;
+static uint8_t service_depth;
 static uint8_t last_socket_status[WIZNET_MAX_HW_SOCKETS];
 static char receive_buffer[SOCKET_MAX_DATA_SIZE + 1U];
 
@@ -144,6 +146,15 @@ static void reset_tx_queue(uint8_t socket_number)
     hw_slots[socket_number].tx_head = 0U;
     hw_slots[socket_number].tx_tail = 0U;
     hw_slots[socket_number].tx_count = 0U;
+}
+
+static void advance_generation(uint8_t socket_number)
+{
+    ++hw_slots[socket_number].generation;
+    if (hw_slots[socket_number].generation == 0U)
+    {
+        hw_slots[socket_number].generation = 1U;
+    }
 }
 
 static uint16_t tx_queue_free(uint8_t socket_number)
@@ -269,6 +280,7 @@ static void release_hw_socket(uint8_t socket_number)
            (unsigned int)socket_number,
            (unsigned int)hw_slots[socket_number].role);
     wiznet_hw_socket_close(socket_number);
+    advance_generation(socket_number);
     hw_slots[socket_number].role = WIZ_ROLE_FREE;
     hw_slots[socket_number].listener_index = 0U;
     reset_tx_queue(socket_number);
@@ -305,11 +317,13 @@ static int wiz_backend_init(const socket_device_events_t *events)
         hw_slots[i].role = WIZ_ROLE_FREE;
         hw_slots[i].listener_index = 0U;
         hw_slots[i].socket_number = i;
+        hw_slots[i].generation = 1U;
         reset_tx_queue(i);
         last_socket_status[i] = 0xFFU;
     }
     service_cursor = 0U;
     listener_cursor = 0U;
+    service_depth = 0U;
     WIZDGB("WIZnet backend: initialized with %u hardware sockets\n",
            (unsigned int)wiznet_hw_socket_count());
     return SOCKET_DEVICE_OK;
@@ -505,10 +519,64 @@ static void service_listener(uint8_t socket_number, uint8_t status)
     }
 }
 
+/* Advance only TX state. This is safe to run from a nested service call
+ * because it never touches the shared RX delivery buffer. */
+static int service_client_tx(uint8_t socket_number, uint8_t status,
+                             uint8_t interrupts)
+{
+    int pump_result;
+
+    if ((interrupts & WIZ_SNIR_SEND_OK) != 0U)
+    {
+        WIZDGB("WIZnet backend: socket %u SEND_OK, IR=0x%X\n",
+               (unsigned int)socket_number, (unsigned int)interrupts);
+        wiznet_hw_socket_clear_interrupt(socket_number, WIZ_SNIR_SEND_OK);
+        if (hw_slots[socket_number].tx_pending)
+        {
+            hw_slots[socket_number].tx_pending = false;
+            pump_result = pump_tx(socket_number);
+            if (pump_result < 0)
+            {
+                return -1;
+            }
+
+            if (hw_slots[socket_number].tx_backpressured &&
+                tx_queue_free(socket_number) != 0U)
+            {
+                hw_slots[socket_number].tx_backpressured = false;
+                if (backend_events != NULL &&
+                    backend_events->writable != NULL)
+                {
+                    backend_events->writable(client_handle(socket_number));
+                }
+                if (hw_slots[socket_number].role != WIZ_ROLE_CLIENT)
+                {
+                    return 0;
+                }
+            }
+        }
+    }
+
+    /* If a queued send previously found no hardware TX space, retry once on a
+     * later bounded service pass even if no SEND_OK interrupt was generated. */
+    if (!hw_slots[socket_number].tx_pending &&
+        hw_slots[socket_number].tx_count != 0U)
+    {
+        pump_result = pump_tx(socket_number);
+        if (pump_result < 0)
+        {
+            return -1;
+        }
+    }
+
+    (void)status;
+    return (hw_slots[socket_number].role == WIZ_ROLE_CLIENT) ? 1 : 0;
+}
+
 static void service_client(uint8_t socket_number, uint8_t status)
 {
     uint8_t interrupts = wiznet_hw_socket_interrupt(socket_number);
-    int pump_result;
+    int tx_result;
 
     if ((interrupts & WIZ_SNIR_TIMEOUT) != 0U)
     {
@@ -529,66 +597,60 @@ static void service_client(uint8_t socket_number, uint8_t status)
         return;
     }
 
-    if ((interrupts & WIZ_SNIR_SEND_OK) != 0U)
+    tx_result = service_client_tx(socket_number, status, interrupts);
+    if (tx_result < 0)
     {
-        WIZDGB("WIZnet backend: socket %u SEND_OK, IR=0x%X\n",
-               (unsigned int)socket_number, (unsigned int)interrupts);
-        wiznet_hw_socket_clear_interrupt(socket_number, WIZ_SNIR_SEND_OK);
-        if (hw_slots[socket_number].tx_pending)
-        {
-            hw_slots[socket_number].tx_pending = false;
-            pump_result = pump_tx(socket_number);
-            if (pump_result < 0)
-            {
-                disconnect_client(socket_number, SOCKET_DEVICE_ERROR);
-                return;
-            }
-
-            if (hw_slots[socket_number].tx_backpressured &&
-                tx_queue_free(socket_number) != 0U)
-            {
-                hw_slots[socket_number].tx_backpressured = false;
-                if (backend_events != NULL &&
-                    backend_events->writable != NULL)
-                {
-                    backend_events->writable(client_handle(socket_number));
-                }
-                if (hw_slots[socket_number].role != WIZ_ROLE_CLIENT)
-                {
-                    return;
-                }
-            }
-        }
+        disconnect_client(socket_number, SOCKET_DEVICE_ERROR);
+        return;
     }
-
-    /* If a queued send previously found no hardware TX space, retry once on a
-     * later bounded service pass even if no SEND_OK interrupt was generated. */
-    if (!hw_slots[socket_number].tx_pending &&
-        hw_slots[socket_number].tx_count != 0U)
+    if (tx_result == 0)
     {
-        pump_result = pump_tx(socket_number);
-        if (pump_result < 0)
-        {
-            disconnect_client(socket_number, SOCKET_DEVICE_ERROR);
-            return;
-        }
+        return;
     }
 
     if (status == WIZ_SNSR_ESTABLISHED || status == WIZ_SNSR_CLOSE_WAIT)
     {
-        int received = wiznet_hw_socket_receive(
+        int received = wiznet_hw_socket_receive_peek(
             socket_number, (uint8_t *)receive_buffer, SOCKET_MAX_DATA_SIZE);
         if (received > 0)
         {
+            uint32_t generation = hw_slots[socket_number].generation;
+            bool consumed = true;
+
             receive_buffer[received] = '\0';
-            wiznet_hw_socket_clear_interrupt(socket_number, WIZ_SNIR_RECV);
             if (backend_events != NULL && backend_events->data != NULL)
             {
                 WIZDGB("WIZnet backend: delivering %d RX bytes from socket %u\n",
                        received, (unsigned int)socket_number);
-                backend_events->data(client_handle(socket_number),
-                                     receive_buffer, (size_t)received);
+                consumed = backend_events->data(client_handle(socket_number),
+                                                receive_buffer,
+                                                (size_t)received);
             }
+
+            /* The callback may synchronously close this client. Never commit
+             * bytes to a released or subsequently reused hardware socket. */
+            if (hw_slots[socket_number].role != WIZ_ROLE_CLIENT ||
+                hw_slots[socket_number].generation != generation)
+            {
+                return;
+            }
+
+            if (!consumed)
+            {
+                WIZDGB("WIZnet backend: RX delivery for socket %u deferred; bytes remain queued\n",
+                       (unsigned int)socket_number);
+                return;
+            }
+
+            if (wiznet_hw_socket_receive_commit(socket_number,
+                                                (size_t)received) < 0)
+            {
+                WIZDGB("WIZnet backend: socket %u RX commit failed\n",
+                       (unsigned int)socket_number);
+                disconnect_client(socket_number, SOCKET_DEVICE_ERROR);
+                return;
+            }
+            wiznet_hw_socket_clear_interrupt(socket_number, WIZ_SNIR_RECV);
             return;
         }
         if (received < 0)
@@ -618,6 +680,7 @@ static void wiz_backend_service(void)
 {
     uint8_t count;
     uint8_t socket_number;
+    bool nested;
 
     if (!wiznet_is_ready())
     {
@@ -629,6 +692,9 @@ static void wiz_backend_service(void)
     {
         return;
     }
+
+    nested = (service_depth != 0U);
+    ++service_depth;
 
     socket_number = service_cursor;
     service_cursor = (uint8_t)((service_cursor + 1U) % count);
@@ -647,23 +713,46 @@ static void wiz_backend_service(void)
         }
         if (hw_slots[socket_number].role == WIZ_ROLE_LISTENER)
         {
-            service_listener(socket_number, status);
+            if (!nested)
+            {
+                service_listener(socket_number, status);
+            }
         }
         else if (hw_slots[socket_number].role == WIZ_ROLE_CLIENT)
         {
-            service_client(socket_number, status);
+            if (!nested)
+            {
+                service_client(socket_number, status);
+            }
+            else if (status == WIZ_SNSR_ESTABLISHED ||
+                     status == WIZ_SNSR_CLOSE_WAIT)
+            {
+                uint8_t interrupts =
+                    wiznet_hw_socket_interrupt(socket_number);
+                int tx_result = service_client_tx(socket_number, status,
+                                                  interrupts);
+                if (tx_result < 0 &&
+                    hw_slots[socket_number].role == WIZ_ROLE_CLIENT)
+                {
+                    disconnect_client(socket_number, SOCKET_DEVICE_ERROR);
+                }
+            }
         }
     }
 
     /* At most one missing listening socket is recreated per invocation. */
-    if (listeners[listener_cursor].used)
+    if (!nested && listeners[listener_cursor].used)
     {
         (void)open_listener_socket(listener_cursor);
     }
-    listener_cursor =
-        (uint8_t)((listener_cursor + 1U) < MAX_SOCKETS
-                      ? (listener_cursor + 1U)
-                      : 0U);
+    if (!nested)
+    {
+        listener_cursor =
+            (uint8_t)((listener_cursor + 1U) < MAX_SOCKETS
+                          ? (listener_cursor + 1U)
+                          : 0U);
+    }
+    --service_depth;
 }
 
 static socket_device_t wiznet_socket_device = {

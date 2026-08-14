@@ -727,8 +727,8 @@ int wiznet_hw_socket_send(uint8_t socket_number, const uint8_t *data,
     return (int)accepted;
 }
 
-int wiznet_hw_socket_receive(uint8_t socket_number, uint8_t *data,
-                             size_t capacity)
+int wiznet_hw_socket_receive_peek(uint8_t socket_number, uint8_t *data,
+                                  size_t capacity)
 {
     uint16_t available;
     uint16_t pointer;
@@ -748,15 +748,63 @@ int wiznet_hw_socket_receive(uint8_t socket_number, uint8_t *data,
     received = (capacity < available) ? (uint16_t)capacity : available;
     pointer = wiz_read16(wiz_socket_register(socket_number, WIZ_SN_RX_RD));
     wiz_ring_read(socket_number, pointer, data, received);
+
+    WIZDGB("WIZnet: socket %u peeked %u bytes (%u available)\n",
+           (unsigned int)socket_number, (unsigned int)received,
+           (unsigned int)available);
+    return (int)received;
+}
+
+int wiznet_hw_socket_receive_commit(uint8_t socket_number, size_t length)
+{
+    uint16_t available;
+    uint16_t pointer;
+
+    if (!hardware_ready || socket_number >= wiz_socket_count) {
+        return -1;
+    }
+    if (length == 0U) {
+        return 0;
+    }
+    if (length > (size_t)UINT16_MAX) {
+        return -1;
+    }
+
+    /* Reject an invalid/stale commit rather than advancing beyond the bytes
+     * that are currently owned by the hardware RX queue. */
+    available = wiz_stable_read16(
+        wiz_socket_register(socket_number, WIZ_SN_RX_RSR));
+    if (length > (size_t)available) {
+        WIZDGB("WIZnet: ERROR - socket %u cannot commit %lu RX bytes; only %u available\n",
+               (unsigned int)socket_number, (unsigned long)length,
+               (unsigned int)available);
+        return -1;
+    }
+
+    pointer = wiz_read16(wiz_socket_register(socket_number, WIZ_SN_RX_RD));
     wiz_write16(wiz_socket_register(socket_number, WIZ_SN_RX_RD),
-                (uint16_t)(pointer + received));
+                (uint16_t)(pointer + (uint16_t)length));
     if (!wiz_socket_command(socket_number, WIZ_SOCK_RECV)) {
         WIZDGB("WIZnet: ERROR - socket %u RECV command failed\n",
                (unsigned int)socket_number);
         return -1;
     }
-    WIZDGB("WIZnet: socket %u received %u bytes (%u were available)\n",
-           (unsigned int)socket_number, (unsigned int)received,
-           (unsigned int)available);
-    return (int)received;
+    WIZDGB("WIZnet: socket %u committed %lu RX bytes\n",
+           (unsigned int)socket_number, (unsigned long)length);
+    return 0;
+}
+
+int wiznet_hw_socket_receive(uint8_t socket_number, uint8_t *data,
+                             size_t capacity)
+{
+    int received = wiznet_hw_socket_receive_peek(socket_number, data, capacity);
+
+    if (received <= 0) {
+        return received;
+    }
+    if (wiznet_hw_socket_receive_commit(socket_number,
+                                        (size_t)received) < 0) {
+        return -1;
+    }
+    return received;
 }
