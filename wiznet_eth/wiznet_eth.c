@@ -94,8 +94,6 @@ CREATE_EVENT_LISTENER(grbl_cmd, wiznet_custom_grbl_cmd);
 // override the network device
 void mcu_network_init()
 {
-	io_config_output(WIZNET_SPI_CS);
-	wiznet_desel();
 	ipv4_address_t ip = {STATIC_IP_IP};
 	ipv4_address_t sn = {STATIC_IP_SUB};
 	ipv4_address_t gw = {STATIC_IP_GW};
@@ -104,6 +102,7 @@ void mcu_network_init()
 	wiznet_config(ip, sn, gw);
 	WIZNET_SPI_PORT->spifreq = WIZNET_SPI_FREQ;
 	wiznet_init(WIZNET_SPI_PORT);
+	DBGMSG("Wiznet init\r\n");
 }
 
 /**
@@ -116,6 +115,6 @@ DECL_MODULE(wiznet_eth)
 #ifdef ENABLE_PARSER_MODULES
 	ADD_EVENT_LISTENER(grbl_cmd, wiznet_custom_grbl_cmd);
 #else
-#error "Parser extensions are not enabled. Wiznet Grbl commands will not work."
+#warning "Parser extensions are not enabled. Wiznet Grbl commands will not work."
 #endif
 }
