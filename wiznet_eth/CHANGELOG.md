@@ -5,4 +5,4 @@ This overrides the microcontroller WiFi network (only one network device can be 
 
 ### 2026-09-02
 
-- initial implementation (#101)
+- initial implementation (#110)
