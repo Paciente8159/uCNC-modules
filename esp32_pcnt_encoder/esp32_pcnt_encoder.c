@@ -1,68 +1,140 @@
 /*
 	Name: esp32_pcnt_encoder.c
 	Description: ESP32 PCNT hardware counter backend for uCNC encoders.
+	Author: Stanislavz(staskaaa-netizen) - https://github.com/staskaaa-netizen
 */
 
 #include "../../cnc.h"
 #include "../encoder.h"
+#include <stdint.h>
 
-#ifndef ENCODER_HW_PCNT
-#define ENCODER_HW_PCNT 1
+#if (MCU == MCU_ESP32 || MCU == MCU_ESP32S3 || MCU == MCU_ESP32C3)
+
+#ifndef ESP32_PCNT_ENC
+#define ESP32_PCNT_ENC -1
 #endif
 
-#if defined(ENABLE_ESP32_PCNT_ENCODER) && !defined(ENC0_USE_HARDWARE_COUNTER)
-#define ENC0_USE_HARDWARE_COUNTER 1
+#if (ESP32_PCNT_ENC == ENC0)
+#if (ENC0_TYPE != ENC_TYPE_CUSTOM)
+#error "Encoder 0 requires to be of type custom encoder to use ESP32 PCNT"
+#endif
+#ifndef ENC0_IS_INCREMENTAL
+#error "Encoder 0 requires to be set as incremental"
+#endif
+#ifndef ENC0_NO_WRAP_CORRECTION
+#error "Encoder 0 requires disable wrap correction"
+#endif
+#define esp32_pcnt_read enc_custom_read_enc0
+#elif (ESP32_PCNT_ENC == ENC1)
+#if (ENC1_TYPE != ENC_TYPE_CUSTOM)
+#error "Encoder 1 requires to be of type custom encoder to use ESP32 PCNT"
+#endif
+#ifndef ENC1_IS_INCREMENTAL
+#error "Encoder 1 requires to be set as incremental"
+#endif
+#ifndef ENC1_NO_WRAP_CORRECTION
+#error "Encoder 1 requires disable wrap correction"
+#endif
+#define esp32_pcnt_read enc_custom_read_enc1
+#elif (ESP32_PCNT_ENC == ENC2)
+#if (ENC2_TYPE != ENC_TYPE_CUSTOM)
+#error "Encoder 2 requires to be of type custom encoder to use ESP32 PCNT"
+#endif
+#ifndef ENC2_IS_INCREMENTAL
+#error "Encoder 2 requires to be set as incremental"
+#endif
+#ifndef ENC2_NO_WRAP_CORRECTION
+#error "Encoder 2 requires disable wrap correction"
+#endif
+#define esp32_pcnt_read enc_custom_read_enc2
+#elif (ESP32_PCNT_ENC == ENC3)
+#if (ENC3_TYPE != ENC_TYPE_CUSTOM)
+#error "Encoder 3 requires to be of type custom encoder to use ESP32 PCNT"
+#endif
+#ifndef ENC3_IS_INCREMENTAL
+#error "Encoder 3 requires to be set as incremental"
+#endif
+#ifndef ENC3_NO_WRAP_CORRECTION
+#error "Encoder 3 requires disable wrap correction"
+#endif
+#define esp32_pcnt_read enc_custom_read_enc3
+#elif (ESP32_PCNT_ENC == ENC4)
+#if (ENC4_TYPE != ENC_TYPE_CUSTOM)
+#error "Encoder 4 requires to be of type custom encoder to use ESP32 PCNT"
+#endif
+#ifndef ENC4_IS_INCREMENTAL
+#error "Encoder 4 requires to be set as incremental"
+#endif
+#ifndef ENC4_NO_WRAP_CORRECTION
+#error "Encoder 4 requires disable wrap correction"
+#endif
+#define esp32_pcnt_read enc_custom_read_enc4
+#elif (ESP32_PCNT_ENC == ENC5)
+#if (ENC5_TYPE != ENC_TYPE_CUSTOM)
+#error "Encoder 5 requires to be of type custom encoder to use ESP32 PCNT"
+#endif
+#ifndef ENC5_IS_INCREMENTAL
+#error "Encoder 5 requires to be set as incremental"
+#endif
+#ifndef ENC5_NO_WRAP_CORRECTION
+#error "Encoder 5 requires disable wrap correction"
+#endif
+#define esp32_pcnt_read enc_custom_read_enc5
+#elif (ESP32_PCNT_ENC == ENC6)
+#if (ENC6_TYPE != ENC_TYPE_CUSTOM)
+#error "Encoder 6 requires to be of type custom encoder to use ESP32 PCNT"
+#endif
+#ifndef ENC6_IS_INCREMENTAL
+#error "Encoder 6 requires to be set as incremental"
+#endif
+#ifndef ENC6_NO_WRAP_CORRECTION
+#error "Encoder 6 requires disable wrap correction"
+#endif
+#define esp32_pcnt_read enc_custom_read_enc6
+#elif (ESP32_PCNT_ENC == ENC7)
+#if (ENC7_TYPE != ENC_TYPE_CUSTOM)
+#error "Encoder 7 requires to be of type custom encoder to use ESP32 PCNT"
+#endif
+#ifndef ENC7_IS_INCREMENTAL
+#error "Encoder 7 requires to be set as incremental"
+#endif
+#ifndef ENC7_NO_WRAP_CORRECTION
+#error "Encoder 7 requires disable wrap correction"
+#endif
+#define esp32_pcnt_read enc_custom_read_enc7
 #endif
 
-#if defined(ENABLE_ESP32_PCNT_ENCODER) && !defined(ENC0_HW_COUNTER_TYPE)
-#define ENC0_HW_COUNTER_TYPE ENCODER_HW_PCNT
-#endif
-
-#if defined(ENCODER0_USE_HARDWARE_COUNTER) && !defined(ENC0_USE_HARDWARE_COUNTER)
-#define ENC0_USE_HARDWARE_COUNTER ENCODER0_USE_HARDWARE_COUNTER
-#endif
-
-#if defined(ENCODER0_HW_COUNTER_TYPE) && !defined(ENC0_HW_COUNTER_TYPE)
-#define ENC0_HW_COUNTER_TYPE ENCODER0_HW_COUNTER_TYPE
-#endif
-
-#if defined(ENC0_USE_HARDWARE_COUNTER) && ENC0_USE_HARDWARE_COUNTER && !defined(ENC0_TYPE)
-#define ENC0_TYPE ENC_TYPE_CUSTOM
-#define ENC0_IS_INCREMENTAL
-#define ENC0_NO_WRAP_CORRECTION
-#endif
-
-#if (ENCODERS > 0) && (ENC0_TYPE == ENC_TYPE_CUSTOM) && defined(ENC0_USE_HARDWARE_COUNTER) && (ENC0_USE_HARDWARE_COUNTER) && (ENC0_HW_COUNTER_TYPE == ENCODER_HW_PCNT) && (MCU == MCU_ESP32 || MCU == MCU_ESP32S3 || MCU == MCU_ESP32C3)
+#if (ENCODERS > 0) && (ESP32_PCNT_ENC >= 0)
 
 #include "driver/gpio.h"
 #include "driver/pcnt.h"
 
-#ifndef ENC0_PCNT_UNIT
-#define ENC0_PCNT_UNIT PCNT_UNIT_0
+#ifndef ESP32_PCNT_UNIT
+#define ESP32_PCNT_UNIT PCNT_UNIT_0
 #endif
 
-#ifndef ENC0_PCNT_CHANNEL_A
-#define ENC0_PCNT_CHANNEL_A PCNT_CHANNEL_0
+#ifndef ESP32_PCNT_CHANNEL_A
+#define ESP32_PCNT_CHANNEL_A PCNT_CHANNEL_0
 #endif
 
-#ifndef ENC0_PCNT_CHANNEL_B
-#define ENC0_PCNT_CHANNEL_B PCNT_CHANNEL_1
+#ifndef ESP32_PCNT_CHANNEL_B
+#define ESP32_PCNT_CHANNEL_B PCNT_CHANNEL_1
 #endif
 
-#ifndef ENC0_PCNT_RECENTER_THRESHOLD
-#define ENC0_PCNT_RECENTER_THRESHOLD 20000
+#ifndef ESP32_PCNT_RECENTER_THRESHOLD
+#define ESP32_PCNT_RECENTER_THRESHOLD 20000
 #endif
 
-#ifndef ENC0_PCNT_FILTER
-#define ENC0_PCNT_FILTER 0
+#ifndef ESP32_PCNT_FILTER
+#define ESP32_PCNT_FILTER 0
 #endif
 
-#ifndef ENC0_PULSE_GPIO
-#error "ENC0_PULSE_GPIO must be defined for ESP32 PCNT encoder"
+#ifndef ESP32_PCNT_PULSE_GPIO
+#error "ESP32_PCNT_PULSE_GPIO must be defined for ESP32 PCNT encoder"
 #endif
 
-#ifndef ENC0_DIR_GPIO
-#error "ENC0_DIR_GPIO must be defined for ESP32 PCNT encoder"
+#ifndef ESP32_PCNT_DIR_GPIO
+#error "ESP32_PCNT_DIR_GPIO must be defined for ESP32 PCNT encoder"
 #endif
 
 static bool esp32_pcnt_encoder_ready;
@@ -70,8 +142,8 @@ static int32_t esp32_pcnt_encoder_offset;
 
 static void encoder_esp32_pcnt_init(void)
 {
-	const int gpio_a = ENC0_PULSE_GPIO;
-	const int gpio_b = ENC0_DIR_GPIO;
+	const int gpio_a = __indirect__(ESP32_PCNT_PULSE_GPIO, BIT);
+	const int gpio_b = __indirect__(ESP32_PCNT_DIR_GPIO, BIT);
 
 	pcnt_config_t ch_a = {
 		.pulse_gpio_num = gpio_a,
@@ -82,8 +154,8 @@ static void encoder_esp32_pcnt_init(void)
 		.neg_mode = PCNT_COUNT_DEC,
 		.counter_h_lim = 32767,
 		.counter_l_lim = -32768,
-		.unit = (pcnt_unit_t)ENC0_PCNT_UNIT,
-		.channel = (pcnt_channel_t)ENC0_PCNT_CHANNEL_A,
+		.unit = (pcnt_unit_t)ESP32_PCNT_UNIT,
+		.channel = (pcnt_channel_t)ESP32_PCNT_CHANNEL_A,
 	};
 
 	pcnt_config_t ch_b = {
@@ -95,23 +167,23 @@ static void encoder_esp32_pcnt_init(void)
 		.neg_mode = PCNT_COUNT_DEC,
 		.counter_h_lim = 32767,
 		.counter_l_lim = -32768,
-		.unit = (pcnt_unit_t)ENC0_PCNT_UNIT,
-		.channel = (pcnt_channel_t)ENC0_PCNT_CHANNEL_B,
+		.unit = (pcnt_unit_t)ESP32_PCNT_UNIT,
+		.channel = (pcnt_channel_t)ESP32_PCNT_CHANNEL_B,
 	};
 
 	pcnt_unit_config(&ch_a);
 	pcnt_unit_config(&ch_b);
 
-#if ENC0_PCNT_FILTER
-	pcnt_set_filter_value((pcnt_unit_t)ENC0_PCNT_UNIT, ENC0_PCNT_FILTER);
-	pcnt_filter_enable((pcnt_unit_t)ENC0_PCNT_UNIT);
+#if ESP32_PCNT_FILTER
+	pcnt_set_filter_value((pcnt_unit_t)ESP32_PCNT_UNIT, ESP32_PCNT_FILTER);
+	pcnt_filter_enable((pcnt_unit_t)ESP32_PCNT_UNIT);
 #else
-	pcnt_filter_disable((pcnt_unit_t)ENC0_PCNT_UNIT);
+	pcnt_filter_disable((pcnt_unit_t)ESP32_PCNT_UNIT);
 #endif
 
-	pcnt_counter_pause((pcnt_unit_t)ENC0_PCNT_UNIT);
-	pcnt_counter_clear((pcnt_unit_t)ENC0_PCNT_UNIT);
-	pcnt_counter_resume((pcnt_unit_t)ENC0_PCNT_UNIT);
+	pcnt_counter_pause((pcnt_unit_t)ESP32_PCNT_UNIT);
+	pcnt_counter_clear((pcnt_unit_t)ESP32_PCNT_UNIT);
+	pcnt_counter_resume((pcnt_unit_t)ESP32_PCNT_UNIT);
 }
 
 static int32_t read_encoder_esp32_pcnt(void)
@@ -124,14 +196,14 @@ static int32_t read_encoder_esp32_pcnt(void)
 		return 0;
 	}
 
-	pcnt_get_counter_value((pcnt_unit_t)ENC0_PCNT_UNIT, &value);
+	pcnt_get_counter_value((pcnt_unit_t)ESP32_PCNT_UNIT, &value);
 	position = esp32_pcnt_encoder_offset + (int32_t)value;
 
-	if (value >= ENC0_PCNT_RECENTER_THRESHOLD || value <= -ENC0_PCNT_RECENTER_THRESHOLD)
+	if (value >= ESP32_PCNT_RECENTER_THRESHOLD || value <= -ESP32_PCNT_RECENTER_THRESHOLD)
 	{
-		pcnt_counter_pause((pcnt_unit_t)ENC0_PCNT_UNIT);
-		pcnt_counter_clear((pcnt_unit_t)ENC0_PCNT_UNIT);
-		pcnt_counter_resume((pcnt_unit_t)ENC0_PCNT_UNIT);
+		pcnt_counter_pause((pcnt_unit_t)ESP32_PCNT_UNIT);
+		pcnt_counter_clear((pcnt_unit_t)ESP32_PCNT_UNIT);
+		pcnt_counter_resume((pcnt_unit_t)ESP32_PCNT_UNIT);
 		esp32_pcnt_encoder_offset = position;
 	}
 
@@ -143,7 +215,7 @@ static void IRAM_ATTR enc0_index_gpio_isr(void *arg)
 {
 	int16_t raw = 0;
 	(void)arg;
-	pcnt_get_counter_value((pcnt_unit_t)ENC0_PCNT_UNIT, &raw);
+	pcnt_get_counter_value((pcnt_unit_t)ESP32_PCNT_UNIT, &raw);
 	encoder_record_index_reference(ENC0, esp32_pcnt_encoder_offset + (int32_t)raw);
 }
 
@@ -154,9 +226,9 @@ static void enc0_index_gpio_isr_init(void)
 }
 #endif
 
-int32_t enc_custom_read(uint8_t i)
+int32_t esp32_pcnt_read(void)
 {
-	return (i == ENC0) ? read_encoder_esp32_pcnt() : 0;
+	return read_encoder_esp32_pcnt();
 }
 
 DECL_MODULE(esp32_pcnt_encoder)
@@ -180,4 +252,7 @@ DECL_MODULE(esp32_pcnt_encoder)
 {
 }
 
+#endif
+#else
+#error "ESP32 PCNT driver not available on this MCU"
 #endif
