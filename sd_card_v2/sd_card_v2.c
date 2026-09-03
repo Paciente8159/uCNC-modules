@@ -45,7 +45,7 @@
 #endif
 
 #ifndef SD_CARD_DETECT_PIN
-#define SD_CARD_DETECT_PIN DIN19
+#define SD_CARD_DETECT_PIN UNDEF_PIN
 #endif
 
 #ifndef SD_CONTINUE_ON_GCODE_ERROR
@@ -325,7 +325,8 @@ bool sd_fs_remove(const char *path)
 bool sd_fs_next_file(fs_file_t *fp, fs_file_info_t *finfo)
 {
 	FILINFO info;
-	if (sd_readdir(fp->file_ptr, &info) != FR_OK)
+	memset(&info, 0, sizeof(FILINFO));
+	if (!fp || !finfo || (sd_readdir(fp->file_ptr, &info) != FR_OK))
 	{
 		return false;
 	}
@@ -633,6 +634,9 @@ CREATE_EVENT_LISTENER_WITHLOCK(grbl_cmd, sd_card_cmd_parser, SD_CARD_BUS_LOCK);
 
 DECL_MODULE(sd_card_v2)
 {
+	// force pin configuration
+	io_config_output(SD_SPI_CS);
+	io_set_output(SD_SPI_CS);
 	// starts the file system and system commands
 	LOAD_MODULE(file_system);
 	// STARTS SYSTEM MENU MODULE
