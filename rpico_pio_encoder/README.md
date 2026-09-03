@@ -1,11 +1,11 @@
-# RP2350 PIO Encoder
+# RPico PIO Encoder
 
-RP2350 custom encoder backend for uCNC using a PIO state machine to count
+RPico custom encoder backend for uCNC using a PIO state machine to count
 quadrature A/B spindle encoder pulses.
 
 This module is used as an `ENC_TYPE_CUSTOM` encoder. The normal uCNC encoder
 module still owns the public encoder state and status fields, so seeing the
-standard `EC` and `RPM` status output is expected. The RP2350 PIO code is the
+standard `EC` and `RPM` status output is expected. The RPico PIO code is the
 backend behind `enc_custom_read()`.
 
 ## Basic Configuration
@@ -74,7 +74,7 @@ When `ENCODER_DEBUG_PRINT_100MS` is enabled, the generic encoder module prints:
 [EC:145837 RPM:208]
 ```
 
-That still means the RP2350 PIO backend is being used when `ENC0_TYPE` is
+That still means the RPico PIO backend is being used when `ENC0_TYPE` is
 `ENC_TYPE_CUSTOM`.
 
 This module also prints virtual index statistics:
@@ -102,12 +102,12 @@ not climb steadily during normal running.
 
 The first symptom looked like the custom encoder was not initialized because only
 the standard `EC/RPM` debug line was visible. That was misleading: the standard
-line is printed by the generic encoder module even when the source is the RP2350
+line is printed by the generic encoder module even when the source is the RPico
 PIO custom backend.
 
 There were three separate issues:
 
-1. The RP2350 index debug helper only updated an internal string. It did not
+1. The RPico index debug helper only updated an internal string. It did not
    print anything, so virtual-index health was invisible.
 2. The virtual-index task jumped directly to the newest crossed slot. At about
    200 RPM with 10 virtual indexes per revolution, several slots could pass
@@ -119,7 +119,7 @@ There were three separate issues:
 
 The fix was:
 
-- print the RP2350 virtual-index debug line when debug is enabled
+- print the RPico virtual-index debug line when debug is enabled
 - emit bounded catch-up virtual indexes instead of collapsing several slots into
   one hook
 - seed G33 feed from the normal encoder RPM / raw hardware counter, not from

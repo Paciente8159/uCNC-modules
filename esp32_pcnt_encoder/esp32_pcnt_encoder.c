@@ -129,11 +129,11 @@
 #define ESP32_PCNT_FILTER 0
 #endif
 
-#ifndef ESP32_PCNT_PULSE_GPIO
+#if !defined(ESP32_PCNT_PULSE_GPIO) || !ASSERT_PIN_IO(ESP32_PCNT_PULSE_GPIO)
 #error "ESP32_PCNT_PULSE_GPIO must be defined for ESP32 PCNT encoder"
 #endif
 
-#ifndef ESP32_PCNT_DIR_GPIO
+#ifndef !defined(ESP32_PCNT_DIR_GPIO) || !ASSERT_PIN_IO(ESP32_PCNT_DIR_GPIO)
 #error "ESP32_PCNT_DIR_GPIO must be defined for ESP32 PCNT encoder"
 #endif
 
@@ -254,5 +254,5 @@ DECL_MODULE(esp32_pcnt_encoder)
 
 #endif
 #else
-#error "ESP32 PCNT driver not available on this MCU"
+#warning "ESP32 PCNT driver not available on this MCU"
 #endif
