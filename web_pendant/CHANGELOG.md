@@ -5,6 +5,10 @@ This is available for MCU's that support WiFi.
 
 ## Changelog
 
+### 2026-08-10
+
+- migration to the new network API
+
 ### 2024-08-31
 
 - fixed stream buffer enqueue call

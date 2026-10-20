@@ -109,7 +109,7 @@
 */
 
 #ifndef FF_USE_LFN
-#define FF_USE_LFN 1
+#define FF_USE_LFN 0
 #endif
 #define FF_MAX_LFN FS_MAX_PATH_LEN
 /* The FF_USE_LFN switches the support for LFN (long file name).
